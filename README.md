@@ -52,10 +52,56 @@ Applications decide whether invalid data is tolerated. Preview loaders can
 return `validation.result.diagnostics`; published loaders can call
 `requireValidSanityData(validation)` to enforce a strict boundary.
 
+Image helpers are also explicitly configured and retain access to Sanity's
+native builder:
+
+```ts
+import { createSanityImageTools } from '@standard/sanity-kit/image'
+
+const images = createSanityImageTools(sanityConfig)
+
+const cardUrl = images.buildUrl(image, {
+	aspectRatio: '16/9',
+	width: 1200,
+})
+
+const customUrl = images.urlFor(image).width(800).fit('crop').url()
+```
+
+The image entrypoint never reads application environment globals. Crops and
+hotspots are passed intact to the official Sanity image URL builder.
+
+React applications can create a configured responsive component from the
+separate `/image/react` entrypoint:
+
+```tsx
+import { createSanityImageComponent } from '@standard/sanity-kit/image/react'
+
+export const SanityImage = createSanityImageComponent({
+	dataset: sanityConfig.dataset,
+	projectId: sanityConfig.projectId,
+})
+
+<SanityImage
+	value={page.image}
+	alt={page.image.alt}
+	intrinsicWidth={page.image.width}
+	intrinsicHeight={page.image.height}
+	aspectRatio="16/9"
+	sizes="(min-width: 60rem) 50vw, 100vw"
+/>
+```
+
+The component emits a capped `srcSet`, does not upscale the source, reserves
+layout space with width and height attributes, and preloads only images marked
+with `fetchPriority="high"`. It has no CSS, context, or application-model
+dependency.
+
 ## Intended boundaries
 
 - `@standard/sanity-kit/core`: browser-safe configuration and shared contracts
 - `@standard/sanity-kit/image`: explicit image URL helpers
+- `@standard/sanity-kit/image/react`: optional responsive React image component
 - `@standard/sanity-kit/react-router`: client-safe React Router integration
 - `@standard/sanity-kit/react-router/server`: server-only clients, preview
   sessions, handlers, and loaders

@@ -23,6 +23,14 @@
 			"types": "./dist/core/index.d.ts",
 			"import": "./dist/core/index.js"
 		},
+		"./image": {
+			"types": "./dist/image/index.d.ts",
+			"import": "./dist/image/index.js"
+		},
+		"./image/react": {
+			"types": "./dist/image/react/index.d.ts",
+			"import": "./dist/image/react/index.js"
+		},
 		"./validation/zod": {
 			"types": "./dist/validation/zod/index.d.ts",
 			"import": "./dist/validation/zod/index.js"
@@ -41,9 +49,21 @@
 	},
 	"peerDependencies": {
 		"@sanity/client": "^7.27.0 || ^8.6.0",
+		"@sanity/image-url": "^2.1.1",
+		"react": "^19.0.0",
+		"react-dom": "^19.0.0",
 		"zod": "^4.6.5"
 	},
 	"peerDependenciesMeta": {
+		"@sanity/image-url": {
+			"optional": true
+		},
+		"react": {
+			"optional": true
+		},
+		"react-dom": {
+			"optional": true
+		},
 		"zod": {
 			"optional": true
 		}
@@ -51,11 +71,16 @@
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
 		"@sanity/client": "^8.6.0",
+		"@sanity/image-url": "^2.1.1",
 		"@types/node": "^24.0.0",
+		"@types/react": "^19.3.0",
+		"@types/react-dom": "^19.3.0",
 		"@vitest/coverage-v8": "^5.0.1",
 		"eslint": "10.10.0",
 		"eslint-config-prettier": "^10.1.8",
 		"prettier": "^3.6.2",
+		"react": "^19.3.0",
+		"react-dom": "^19.3.0",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.47.0",
 		"vitest": "^5.0.1",
