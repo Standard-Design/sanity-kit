@@ -23,6 +23,10 @@
 			"types": "./dist/core/index.d.ts",
 			"import": "./dist/core/index.js"
 		},
+		"./validation/zod": {
+			"types": "./dist/validation/zod/index.d.ts",
+			"import": "./dist/validation/zod/index.js"
+		},
 		"./package.json": "./package.json"
 	},
 	"scripts": {
@@ -35,8 +39,18 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"verify": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test && pnpm build"
 	},
+	"peerDependencies": {
+		"@sanity/client": "^7.27.0 || ^8.6.0",
+		"zod": "^4.6.5"
+	},
+	"peerDependenciesMeta": {
+		"zod": {
+			"optional": true
+		}
+	},
 	"devDependencies": {
 		"@eslint/js": "^10.0.1",
+		"@sanity/client": "^8.6.0",
 		"@types/node": "^24.0.0",
 		"@vitest/coverage-v8": "^5.0.1",
 		"eslint": "10.10.0",
@@ -44,6 +58,7 @@
 		"prettier": "^3.6.2",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.47.0",
-		"vitest": "^5.0.1"
+		"vitest": "^5.0.1",
+		"zod": "^4.6.5"
 	}
 }

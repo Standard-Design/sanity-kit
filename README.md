@@ -28,6 +28,30 @@ export const sanityConfig = defineSanityConfig({
 The API version is required rather than defaulted so a package release cannot
 silently pin every consumer to a stale Sanity API date.
 
+Runtime validation is decoder-based rather than tied to a schema library. The
+core validator cleans a non-mutating Stega shadow while preserving the original
+data for Visual Editing:
+
+```ts
+import { validateSanityData } from '@standard/sanity-kit/core'
+import { createZodDecoder } from '@standard/sanity-kit/validation/zod'
+
+const validation = await validateSanityData(
+	previewData,
+	createZodDecoder(pageSchema),
+)
+
+// Keep this value for preview rendering and overlays.
+validation.data
+
+// Parsed or transformed clean data is separate.
+if (validation.result.success) validation.result.value
+```
+
+Applications decide whether invalid data is tolerated. Preview loaders can
+return `validation.result.diagnostics`; published loaders can call
+`requireValidSanityData(validation)` to enforce a strict boundary.
+
 ## Intended boundaries
 
 - `@standard/sanity-kit/core`: browser-safe configuration and shared contracts
