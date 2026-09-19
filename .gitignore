@@ -1,0 +1,8 @@
+node_modules/
+dist/
+coverage/
+.pnpm-store/
+.eslintcache
+.prettier-cache
+*.tgz
+.DS_Store
