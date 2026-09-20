@@ -97,6 +97,28 @@ layout space with width and height attributes, and preloads only images marked
 with `fetchPriority="high"`. It has no CSS, context, or application-model
 dependency.
 
+React Router applications configure clients and preview sessions through the
+physically separate server entrypoint:
+
+```ts
+import { createSanityKit } from '@standard/sanity-kit/react-router/server'
+
+export const sanity = createSanityKit({
+	apiVersion: '2026-09-19',
+	dataset: env.PUBLIC_SANITY_DATASET,
+	projectId: env.PUBLIC_SANITY_PROJECT_ID,
+	readToken: env.SANITY_API_READ_TOKEN,
+	sessionSecret: env.SANITY_PREVIEW_SESSION_SECRET,
+	studioUrl: env.PUBLIC_SANITY_STUDIO_URL,
+})
+```
+
+The returned `sanity.preview.enable` and `sanity.preview.disable` functions are
+drop-in resource-route loaders. `sanity.preview.getContext(request)` selects a
+published or preview client and typed fetch options without reading global
+environment state. The cookie-signing secret is intentionally separate from
+Sanity's preview URL validation protocol.
+
 ## Intended boundaries
 
 - `@standard/sanity-kit/core`: browser-safe configuration and shared contracts
