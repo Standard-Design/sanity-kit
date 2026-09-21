@@ -12,6 +12,19 @@ import {
 	type SanityPublicConfig,
 } from '../../core/index.js'
 
+export {
+	createSanityLoaders,
+	defineSanityLoader,
+	type CreateSanityLoadersConfig,
+	type SanityLoaderCache,
+	type SanityLoaderCacheContext,
+	type SanityLoaderConfig,
+	type SanityLoaderContext,
+	type SanityLoaders,
+	type SanityLoaderValidationFailure,
+	type SanityLoaderValidationPolicy,
+} from './loaders.js'
+
 const defaultCookieName = '__sanity_preview'
 const defaultRedirect = '/'
 const minimumSessionSecretLength = 32

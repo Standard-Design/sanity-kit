@@ -146,6 +146,37 @@ The registry exposes immutable runtime `types` and `linkableTypes` collections
 for server-loader parity checks and link helpers. It contains no clients,
 tokens, queries for page content, or server-only imports.
 
+The matching server registry pairs every route type with a query and decoder:
+
+```ts
+import {
+	createSanityLoaders,
+	defineSanityLoader,
+} from '@standard/sanity-kit/react-router/server'
+
+export const sanityLoaders = createSanityLoaders({
+	routes: sanityRoutes,
+	kit: sanity,
+	loaders: [
+		defineSanityLoader({
+			type: 'article',
+			query: articleQuery,
+			decoder: articleDecoder,
+		}),
+	],
+	cache: applicationCacheAdapter,
+})
+
+export const loader = sanityLoaders.loader
+```
+
+Registry parity is checked at startup. Published data is strict by default;
+preview data retains its original Stega strings and reports decoder diagnostics
+before passing incomplete drafts through. Cache adapters receive only published
+requests, and cached values are always decoded again before use. Loaders with
+custom query parameters must supply a corresponding `cacheKey` to opt into page
+caching; otherwise the kit bypasses that cache to prevent cross-variant data.
+
 ## Intended boundaries
 
 - `@standard/sanity-kit/core`: browser-safe configuration and shared contracts
