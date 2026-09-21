@@ -119,6 +119,33 @@ published or preview client and typed fetch options without reading global
 environment state. The cookie-signing secret is intentionally separate from
 Sanity's preview URL validation protocol.
 
+Sanity-driven page types are registered through the browser-safe React Router
+entrypoint:
+
+```tsx
+import {
+	createSanityRoutes,
+	defineSanityRoute,
+} from '@standard/sanity-kit/react-router'
+
+export const sanityRoutes = createSanityRoutes({
+	routes: [
+		defineSanityRoute({
+			type: 'article',
+			component: ArticlePage,
+			meta: (article) => [{ title: article.title }],
+		}),
+	],
+})
+
+export const meta = sanityRoutes.meta
+export default sanityRoutes.default
+```
+
+The registry exposes immutable runtime `types` and `linkableTypes` collections
+for server-loader parity checks and link helpers. It contains no clients,
+tokens, queries for page content, or server-only imports.
+
 ## Intended boundaries
 
 - `@standard/sanity-kit/core`: browser-safe configuration and shared contracts
