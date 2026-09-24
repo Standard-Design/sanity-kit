@@ -268,6 +268,20 @@ requests, and cached values are always decoded again before use. Loaders with
 custom query parameters must supply a corresponding `cacheKey` to opt into page
 caching; otherwise the kit bypasses that cache to prevent cross-variant data.
 
+## Sitemaps
+
+`createSanitySitemapLoader` from `@standard/sanity-kit/react-router/server`
+combines an application-owned query, required decoder, and entry mapper into
+a published-only XML resource route. Supply the canonical site origin and
+optionally inject a query cache. Preview cookies never select draft content.
+
+For other integrations, `@standard/sanity-kit/sitemap` provides
+`serializeSitemap`, `serializeSitemapIndex`, `createSitemapResponse`, and
+`createSitemapIndexResponse`. The serializers escape XML, validate URLs and
+dates, deduplicate canonical URLs, and enforce protocol limits.
+
+See [sitemap integration and caching](docs/sitemaps.md) for complete examples.
+
 ## Intended boundaries
 
 - `@standard/sanity-kit/core`: browser-safe configuration and shared contracts
@@ -275,6 +289,8 @@ caching; otherwise the kit bypasses that cache to prevent cross-variant data.
 - `@standard/sanity-kit/image/react`: optional responsive React image component
 - `@standard/sanity-kit/link`: framework-neutral link contracts, GROQ fragments,
   and safe resolution
+- `@standard/sanity-kit/sitemap`: portable XML sitemap and index serialization
+  and Web Response helpers
 - `@standard/sanity-kit/react-router`: client-safe React Router integration
 - `@standard/sanity-kit/react-router/visual-editing`: optional lazy browser
   overlays and headless preview-exit control

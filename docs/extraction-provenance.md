@@ -42,6 +42,11 @@ source package wholesale. In particular, the standalone package must replace:
 
 ## Reference integration
 
+Sitemap generation is adapted from the application route
+`app/routes/sitemap.xml.tsx` in Sawkill Lumber. Its schema-specific query and
+Cloudflare cache remain application-owned; the extraction adds portable XML
+serialization, strict validation, and an explicitly configured server loader.
+
 Standard Stack is coordinated separately and remains read-only. It will consume
 only a reviewed packed artifact or exact Git revision after the package passes
 its integration gates; it will not import this workspace's source directly.

@@ -12,6 +12,7 @@
 	},
 	"files": [
 		"dist",
+		"docs/sitemaps.md",
 		"README.md"
 	],
 	"exports": {
@@ -34,6 +35,10 @@
 		"./link": {
 			"types": "./dist/link/index.d.ts",
 			"import": "./dist/link/index.js"
+		},
+		"./sitemap": {
+			"types": "./dist/sitemap/index.d.ts",
+			"import": "./dist/sitemap/index.js"
 		},
 		"./react-router": {
 			"types": "./dist/react-router/index.d.ts",

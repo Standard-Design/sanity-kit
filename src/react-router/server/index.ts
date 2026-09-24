@@ -13,6 +13,12 @@ import {
 } from '../../core/index.js'
 
 export {
+	createSanitySitemapLoader,
+	type CreateSanitySitemapLoaderConfig,
+	type SanitySitemapCache,
+} from './sitemap.js'
+
+export {
 	createSanityLoaders,
 	defineSanityLoader,
 	type CreateSanityLoadersConfig,
