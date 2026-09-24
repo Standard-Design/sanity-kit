@@ -6,7 +6,7 @@
 	"license": "UNLICENSED",
 	"repository": {
 		"type": "git",
-		"url": "git+https://github.com/Standard-Design/sanitykit.git"
+		"url": "git+https://github.com/Standard-Design/sanity-kit.git"
 	},
 	"type": "module",
 	"sideEffects": false,
