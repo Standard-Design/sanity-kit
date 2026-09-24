@@ -8,11 +8,12 @@ styles, environment globals, or Cloudflare bindings.
 
 ## Status
 
-The package is under active extraction and is not currently published to npm.
-It is private to prevent accidental publication while its APIs are hardened.
-Reviewed consumers will use a packed tarball or an exact Git revision.
+The initial extraction is prepared as `0.1.0-alpha.0` for integration testing.
+It remains private and is not published to npm. Reviewed consumers install a
+compiled tarball from an approved commit. See the [prerelease guide](docs/prerelease.md)
+for dependency requirements, verification, and artifact handoff.
 
-The first implemented public contract is browser-safe configuration:
+Browser-safe configuration is explicit:
 
 ```ts
 import { defineSanityConfig } from '@standard/sanity-kit/core'
@@ -166,8 +167,8 @@ unless configured with `visibility="always"`.
 
 This subpath intentionally does not own application GROQ queries, live-query
 stores, route modules, or view models. Install `@sanity/visual-editing` alongside
-the package when using it. The subpath follows `@sanity/visual-editing`'s React
-19.2 or newer peer requirement.
+the package when using it. This prerelease requires React and React DOM 19.2.7+
+to satisfy React Router 8.4's peer requirements.
 
 Sanity-driven page types are registered through the browser-safe React Router
 entrypoint:
@@ -298,8 +299,8 @@ See [sitemap integration and caching](docs/sitemaps.md) for complete examples.
   sessions, handlers, and loaders
 - `@standard/sanity-kit/validation/zod`: optional Zod adapter
 
-Only implemented entrypoints are exported. Each boundary will be added with
-runtime, type, and bundle-boundary tests.
+Only documented entrypoints are exported. Packed-consumer checks cover runtime
+imports, declarations, optional peers, and browser bundle boundaries.
 
 ## Development
 
@@ -308,7 +309,12 @@ Node.js 24 and pnpm 11 are required.
 ```sh
 pnpm install
 pnpm verify
+pnpm test:package
 ```
 
 No commits are created until each logical change set and its proposed commit
 message have been reviewed.
+
+`pnpm build` assembles a compiled-only package in `dist`; root packing is blocked.
+After approval and commit, `pnpm pack:release` creates a local tarball with
+commit and checksum metadata. It does not tag, push, or publish.

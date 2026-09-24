@@ -1,5 +1,6 @@
 node_modules/
 dist/
+.artifacts/
 coverage/
 .pnpm-store/
 .eslintcache
