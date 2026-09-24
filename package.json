@@ -39,6 +39,10 @@
 			"types": "./dist/react-router/index.d.ts",
 			"import": "./dist/react-router/index.js"
 		},
+		"./react-router/visual-editing": {
+			"types": "./dist/react-router/visual-editing/index.d.ts",
+			"import": "./dist/react-router/visual-editing/index.js"
+		},
 		"./react-router/server": {
 			"types": "./dist/react-router/server/index.d.ts",
 			"import": "./dist/react-router/server/index.js"
@@ -63,6 +67,7 @@
 		"@sanity/client": "^7.27.0 || ^8.6.0",
 		"@sanity/image-url": "^2.1.1",
 		"@sanity/preview-url-secret": "^3.0.0 || ^4.1.0",
+		"@sanity/visual-editing": "^6.1.2",
 		"groq": "^5.1.0",
 		"react": "^19.0.0",
 		"react-dom": "^19.0.0",
@@ -74,6 +79,9 @@
 			"optional": true
 		},
 		"@sanity/preview-url-secret": {
+			"optional": true
+		},
+		"@sanity/visual-editing": {
 			"optional": true
 		},
 		"groq": {
@@ -97,6 +105,7 @@
 		"@sanity/client": "^8.6.0",
 		"@sanity/image-url": "^2.1.1",
 		"@sanity/preview-url-secret": "^4.1.0",
+		"@sanity/visual-editing": "^6.1.2",
 		"@types/node": "^24.0.0",
 		"@types/react": "^19.3.0",
 		"@types/react-dom": "^19.3.0",
@@ -104,6 +113,7 @@
 		"eslint": "10.10.0",
 		"eslint-config-prettier": "^10.1.8",
 		"groq": "^5.1.0",
+		"jsdom": "^29.1.1",
 		"prettier": "^3.6.2",
 		"react": "^19.3.0",
 		"react-dom": "^19.3.0",

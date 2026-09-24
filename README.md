@@ -119,6 +119,56 @@ published or preview client and typed fetch options without reading global
 environment state. The cookie-signing secret is intentionally separate from
 Sanity's preview URL validation protocol.
 
+Expose only serializable preview state from the root loader, then mount the
+optional browser integration from its dedicated subpath:
+
+```tsx
+import {
+	SanityPreviewExit,
+	SanityVisualEditing,
+} from '@standard/sanity-kit/react-router/visual-editing'
+
+export async function loader({ request }: Route.LoaderArgs) {
+	const context = await sanity.preview.getContext(request)
+	return { sanityPreview: { enabled: context.preview } }
+}
+
+export default function App({ loaderData }: Route.ComponentProps) {
+	return (
+		<>
+			<Outlet />
+			<SanityVisualEditing
+				enabled={loaderData.sanityPreview.enabled}
+				onSuspiciousStega={
+					import.meta.env.DEV
+						? (reports) => console.warn('Suspicious Stega', reports)
+						: undefined
+				}
+			>
+				<SanityPreviewExit
+					className="application-preview-exit"
+					href="/preview-mode/disable"
+				/>
+			</SanityVisualEditing>
+		</>
+	)
+}
+```
+
+`SanityVisualEditing` starts the official React Router overlay and refresh
+integration only after browser mount and only when the request-derived
+`enabled` flag is true. This keeps the large Visual Editing implementation out
+of the normal server and published-visitor module graph. Suspicious-Stega DOM
+auditing is opt-in and should normally remain development-only because it uses
+a full DOM observer. `SanityPreviewExit` is unstyled, uses document navigation
+to clear the HttpOnly session, and hides inside Presentation or preview popups
+unless configured with `visibility="always"`.
+
+This subpath intentionally does not own application GROQ queries, live-query
+stores, route modules, or view models. Install `@sanity/visual-editing` alongside
+the package when using it. The subpath follows `@sanity/visual-editing`'s React
+19.2 or newer peer requirement.
+
 Sanity-driven page types are registered through the browser-safe React Router
 entrypoint:
 
@@ -226,6 +276,8 @@ caching; otherwise the kit bypasses that cache to prevent cross-variant data.
 - `@standard/sanity-kit/link`: framework-neutral link contracts, GROQ fragments,
   and safe resolution
 - `@standard/sanity-kit/react-router`: client-safe React Router integration
+- `@standard/sanity-kit/react-router/visual-editing`: optional lazy browser
+  overlays and headless preview-exit control
 - `@standard/sanity-kit/react-router/server`: server-only clients, preview
   sessions, handlers, and loaders
 - `@standard/sanity-kit/validation/zod`: optional Zod adapter
