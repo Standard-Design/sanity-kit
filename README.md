@@ -304,13 +304,20 @@ imports, declarations, optional peers, and browser bundle boundaries.
 
 ## Development
 
-Node.js 24 and pnpm 11 are required.
+Node.js 24 and pnpm 11.26.0 are used in CI.
 
 ```sh
-pnpm install
+pnpm install --frozen-lockfile
 pnpm verify
+pnpm test:coverage
 pnpm test:package
 ```
+
+`pnpm verify` runs the baseline formatting, build, lint, type, and unit checks.
+Full CI also runs coverage and packed-consumer checks, including publint and
+Are the Types Wrong, on every push, pull request, and manual dispatch. See the
+[prerelease guide](docs/prerelease.md#verification-and-handoff) for details.
+CI does not publish or deploy.
 
 No commits are created until each logical change set and its proposed commit
 message have been reviewed.

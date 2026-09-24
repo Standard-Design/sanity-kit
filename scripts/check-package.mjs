@@ -56,6 +56,9 @@ const [packed] = JSON.parse(
 	),
 )
 const tarball = join(temporary, packed.filename)
+// Validate the exact artifact installed below, not the source manifest.
+run('pnpm', ['exec', 'publint', tarball, '--strict'])
+run('pnpm', ['exec', 'attw', tarball, '--profile', 'esm-only'])
 const contents = new Set(packed.files.map(({ path }) => path))
 assert.equal(
 	contents.has('__stale-build-sentinel.js'),

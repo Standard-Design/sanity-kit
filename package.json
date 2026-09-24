@@ -109,6 +109,7 @@
 		}
 	},
 	"devDependencies": {
+		"@arethetypeswrong/cli": "^0.18.5",
 		"@eslint/js": "^10.0.1",
 		"@sanity/client": "^8.6.0",
 		"@sanity/image-url": "^2.1.1",
@@ -124,6 +125,7 @@
 		"groq": "^5.1.0",
 		"jsdom": "^29.1.1",
 		"prettier": "^3.6.2",
+		"publint": "^0.3.24",
 		"react": "^19.3.0",
 		"react-dom": "^19.3.0",
 		"react-router": "^8.4.0",

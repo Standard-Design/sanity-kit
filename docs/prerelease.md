@@ -23,7 +23,15 @@ pnpm test:coverage
 pnpm test:package
 ```
 
-The package check builds and packs `dist`, then installs that tarball in temporary
+GitHub Actions runs all four commands above on every push, pull request, and
+manual dispatch, using Node 24 and pnpm 11.26.0. It logs the actual Node, npm,
+and pnpm versions. `pnpm verify` is the baseline formatting, build, lint, type,
+and unit-test suite; coverage and package checks are additional full-CI gates.
+The workflow has read-only repository permissions and does not publish or deploy.
+
+The package check builds and packs `dist`, checks the tarball with
+`publint --strict` and Are the Types Wrong (`attw --profile esm-only`), then
+installs that same tarball in temporary
 consumer projects with install scripts disabled and strict peer resolution. It
 checks artifact contents, runtime imports, TypeScript declarations, hidden deep
 imports, ordinary browser bundles, and a separate lazy Visual Editing chunk.
@@ -37,6 +45,13 @@ checked separately with `skipLibCheck: true`: its upstream `@sanity/types` and
 does not disable strict checking of application code. It may download dependencies.
 Temporary consumers are retained
 under the system temporary directory and their location is printed for inspection.
+
+The `esm-only` profile matches the supported ESM exports; CommonJS and legacy
+Node 10 resolution are not supported. No other ATTW rules are suppressed.
+Unlike CFKit, this private, non-npm distribution does not run `npm publish
+--dry-run`. Actual packing, artifact inspection, both package linters, and
+no-script consumer installs validate the distribution without testing publication
+or removing the `private: true` safeguards.
 
 After reviewing and committing the slice on the intended release branch, run:
 
