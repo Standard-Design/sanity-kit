@@ -31,6 +31,10 @@
 			"types": "./dist/image/react/index.d.ts",
 			"import": "./dist/image/react/index.js"
 		},
+		"./link": {
+			"types": "./dist/link/index.d.ts",
+			"import": "./dist/link/index.js"
+		},
 		"./react-router": {
 			"types": "./dist/react-router/index.d.ts",
 			"import": "./dist/react-router/index.js"

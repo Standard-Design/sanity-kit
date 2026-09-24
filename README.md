@@ -146,6 +146,47 @@ The registry exposes immutable runtime `types` and `linkableTypes` collections
 for server-loader parity checks and link helpers. It contains no clients,
 tokens, queries for page content, or server-only imports.
 
+Framework-neutral link resolution is available from the separate `/link`
+entrypoint. Bind the React Router adapter directly to the route registry so its
+`linkableTypes` remain the authority for valid internal destinations:
+
+```tsx
+import { createSanityLinks } from '@standard/sanity-kit/react-router'
+
+export const sanityLinks = createSanityLinks({ routes: sanityRoutes })
+export const SanityLink = sanityLinks.Link
+
+<SanityLink link={callToAction.link} prefetch="intent">
+	{callToAction.link.label}
+</SanityLink>
+```
+
+Call `createSanityLinks()` once at module scope in a shared application module,
+then import the configured `SanityLink` wherever it is needed. Do not call the
+factory inside a React component or during rendering; doing so creates a new
+component identity on every call.
+
+Internal links preserve separate pathname, search, and hash values. A non-empty
+`search` includes its leading `?`, and a non-empty `hash` includes its leading
+`#`. External links accept only explicit protocols (`http:`, `https:`,
+`mailto:`, and `tel:` by default), use document navigation, and add
+`noopener noreferrer` whenever they open a new tab. The resolver throws a
+structured error for malformed data or internal document types outside the
+registry.
+
+Consumers can pair their own route-data projection with the normalized link
+contract without importing React Router or Zod:
+
+```ts
+import { createSanityLinkQueryFragments } from '@standard/sanity-kit/link'
+import { sanityRouteDataQueryFragment } from '@standard/sanity-kit/react-router'
+
+export const { linkQueryFragment, portableTextLinkQueryFragment } =
+	createSanityLinkQueryFragments({
+		internalDestinationQueryFragment: sanityRouteDataQueryFragment,
+	})
+```
+
 The matching server registry pairs every route type with a query and decoder:
 
 ```ts
@@ -182,6 +223,8 @@ caching; otherwise the kit bypasses that cache to prevent cross-variant data.
 - `@standard/sanity-kit/core`: browser-safe configuration and shared contracts
 - `@standard/sanity-kit/image`: explicit image URL helpers
 - `@standard/sanity-kit/image/react`: optional responsive React image component
+- `@standard/sanity-kit/link`: framework-neutral link contracts, GROQ fragments,
+  and safe resolution
 - `@standard/sanity-kit/react-router`: client-safe React Router integration
 - `@standard/sanity-kit/react-router/server`: server-only clients, preview
   sessions, handlers, and loaders

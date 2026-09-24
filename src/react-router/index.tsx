@@ -2,6 +2,14 @@ import type { ComponentType, ReactNode } from 'react'
 import type { MetaDescriptor } from 'react-router'
 
 export {
+	createSanityLinks,
+	type CreateSanityLinksConfig,
+	type SanityLinkComponent,
+	type SanityLinkProps,
+	type SanityLinks,
+} from './links.js'
+
+export {
 	sanityRouteDataDecoder,
 	sanityRouteDataQuery,
 	sanityRouteDataQueryFragment,
