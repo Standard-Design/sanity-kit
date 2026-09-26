@@ -1,6 +1,6 @@
 # Prerelease integration
 
-Version `0.1.0-alpha.0` is intended for reviewed integration testing. The package
+Version `0.1.0-alpha.1` is intended for reviewed integration testing. The package
 remains private and unlicensed; there is no npm publication in this workflow.
 
 ## Distribution
@@ -70,7 +70,7 @@ Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
 
 ```sh
-pnpm add ./vendor/standard-sanity-kit-0.1.0-alpha.0.tgz
+pnpm add ./vendor/standard-sanity-kit-0.1.0-alpha.1.tgz
 ```
 
 Keep that exact file accessible to CI and other developers and commit the
