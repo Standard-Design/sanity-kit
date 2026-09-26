@@ -94,6 +94,7 @@ for (const required of [
 ])
 	assert.ok(contents.has(required), `Missing ${required}`)
 assert.equal(distManifest.private, true)
+assert.deepEqual(distManifest.dependencies, sourceManifest.dependencies)
 for (const field of ['scripts', 'devDependencies', 'packageManager'])
 	assert.equal(
 		field in distManifest,
@@ -311,7 +312,7 @@ async function checkBrowserBundles(cwd, full) {
 		if (!full)
 			assert.doesNotMatch(
 				path,
-				/node_modules\/(react|react-dom|react-router|zod)\//u,
+				/node_modules\/(react|react-dom|react-router|zod|@sanity\/asset-utils)\//u,
 			)
 	}
 	if (!full) return

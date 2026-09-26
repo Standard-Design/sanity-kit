@@ -5,6 +5,13 @@ import {
 	type SanityImageSource,
 } from '@sanity/image-url'
 
+export {
+	prepareSanityImage,
+	type PreparedSanityImage,
+	type SanityImagePreparationFailure,
+	type SanityImagePreparationResult,
+} from './prepare.js'
+
 export interface SanityImageConfig {
 	projectId: string
 	dataset: string
@@ -113,7 +120,7 @@ export function parseSanityImageAspectRatio(value: number | string): number {
 		return value
 	}
 
-	const parts = value.split('/')
+	const parts = typeof value === 'string' ? value.split('/') : []
 	if (parts.length !== 2) {
 		throw new TypeError(
 			'[sanity-kit] `aspectRatio` must be a positive number or `width/height` string.',
@@ -133,7 +140,9 @@ export function parseSanityImageAspectRatio(value: number | string): number {
 		)
 	}
 
-	return width / height
+	const ratio = width / height
+	assertPositiveFinite(ratio, 'aspectRatio')
+	return ratio
 }
 
 function assertPixelDimension(value: number, name: string): void {

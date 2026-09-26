@@ -42,7 +42,8 @@ if (process.argv.includes('--full')) {
 	const { z } = await import('zod')
 	const { createZodDecoder } =
 		await import('@standard/sanity-kit/validation/zod')
-	const { createSanityImageTools } = await import('@standard/sanity-kit/image')
+	const { createSanityImageTools, prepareSanityImage } =
+		await import('@standard/sanity-kit/image')
 	const { createSanityImageComponent } =
 		await import('@standard/sanity-kit/image/react')
 	const router = await import('@standard/sanity-kit/react-router')
@@ -70,6 +71,43 @@ if (process.argv.includes('--full')) {
 		}),
 		/w=400/,
 	)
+	assert.deepEqual(prepareSanityImage({ asset: null }), {
+		success: false,
+		reason: 'missing-asset',
+	})
+	const prepared = prepareSanityImage({
+		asset: {
+			_id: `image-${'a'.repeat(40)}-800x600-jpg`,
+			url: 'https://untrusted.example/file',
+		},
+		crop: { left: 0.25, right: 0.25 },
+		hotspot: { x: 0.5 },
+	})
+	assert.equal(prepared.success, true)
+	assert.equal(prepared.image.intrinsicWidth, 800)
+	const Image = createSanityImageComponent({
+		...config,
+		baseUrl: 'https://assets.example.com/sanity',
+		widths: [320, 640, 1200],
+	})
+	const html = renderToStaticMarkup(
+		createElement(Image, { ...prepared.image, alt: 'Example' }),
+	)
+	assert.match(html, /width="400"/)
+	assert.match(html, /height="600"/)
+	assert.match(html, /rect=200,0,400,600/)
+	assert.doesNotMatch(html, /640w|1200w|untrusted.example|cdn.sanity.io/)
+	const src = / src="([^"]+)"/.exec(html)[1].replaceAll('&amp;', '&')
+	const candidates = / srcSet="([^"]+)"/
+		.exec(html)[1]
+		.replaceAll('&amp;', '&')
+		.split(', ')
+	for (const url of [src, ...candidates.map((entry) => entry.split(' ')[0])]) {
+		assert.equal(new URL(url).origin, 'https://assets.example.com')
+		assert.ok(
+			new URL(url).pathname.startsWith('/sanity/images/project/production/'),
+		)
+	}
 	const kit = createSanityKit({
 		...config,
 		studioUrl: 'https://studio.test',

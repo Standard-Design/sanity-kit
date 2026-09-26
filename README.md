@@ -69,8 +69,9 @@ const cardUrl = images.buildUrl(image, {
 const customUrl = images.urlFor(image).width(800).fit('crop').url()
 ```
 
-The image entrypoint never reads application environment globals. Crops and
-hotspots are passed intact to the official Sanity image URL builder.
+The image entrypoint never reads application environment globals. The low-level
+URL helpers pass crops and hotspots to the official Sanity image URL builder;
+their requested transforms are not automatically capped.
 
 React applications can create a configured responsive component from the
 separate `/image/react` entrypoint:
@@ -93,10 +94,53 @@ export const SanityImage = createSanityImageComponent({
 />
 ```
 
-The component emits a capped `srcSet`, does not upscale the source, reserves
-layout space with width and height attributes, and preloads only images marked
+`intrinsicWidth` and `intrinsicHeight` must be the original asset dimensions,
+matching the asset ID, **not** dimensions after editorial cropping. The component
+accounts for crop pixel rounding and any requested output ratio when capping
+`srcSet` and reserving layout space. It never requests more pixels than the
+retained crop in either axis. Hotspot positioning remains owned by Sanity's
+builder. It preloads only images marked
 with `fetchPriority="high"`. It has no CSS, context, or application-model
 dependency.
+
+For incomplete drafts, prepare the source before rendering:
+
+```tsx
+import { prepareSanityImage } from '@standard/sanity-kit/image'
+
+function ContentImage({ value, alt }: { value: unknown; alt: string }) {
+	const prepared = prepareSanityImage(value)
+	if (!prepared.success) {
+		// App policy: omit, render a placeholder, or report prepared.reason.
+		return null
+	}
+	return <SanityImage {...prepared.image} alt={alt} sizes="100vw" />
+}
+```
+
+`prepareSanityImage` accepts standard Sanity image objects, asset references,
+asset documents, IDs, and resolvable Sanity asset URLs/path stubs. It uses the
+official `@sanity/asset-utils` parser. An explicit asset ID takes precedence over
+document URLs. Metadata is not required: the ID supplies original dimensions.
+The result contains only a normalized `value`, `intrinsicWidth`, and
+`intrinsicHeight`; no application content fields are copied. Input is not mutated.
+URLs are rebuilt from configured project/dataset/baseUrl, never served directly
+from the document URL. Parsing an asset URL does not adopt its project/dataset.
+
+Missing/null crop edges default to zero; invalid fractions or crops retaining no
+pixels fail preparation. Incomplete/invalid hotspots are omitted, falling back
+to Sanity's centered default. Complete valid hotspot values are preserved.
+Failure reasons are `missing-asset`, `invalid-asset`, `invalid-dimensions`,
+`invalid-crop`, and `empty-crop`. These describe unusable source data, not errors
+in component configuration: invalid widths, ratios, or mismatched intrinsic
+dimensions still throw. Extremely narrow ratios that cannot produce a
+one-pixel-wide image without upscaling also throw. Heights round to whole pixels,
+with a minimum of one; tiny output ratios may consequently differ slightly.
+
+Applications still own alt/decorative policy, captions, layout, width/quality/sizes
+choices, and asset-proxy origin validation. `baseUrl` can point at a custom path
+such as `https://assets.example.com/sanity`; it applies to `src`, every `srcSet`
+candidate, and high-priority preload URLs.
 
 React Router applications configure clients and preview sessions through the
 physically separate server entrypoint:

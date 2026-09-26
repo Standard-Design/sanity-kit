@@ -1,6 +1,10 @@
 import { renderToStaticMarkup } from 'react-dom/server'
 import { z } from 'zod'
-import { createSanityImageTools } from '@standard/sanity-kit/image'
+import {
+	createSanityImageTools,
+	prepareSanityImage,
+	type SanityImagePreparationFailure,
+} from '@standard/sanity-kit/image'
 import { createSanityImageComponent } from '@standard/sanity-kit/image/react'
 import {
 	createSanityRoutes,
@@ -28,6 +32,16 @@ const kit = createSanityKit({
 })
 const images = createSanityImageTools(publicConfig)
 const Image = createSanityImageComponent(publicConfig)
+const prepared = prepareSanityImage({
+	asset: { _ref: `image-${'a'.repeat(40)}-800x600-jpg` },
+	crop: { left: 0.25, right: 0.25 },
+})
+const imageHtml = prepared.success
+	? renderToStaticMarkup(<Image {...prepared.image} alt="Example" />)
+	: ''
+const imageFailure: SanityImagePreparationFailure | undefined = prepared.success
+	? undefined
+	: prepared.reason
 const schema = z.object({ _type: z.literal('page'), title: z.string() })
 const routes = createSanityRoutes({
 	routes: [
@@ -61,4 +75,15 @@ const sitemap = createSanitySitemapLoader({
 const html: string = renderToStaticMarkup(
 	<routes.default loaderData={{ _type: 'page', title: 'Hello' }} />,
 )
-export { kit, images, Image, routes, links, loaders, sitemap, html }
+export {
+	kit,
+	images,
+	Image,
+	routes,
+	links,
+	loaders,
+	sitemap,
+	html,
+	imageHtml,
+	imageFailure,
+}

@@ -32,6 +32,7 @@ const distribution = Object.fromEntries(
 		'type',
 		'sideEffects',
 		'engines',
+		'dependencies',
 		'peerDependencies',
 		'peerDependenciesMeta',
 	].map((key) => [key, manifest[key]]),

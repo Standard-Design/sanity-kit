@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Add draft-safe `prepareSanityImage` with official asset identity/dimension
+  parsing, crop/hotspot normalization, and explicit unusable-source reasons.
+- Make responsive image dimensions and width caps account for editorial crops,
+  pixel rounding, and requested output ratios without upscaling retained pixels.
+- Require original intrinsic dimensions matching the asset ID; consumers must
+  remove any cropped-dimension workaround. Full valid asset IDs are required by
+  preparation and the React component. Existing low-level URL builders remain
+  available for custom transforms.
+
 ## 0.1.0-alpha.1
 
 - Validate required configuration strings before trimming or coercion. Missing,

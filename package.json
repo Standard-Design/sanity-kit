@@ -71,6 +71,9 @@
 		"typecheck": "tsc -p tsconfig.json --noEmit",
 		"verify": "pnpm format:check && pnpm build && pnpm lint && pnpm typecheck && pnpm test"
 	},
+	"dependencies": {
+		"@sanity/asset-utils": "^2.3.0"
+	},
 	"peerDependencies": {
 		"@sanity/client": "^7.27.0 || ^8.6.0",
 		"@sanity/image-url": "^2.1.1",

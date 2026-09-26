@@ -85,6 +85,25 @@ manifest lives in the assembled distribution. Use the verified tarball.
 
 ## Peer dependencies
 
+### Image compatibility for the next prerelease
+
+Image preparation and crop-aware responsive sizing are unreleased changes after
+`0.1.0-alpha.1`. `prepareSanityImage` returns original dimensions and a normalized
+standard Sanity image source. Remove consumer-side cropped-dimension workarounds
+when upgrading: the React component now applies editorial crop accounting itself
+and rejects dimensions that do not match the asset ID. Sources must resolve via
+the official asset parser; synthetic shortened IDs used in tests should be
+replaced with valid Sanity-style IDs (including their full asset hashes).
+
+Missing/invalid image data can be handled without throwing by inspecting the
+preparation result. Application content fields and omit/placeholder decisions
+stay with the consumer. Existing component props remain; no peer ranges change.
+`@sanity/asset-utils` is an automatically installed runtime dependency, imported
+only by the image entrypoints, not by the core browser bundle. Direct URL builder
+helpers remain uncapped for advanced transformations.
+
+### Supported peers
+
 Node 24+ is required. This prerelease targets ESM, React 19.2.7+ and React Router
 8.4+. React Router's own minimum is why the React peer floor is 19.2.7.
 

@@ -83,4 +83,14 @@ describe('parseSanityImageAspectRatio', () => {
 			expect(() => parseSanityImageAspectRatio(value)).toThrow('`aspectRatio`')
 		},
 	)
+	it.each([Infinity, NaN, 0, -1, '1e308/1e-308', '1e-308/1e308'])(
+		'rejects non-finite or zero resolved ratio %s',
+		(value) =>
+			expect(() => parseSanityImageAspectRatio(value)).toThrow('`aspectRatio`'),
+	)
+	it('rejects an untyped missing ratio with a field-named error', () => {
+		expect(() =>
+			parseSanityImageAspectRatio(undefined as unknown as string),
+		).toThrow('`aspectRatio`')
+	})
 })

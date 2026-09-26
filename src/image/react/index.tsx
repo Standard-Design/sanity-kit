@@ -10,9 +10,11 @@ import { preload } from 'react-dom'
 import {
 	createSanityImageTools,
 	parseSanityImageAspectRatio,
+	prepareSanityImage,
 	type SanityImageConfig,
 	type SanityImageUrlOptions,
 } from '../index.js'
+import { getSanityImageCropRect } from '../prepare.js'
 
 export const defaultSanityImageWidths = [
 	320, 480, 640, 768, 960, 1200, 1600, 1920, 2400,
@@ -35,13 +37,13 @@ type NativeImageProps = Omit<
 >
 
 export interface SanityImageProps extends NativeImageProps {
-	/** Sanity image value passed intact to the URL builder. */
+	/** Sanity image source. Editorial crop/hotspot are preserved during preparation. */
 	value: SanityImageSource
 	/** Required accessible alternative text. Use an empty string when decorative. */
 	alt: string
-	/** Original source width from Sanity asset metadata. */
+	/** Original source width; must match the asset ID, not the retained crop. */
 	intrinsicWidth: number
-	/** Original source height from Sanity asset metadata. */
+	/** Original source height; must match the asset ID, not the retained crop. */
 	intrinsicHeight: number
 	/** Optional output crop ratio. */
 	aspectRatio?: number | string
@@ -88,10 +90,45 @@ export function createSanityImageComponent(
 		) {
 			assertPositiveInteger(intrinsicWidth, 'intrinsicWidth')
 			assertPositiveInteger(intrinsicHeight, 'intrinsicHeight')
+			const prepared = prepareSanityImage(value)
+			if (!prepared.success) {
+				throw new TypeError(
+					`[sanity-kit] Unusable image source: ${prepared.reason}. Use prepareSanityImage for incomplete drafts.`,
+				)
+			}
+			if (
+				intrinsicWidth !== prepared.image.intrinsicWidth ||
+				intrinsicHeight !== prepared.image.intrinsicHeight
+			) {
+				throw new TypeError(
+					'[sanity-kit] `intrinsicWidth` and `intrinsicHeight` must match the original asset dimensions, before cropping.',
+				)
+			}
+			const source = prepared.image.value
+			const retained = getSanityImageCropRect(
+				intrinsicWidth,
+				intrinsicHeight,
+				source.crop,
+			)
+			const ratio =
+				aspectRatio === undefined
+					? retained.width / retained.height
+					: parseSanityImageAspectRatio(aspectRatio)
+			// Width and rounded height must both fit inside the retained crop.
+			// The official builder still owns hotspot positioning for each URL.
+			const maximumWidth =
+				aspectRatio === undefined
+					? retained.width
+					: Math.min(retained.width, Math.floor(retained.height * ratio))
+			if (maximumWidth < 1) {
+				throw new TypeError(
+					'[sanity-kit] `aspectRatio` cannot produce a one-pixel-wide image without upscaling.',
+				)
+			}
 
 			const candidateWidths = createResponsiveSanityImageWidths(
 				configuredWidths,
-				intrinsicWidth,
+				maximumWidth,
 			)
 			const largestWidth = candidateWidths.at(-1)
 			if (largestWidth === undefined) {
@@ -100,13 +137,18 @@ export function createSanityImageComponent(
 				)
 			}
 
-			const ratio =
-				aspectRatio === undefined
-					? intrinsicWidth / intrinsicHeight
-					: parseSanityImageAspectRatio(aspectRatio)
-			const outputHeight = Math.round(largestWidth / ratio)
+			const heightFor = (width: number) =>
+				Math.max(1, Math.round(width / ratio))
+			const outputHeight = heightFor(largestWidth)
 			const buildUrl = (width: number) =>
-				images.buildUrl(value, createUrlOptions(config, width, aspectRatio))
+				images.buildUrl(
+					source,
+					createUrlOptions(
+						config,
+						width,
+						aspectRatio === undefined ? undefined : heightFor(width),
+					),
+				)
 			const src = buildUrl(largestWidth)
 			const srcSet = candidateWidths
 				.map((width) => `${buildUrl(width)} ${width}w`)
@@ -170,11 +212,11 @@ export function createResponsiveSanityImageWidths(
 function createUrlOptions(
 	config: CreateSanityImageComponentConfig,
 	width: number,
-	aspectRatio: number | string | undefined,
+	height: number | undefined,
 ): SanityImageUrlOptions {
 	return {
 		width,
-		...(aspectRatio === undefined ? {} : { aspectRatio }),
+		...(height === undefined ? {} : { height }),
 		...(config.autoFormat === undefined
 			? {}
 			: { autoFormat: config.autoFormat }),
