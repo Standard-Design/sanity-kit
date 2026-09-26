@@ -150,7 +150,10 @@ function assertPositiveFinite(value: number, name: string): void {
 	}
 }
 
-function assertNonEmpty(value: string, name: string): void {
+function assertNonEmpty(value: unknown, name: string): void {
+	if (typeof value !== 'string') {
+		throw new TypeError(`[sanity-kit] \`${name}\` must be a string.`)
+	}
 	if (value.trim().length === 0) {
 		throw new TypeError(`[sanity-kit] \`${name}\` must not be empty.`)
 	}

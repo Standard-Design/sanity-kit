@@ -175,7 +175,7 @@ describe('createSanityKit', () => {
 		).toThrow('`sessionSecret` must contain at least 32 characters')
 		expect(() =>
 			createSanityKit({ ...baseConfig, sessionSecret: ' '.repeat(32) }),
-		).toThrow('`sessionSecret` must contain at least 32 characters')
+		).toThrow('`sessionSecret` must not be empty')
 	})
 })
 

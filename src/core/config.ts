@@ -23,6 +23,7 @@ export function defineSanityConfig<const TConfig extends SanityPublicConfig>(
 ): Readonly<TConfig> {
 	assertNonEmpty(config.projectId, 'projectId')
 	assertNonEmpty(config.dataset, 'dataset')
+	assertNonEmpty(config.apiVersion, 'apiVersion')
 
 	if (!apiVersionPattern.test(config.apiVersion)) {
 		throw new TypeError(
@@ -52,7 +53,10 @@ export function defineSanityConfig<const TConfig extends SanityPublicConfig>(
 	return Object.freeze({ ...config })
 }
 
-function assertNonEmpty(value: string, name: string): void {
+function assertNonEmpty(value: unknown, name: string): void {
+	if (typeof value !== 'string') {
+		throw new TypeError(`[sanity-kit] \`${name}\` must be a string.`)
+	}
 	if (value.trim().length === 0) {
 		throw new TypeError(`[sanity-kit] \`${name}\` must not be empty.`)
 	}
