@@ -8,7 +8,7 @@ styles, environment globals, or Cloudflare bindings.
 
 ## Status
 
-Version `0.1.0-alpha.1` is prepared for integration testing.
+Version `0.1.0-alpha.2` is prepared for integration testing.
 It remains private and is not published to npm. Reviewed consumers install a
 compiled tarball from an approved commit. See the [prerelease guide](docs/prerelease.md)
 for dependency requirements, verification, and artifact handoff.

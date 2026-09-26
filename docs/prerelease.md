@@ -1,6 +1,6 @@
 # Prerelease integration
 
-Version `0.1.0-alpha.1` is intended for reviewed integration testing. The package
+Version `0.1.0-alpha.2` is intended for reviewed integration testing. The package
 remains private and unlicensed; there is no npm publication in this workflow.
 
 ## Distribution
@@ -70,7 +70,7 @@ Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
 
 ```sh
-pnpm add ./vendor/standard-sanity-kit-0.1.0-alpha.1.tgz
+pnpm add ./vendor/standard-sanity-kit-0.1.0-alpha.2.tgz
 ```
 
 Keep that exact file accessible to CI and other developers and commit the
@@ -85,10 +85,10 @@ manifest lives in the assembled distribution. Use the verified tarball.
 
 ## Peer dependencies
 
-### Image compatibility for the next prerelease
+### Image compatibility in alpha.2
 
-Image preparation and crop-aware responsive sizing are unreleased changes after
-`0.1.0-alpha.1`. `prepareSanityImage` returns original dimensions and a normalized
+Image preparation and crop-aware responsive sizing are new in `0.1.0-alpha.2`.
+`prepareSanityImage` returns original dimensions and a normalized
 standard Sanity image source. Remove consumer-side cropped-dimension workarounds
 when upgrading: the React component now applies editorial crop accounting itself
 and rejects dimensions that do not match the asset ID. Sources must resolve via

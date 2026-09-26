@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-alpha.2
 
 - Add draft-safe `prepareSanityImage` with official asset identity/dimension
   parsing, crop/hotspot normalization, and explicit unusable-source reasons.
@@ -10,6 +10,11 @@
   remove any cropped-dimension workaround. Full valid asset IDs are required by
   preparation and the React component. Existing low-level URL builders remain
   available for custom transforms.
+- Include `@sanity/asset-utils` as an automatically installed runtime dependency;
+  existing peer dependency ranges are unchanged.
+
+Consumers must install the new compiled tarball and remove cropped-dimension
+workarounds to receive these changes. Earlier tags and artifacts remain unchanged.
 
 ## 0.1.0-alpha.1
 
