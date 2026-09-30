@@ -60,6 +60,16 @@ for (const file of [
 	'docs/sitemaps.md',
 	'docs/prerelease.md',
 	'docs/loaders.md',
+	'docs/README.md',
+	'docs/core.md',
+	'docs/image.md',
+	'docs/image-react.md',
+	'docs/link.md',
+	'docs/react-router.md',
+	'docs/server.md',
+	'docs/visual-editing.md',
+	'docs/validation-zod.md',
+	'docs/extraction-provenance.md',
 ]) {
 	await copyFile(
 		new URL(`../${file}`, import.meta.url),

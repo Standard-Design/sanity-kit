@@ -1,19 +1,87 @@
 # Loader validation, preview, and caching
 
-`createSanityLoaders` owns route lookup, protected query parameters, validation,
-and preview/cache orchestration. Applications own schemas, cache storage and
-namespaces, logging/redaction, and the response envelope.
+Import from `@standard/sanity-kit/react-router/server` in server-only application
+modules. `createSanityLoaders` connects the [browser route registry](react-router.md)
+to the [server kit](server.md): it looks up a pathname, chooses a page query,
+validates the result, and handles preview/cache separation.
 
-## Published and draft decoders
+This guide describes **unreleased changes after alpha.2**, including strict
+published validation before cache writes and typed preview decoding. See
+[migration requirements](#alpha-compatibility-changes) before adopting them.
+
+Applications own schemas, queries, cache storage and key prefixes, diagnostic
+logging/redaction, and any wrapper object returned around the page. No hosting
+provider or storage implementation is built in. See [core](core.md) for the
+decoder and Stega terminology used here.
+
+## Create matching server loaders
 
 ```ts
+// app/sanity/loaders.server.ts
+import {
+	createSanityLoaders,
+	defineSanityLoader,
+} from '@standard/sanity-kit/react-router/server'
+import { createZodDecoder } from '@standard/sanity-kit/validation/zod'
+import { sanity } from '../sanity.server'
+import { sanityRoutes } from './routes'
+import { articleQuery, articleSchema, draftArticleSchema } from './article'
+
 const articleLoader = defineSanityLoader({
 	type: 'article',
 	query: articleQuery,
 	decoder: createZodDecoder(articleSchema),
 	previewDecoder: createZodDecoder(draftArticleSchema),
 })
+
+export const sanityLoaders = createSanityLoaders({
+	routes: sanityRoutes,
+	kit: sanity,
+	loaders: [articleLoader],
+})
 ```
+
+The local modules above are application-owned. This example assumes the registry
+contains only `article`; add a loader for every other registered type. Zod is
+optional—any `SanityDataDecoder` works. Export `sanityLoaders.loader` as a
+top-level loader binding in the application route module, or wrap it as shown
+under [diagnostics](#request-scoped-diagnostics).
+
+The factory rejects duplicate, missing, or unexpected loaders immediately. It
+compares `routes.types`, not `linkableTypes`; non-linkable pages still need loaders,
+while extra linkable types served elsewhere do not. Empty type names and query
+strings are configuration errors.
+
+## What happens on a request
+
+1. Read signed preview context once and use React Router's normalized `args.url`.
+2. Look up minimal route data for that pathname: `_id`, `_type`, and `pathname`.
+3. Choose the registered page query by `_type` and supply `$id` and `$pathname`.
+4. Fetch or read cached raw data, then validate it using the published/preview
+   rules below. Fetches receive the request's abort signal.
+5. Run optional `mutate` after decoding and return the resulting document.
+
+Both raw and decoded page data must retain the registered `_type`. Mutation
+output is checked for that identity too. The kit does not rerun the full schema
+after mutation; your mutation must honor its declared output type.
+
+### Query parameters and per-request mutation
+
+Optional `params(context)` adds query parameters and may be asynchronous. The
+kit writes its own `id` and `pathname` last, so custom parameters cannot replace
+the identity selected by the first lookup. `params` runs when the page query is
+actually fetched, not for a cache hit.
+
+The callback context includes the original router `context`, route `params`,
+`pattern`, normalized `url`, `request`, validated `routeData`, selected `client`,
+`preview`, and `perspective`. Keep this context server-side.
+
+Optional `mutate(data, context)` may be asynchronous and runs once on every
+successful request, including cache hits. Use it for request-specific shaping,
+not for populating a shared cache. It accepts and returns the union established
+by the published and preview decoders and must keep `_type` unchanged.
+
+## Published and draft decoders
 
 The published decoder always receives a separate Stega-clean shadow. Published
 requests return its parsed value. Preview requests first run that same strict
@@ -34,11 +102,17 @@ preview decoder for useful draft types. A preview decoder failure always throws;
 it never passes invalid data off as its output type. `validation.preview: 'throw'`
 optionally makes strict published-schema failures fatal in preview too.
 
-## Raw cache contract
+Published failures always throw: `validation.published` accepts only `'throw'`
+and can normally be omitted. Preview defaults to `'passthrough'` for the strict
+published-schema check, not for route identity or a failed preview decoder.
+
+## Cache raw data, not decoder output
 
 The cache adapter handles storage only:
 
 ```ts
+import type { SanityLoaderCache } from '@standard/sanity-kit/react-router/server'
+
 const cache: SanityLoaderCache = async ({ key }, load) => {
 	const hit = await storage.get(key)
 	if (hit !== undefined) return hit
@@ -66,12 +140,27 @@ and application query/schema version in your adapter. Include custom variants
 in the page key. Bump that version when migrating from app caches that stored
 transformed values; the kit cannot distinguish those from genuine raw results.
 
+The adapter context contains `key`, `request`, `scope` (`route-data` or `route`),
+and the document `type` for page reads. Default keys are
+`SANITY_ROUTE_DATA:<pathname>` and `SANITY_ROUTE:<pathname><search>`. These names
+distinguish stages, not projects or deployments; add your namespace in the
+adapter for both scopes. The example adapter above omits this application-specific
+prefix for brevity and should not be used unchanged with shared storage.
+
+A loader's optional synchronous `cacheKey(context)` replaces the page key, or
+returns `null` to skip page caching. Account for every parameter that changes the
+result. Without a cache adapter, published requests still validate but do not
+store data. TTL, invalidation, serialization, and storage failures belong to the
+application.
+
 ## Request-scoped diagnostics
 
 Use a fresh closure per request to collect only the strict diagnostics intended
 for preview. Do not keep diagnostic state in a module-level array.
 
 ```ts
+import type { SanityValidationDiagnostic } from '@standard/sanity-kit/core'
+
 export async function loader(args: Route.LoaderArgs) {
 	const diagnostics: SanityValidationDiagnostic[] = []
 	const loaders = createSanityLoaders({
@@ -101,9 +190,9 @@ export async function loader(args: Route.LoaderArgs) {
 }
 ```
 
-This is an application envelope: pass `page` to the route registry component and
-render diagnostics only in authenticated preview UI. Diagnostic messages can
-contain schema-authored sensitive details; sanitize them before rendering if
+This wrapper object is an application envelope: pass `page` to the route
+registry component and render diagnostics only in authenticated preview UI.
+Diagnostic messages can contain schema-authored sensitive details; sanitize them before rendering if
 needed. No diagnostics are added to the envelope on successful published reads.
 
 `onFailure` runs for failed decoder results at stages `route-data`, `published`,
@@ -119,27 +208,26 @@ documents, route paths, or tokens. Applications may map these codes/statuses to
 their own public errors, and should avoid serializing caught arbitrary errors.
 The app also owns response headers: mark preview envelopes private/no-store.
 
-## Static query fragments
+### Public error codes
 
-Use `sanityLinkQueryFragment` or `sanityPortableTextLinkQueryFragment` from
-`@standard/sanity-kit/link` inside a named `defineQuery`. These literal exports
-project the canonical stored fields and standard route destination. The
-`/link` export includes a default resolution target so TypeGen's CommonJS-style
-static resolver can locate its ESM source; this is not a separate CommonJS build.
-In a monorepo, declare the kit as a normal direct **dev dependency of the
-Studio/codegen workspace**, using the same artifact version as the frontend's
-runtime dependency. Point Studio's TypeGen scan at the frontend query files.
-Do not rely on incidental hoisting of a frontend-only dependency, or add aliases
-into `node_modules`/`.pnpm`. The packed-consumer suite checks Sanity codegen 8.1.0
-from `apps/studio` against queries in `apps/web/app/data`, using a normal pnpm
-workspace install and no custom resolver. Other codegen versions/layouts should
-run their own generation check; query extraction does not replace schema-based
-type generation or runtime decoding.
-The custom
-`createSanityLinkQueryFragments` factory remains a runtime utility; do not assume
-its function call/destructuring can be evaluated by TypeGen. For custom
-TypeGen projections, use application-owned literal fragments and regenerate
-types. See [Sanity's TypeGen documentation](https://www.sanity.io/docs/apis-and-sdks/sanity-typegen).
+| Code                          | Status | Meaning                                                  |
+| ----------------------------- | ------ | -------------------------------------------------------- |
+| `SANITY_ROUTE_NOT_FOUND`      | 404    | Initial route lookup returned null or undefined          |
+| `SANITY_ROUTE_DATA_INVALID`   | 500    | Initial route lookup returned malformed routing data     |
+| `SANITY_ROUTE_NOT_REGISTERED` | 404    | The looked-up document type has no registered loader     |
+| `SANITY_ROUTE_INVALID`        | 500    | Strict published validation failed where it is required  |
+| `SANITY_PREVIEW_INVALID`      | 500    | The configured draft decoder failed                      |
+| `SANITY_ROUTE_TYPE_MISMATCH`  | 500    | Raw, decoded, or mutated page data has the wrong `_type` |
+
+These are thrown `Response` objects, not successful document results. An invalid
+cache hit is not treated as a miss; it fails validation. The kit does not
+automatically delete it or refetch around the problem.
+
+## Link queries and TypeGen
+
+See [link query fragments and TypeGen](link.md#query-fragments-and-typegen) for
+static projections, custom runtime fragments, and monorepo dependency setup.
+Type generation does not replace runtime decoding.
 
 ## Alpha compatibility changes
 
@@ -156,3 +244,10 @@ types. See [Sanity's TypeGen documentation](https://www.sanity.io/docs/apis-and-
 
 No peer dependencies, canonical stored link fields, or hosting-specific APIs
 are added or changed by this slice.
+
+## Source and related guides
+
+Implementation: `src/react-router/server/loaders.ts`; tests:
+`tests/react-router/loaders.test.ts` and packed-consumer fixtures under
+`tests/package`. See [routing](react-router.md), [server sessions](server.md),
+[Zod schemas](validation-zod.md), or the [documentation index](README.md).

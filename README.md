@@ -1,19 +1,75 @@
 # `@standard/sanity-kit`
 
-Reusable, runtime-explicit Sanity primitives for Standard Design applications.
+Reusable Sanity tools for Standard Design applications: configuration, validation,
+images, links, React Router pages and preview, and sitemaps.
 
-This repository is a clean extraction of the useful Sanity integration patterns
-from Sawkill. It intentionally does not import Sawkill's application models,
-styles, environment globals, or Cloudflare bindings.
+The kit is a clean extraction from Sawkill. It keeps useful integration patterns
+without depending on Sawkill's content models, styles, environment variables, or
+Cloudflare bindings. See [extraction provenance](docs/extraction-provenance.md).
 
-## Status
+## Start here
 
-Version `0.1.0-alpha.2` is prepared for integration testing.
-It remains private and is not published to npm. Reviewed consumers install a
-compiled tarball from an approved commit. See the [prerelease guide](docs/prerelease.md)
-for dependency requirements, verification, and artifact handoff.
+1. Read [installation and release status](#installation-and-release-status).
+2. Follow [the setup order](#setup-order) for a React Router application, or use
+   the framework-independent helpers on their own.
+3. Open the relevant [subsystem guide](#subsystem-guides) for examples, options,
+   failure behavior, and the responsibilities left to your application.
 
-Browser-safe configuration is explicit:
+The [documentation index](docs/README.md) also explains shared terms and suggests
+a reading order. Examples that use application schemas, queries, components, or
+storage expect you to supply those pieces; the kit does not generate them.
+
+## Installation and release status
+
+The released integration baseline is `0.1.0-alpha.2`. The package is private and
+is **not published to npm**. Install a reviewed, compiled tarball, not this Git
+repository as a dependency. The [prerelease guide](docs/prerelease.md) covers
+installation, peer dependencies, verification, and release handoff.
+
+These repository docs describe the current source, which includes **unreleased
+loader hardening, request-context naming, and static link fragments**. Installing alpha.2 does not include
+those changes. The [loader migration notes](docs/loaders.md#alpha-compatibility-changes)
+identify the pending behavior changes. Match documentation to the exact artifact
+you consume; no new release is implied by these docs.
+
+The pending [request-context rename](docs/server.md#migration-from-alpha2) moves
+`getContext` onto the kit itself, since it selects both published and preview fetching.
+
+Node 24+ and ESM are required. React entrypoints target React/React DOM 19.2.7+;
+router entrypoints also require React Router 8.4+. Only install optional peers
+for the integrations you use;
+see the [peer dependency table](docs/prerelease.md#supported-peers).
+
+## What the kit owns—and what it does not
+
+The kit provides small, explicitly configured building blocks. It never reads
+your application's environment variables. You pass public configuration,
+server secrets, queries, decoders, and cache adapters where needed.
+
+It is React Router-aware, but not Cloudflare-aware. The server adapter uses
+standard `Request`/`Response` objects and React Router sessions. Your application
+owns hosting, bindings, storage, authentication beyond Sanity preview, and
+deployment.
+
+Your application also owns Studio schemas, GROQ queries for its content,
+components, styles, accessibility choices, SEO policy, and handling incomplete
+drafts. Runtime validation is independent of a schema library; Zod is an optional
+adapter.
+
+### Browser and server boundaries
+
+Public configuration, images, links, and the route registry can be used in the
+browser. Keep `@standard/sanity-kit/react-router/server` and its secrets in
+server-only application modules. Never return a kit instance or Sanity client
+as loader data.
+
+Visual Editing has its own optional entrypoint. Its implementation loads after
+browser mount only when preview is enabled. Unused React, Zod, image, and Visual
+Editing integrations are not pulled in through the core entrypoint.
+
+## Setup order
+
+### 1. Define public Sanity configuration
 
 ```ts
 import { defineSanityConfig } from '@standard/sanity-kit/core'
@@ -26,352 +82,59 @@ export const sanityConfig = defineSanityConfig({
 })
 ```
 
-The API version is required rather than defaulted so a package release cannot
-silently pin every consumer to a stale Sanity API date.
+The API date is explicit so package upgrades do not silently change it. Keep
+tokens and session secrets out of this browser-safe object. See [core](docs/core.md).
 
-Runtime validation is decoder-based rather than tied to a schema library. The
-core validator cleans a non-mutating Stega shadow while preserving the original
-data for Visual Editing:
+### 2. Configure server clients and preview routes
 
-```ts
-import { validateSanityData } from '@standard/sanity-kit/core'
-import { createZodDecoder } from '@standard/sanity-kit/validation/zod'
+Create a server-only kit with the public settings, a Sanity read token, and an
+independent cookie-signing secret. Connect its enable/disable handlers to your
+application's resource routes. See [server clients and sessions](docs/server.md).
 
-const validation = await validateSanityData(
-	previewData,
-	createZodDecoder(pageSchema),
-)
+### 3. Connect page components, queries, and decoders
 
-// Keep this value for preview rendering and overlays.
-validation.data
+Register document types and their components with `createSanityRoutes`. Match
+each type to a query and decoder with `createSanityLoaders`. Export the resulting
+component, metadata function, and loader from your application's React Router
+route module. See [routing](docs/react-router.md) and [loaders](docs/loaders.md).
 
-// Parsed or transformed clean data is separate.
-if (validation.result.success) validation.result.value
-```
+Published data must satisfy its decoder. Drafts can use a separate tolerant
+decoder while preserving the encoded strings needed by Visual Editing.
 
-Applications decide whether invalid data is tolerated. Preview loaders can
-return `validation.result.diagnostics`; published loaders can call
-`requireValidSanityData(validation)` to enforce a strict boundary.
+### 4. Share configured image and link components
 
-Image helpers are also explicitly configured and retain access to Sanity's
-native builder:
+Create `SanityImage` and `SanityLink` once in shared application modules, then
+import them wherever they are needed. Do not call their factories during render.
+See [React images](docs/image-react.md) and [links](docs/link.md).
 
-```ts
-import { createSanityImageTools } from '@standard/sanity-kit/image'
+### 5. Add preview UI and a sitemap
 
-const images = createSanityImageTools(sanityConfig)
+Expose only a serializable preview flag from your root loader and use it to
+enable [Visual Editing](docs/visual-editing.md). Add a published-only sitemap
+resource route using an application-owned query and canonical site origin;
+see [sitemaps](docs/sitemaps.md).
 
-const cardUrl = images.buildUrl(image, {
-	aspectRatio: '16/9',
-	width: 1200,
-})
+## Subsystem guides
 
-const customUrl = images.urlFor(image).width(800).fit('crop').url()
-```
+| Guide                                    | Import                                        | Covers                                                                |
+| ---------------------------------------- | --------------------------------------------- | --------------------------------------------------------------------- |
+| [Core](docs/core.md)                     | root or `/core`                               | Public configuration, decoders, diagnostics, Stega-safe validation    |
+| [Image tools](docs/image.md)             | `/image`                                      | URL builder, source preparation, crops and hotspots                   |
+| [React images](docs/image-react.md)      | `/image/react`                                | Responsive component, pixel budgets, loading and layout               |
+| [Links](docs/link.md)                    | `/link`; adapter in `/react-router`           | Stored and projected data, safe resolution, shared component, TypeGen |
+| [Routing](docs/react-router.md)          | `/react-router`                               | Document-type registry, components, metadata, route lookup contract   |
+| [Server](docs/server.md)                 | `/react-router/server`                        | Clients, secrets, cookies, preview enable/disable                     |
+| [Loaders](docs/loaders.md)               | `/react-router/server`                        | Fetching, published/draft validation, cache adapters, diagnostics     |
+| [Visual Editing](docs/visual-editing.md) | `/react-router/visual-editing`                | Lazy overlays, root-loader state, preview exit                        |
+| [Zod](docs/validation-zod.md)            | `/validation/zod`                             | Schema adapter, output types, transforms and draft schemas            |
+| [Sitemaps](docs/sitemaps.md)             | `/sitemap`; adapter in `/react-router/server` | XML, canonical URLs, dates, responses and caching                     |
 
-The image entrypoint never reads application environment globals. The low-level
-URL helpers pass crops and hotspots to the official Sanity image URL builder;
-their requested transforms are not automatically capped.
+Imports in the table are relative to `@standard/sanity-kit`. Only documented
+entrypoints are public; importing internal compiled files is unsupported.
 
-React applications can create a configured responsive component from the
-separate `/image/react` entrypoint:
+## Development and verification
 
-```tsx
-import { createSanityImageComponent } from '@standard/sanity-kit/image/react'
-
-export const SanityImage = createSanityImageComponent({
-	dataset: sanityConfig.dataset,
-	projectId: sanityConfig.projectId,
-})
-
-<SanityImage
-	value={page.image}
-	alt={page.image.alt}
-	intrinsicWidth={page.image.width}
-	intrinsicHeight={page.image.height}
-	aspectRatio="16/9"
-	sizes="(min-width: 60rem) 50vw, 100vw"
-/>
-```
-
-`intrinsicWidth` and `intrinsicHeight` must be the original asset dimensions,
-matching the asset ID, **not** dimensions after editorial cropping. The component
-accounts for crop pixel rounding and any requested output ratio when capping
-`srcSet` and reserving layout space. It never requests more pixels than the
-retained crop in either axis. Hotspot positioning remains owned by Sanity's
-builder. It preloads only images marked
-with `fetchPriority="high"`. It has no CSS, context, or application-model
-dependency.
-
-For incomplete drafts, prepare the source before rendering:
-
-```tsx
-import { prepareSanityImage } from '@standard/sanity-kit/image'
-
-function ContentImage({ value, alt }: { value: unknown; alt: string }) {
-	const prepared = prepareSanityImage(value)
-	if (!prepared.success) {
-		// App policy: omit, render a placeholder, or report prepared.reason.
-		return null
-	}
-	return <SanityImage {...prepared.image} alt={alt} sizes="100vw" />
-}
-```
-
-`prepareSanityImage` accepts standard Sanity image objects, asset references,
-asset documents, IDs, and resolvable Sanity asset URLs/path stubs. It uses the
-official `@sanity/asset-utils` parser. An explicit asset ID takes precedence over
-document URLs. Metadata is not required: the ID supplies original dimensions.
-The result contains only a normalized `value`, `intrinsicWidth`, and
-`intrinsicHeight`; no application content fields are copied. Input is not mutated.
-URLs are rebuilt from configured project/dataset/baseUrl, never served directly
-from the document URL. Parsing an asset URL does not adopt its project/dataset.
-
-Missing/null crop edges default to zero; invalid fractions or crops retaining no
-pixels fail preparation. Incomplete/invalid hotspots are omitted, falling back
-to Sanity's centered default. Complete valid hotspot values are preserved.
-Failure reasons are `missing-asset`, `invalid-asset`, `invalid-dimensions`,
-`invalid-crop`, and `empty-crop`. These describe unusable source data, not errors
-in component configuration: invalid widths, ratios, or mismatched intrinsic
-dimensions still throw. Extremely narrow ratios that cannot produce a
-one-pixel-wide image without upscaling also throw. Heights round to whole pixels,
-with a minimum of one; tiny output ratios may consequently differ slightly.
-
-Applications still own alt/decorative policy, captions, layout, width/quality/sizes
-choices, and asset-proxy origin validation. `baseUrl` can point at a custom path
-such as `https://assets.example.com/sanity`; it applies to `src`, every `srcSet`
-candidate, and high-priority preload URLs.
-
-React Router applications configure clients and preview sessions through the
-physically separate server entrypoint:
-
-```ts
-import { createSanityKit } from '@standard/sanity-kit/react-router/server'
-
-export const sanity = createSanityKit({
-	apiVersion: '2026-09-19',
-	dataset: env.PUBLIC_SANITY_DATASET,
-	projectId: env.PUBLIC_SANITY_PROJECT_ID,
-	readToken: env.SANITY_API_READ_TOKEN,
-	sessionSecret: env.SANITY_PREVIEW_SESSION_SECRET,
-	studioUrl: env.PUBLIC_SANITY_STUDIO_URL,
-})
-```
-
-The returned `sanity.preview.enable` and `sanity.preview.disable` functions are
-drop-in resource-route loaders. `sanity.getContext(request)` selects a
-published or preview client and typed fetch options without reading global
-environment state. The cookie-signing secret is intentionally separate from
-Sanity's preview URL validation protocol.
-
-Expose only serializable preview state from the root loader, then mount the
-optional browser integration from its dedicated subpath:
-
-```tsx
-import {
-	SanityPreviewExit,
-	SanityVisualEditing,
-} from '@standard/sanity-kit/react-router/visual-editing'
-
-export async function loader({ request }: Route.LoaderArgs) {
-	const context = await sanity.getContext(request)
-	return { sanityPreview: { enabled: context.preview } }
-}
-
-export default function App({ loaderData }: Route.ComponentProps) {
-	return (
-		<>
-			<Outlet />
-			<SanityVisualEditing
-				enabled={loaderData.sanityPreview.enabled}
-				onSuspiciousStega={
-					import.meta.env.DEV
-						? (reports) => console.warn('Suspicious Stega', reports)
-						: undefined
-				}
-			>
-				<SanityPreviewExit
-					className="application-preview-exit"
-					href="/preview-mode/disable"
-				/>
-			</SanityVisualEditing>
-		</>
-	)
-}
-```
-
-`SanityVisualEditing` starts the official React Router overlay and refresh
-integration only after browser mount and only when the request-derived
-`enabled` flag is true. This keeps the large Visual Editing implementation out
-of the normal server and published-visitor module graph. Suspicious-Stega DOM
-auditing is opt-in and should normally remain development-only because it uses
-a full DOM observer. `SanityPreviewExit` is unstyled, uses document navigation
-to clear the HttpOnly session, and hides inside Presentation or preview popups
-unless configured with `visibility="always"`.
-
-This subpath intentionally does not own application GROQ queries, live-query
-stores, route modules, or view models. Install `@sanity/visual-editing` alongside
-the package when using it. This prerelease requires React and React DOM 19.2.7+
-to satisfy React Router 8.4's peer requirements.
-
-Sanity-driven page types are registered through the browser-safe React Router
-entrypoint:
-
-```tsx
-import {
-	createSanityRoutes,
-	defineSanityRoute,
-} from '@standard/sanity-kit/react-router'
-
-export const sanityRoutes = createSanityRoutes({
-	routes: [
-		defineSanityRoute({
-			type: 'article',
-			component: ArticlePage,
-			meta: (article) => [{ title: article.title }],
-		}),
-	],
-})
-
-export const meta = sanityRoutes.meta
-export default sanityRoutes.default
-```
-
-The registry exposes immutable runtime `types` and `linkableTypes` collections
-for server-loader parity checks and link helpers. It contains no clients,
-tokens, queries for page content, or server-only imports.
-
-Framework-neutral link resolution is available from the separate `/link`
-entrypoint. Bind the React Router adapter directly to the route registry so its
-`linkableTypes` remain the authority for valid internal destinations:
-
-```tsx
-import { createSanityLinks } from '@standard/sanity-kit/react-router'
-
-export const sanityLinks = createSanityLinks({ routes: sanityRoutes })
-export const SanityLink = sanityLinks.Link
-
-<SanityLink link={callToAction.link} prefetch="intent">
-	{callToAction.link.label}
-</SanityLink>
-```
-
-Call `createSanityLinks()` once at module scope in a shared application module,
-then import the configured `SanityLink` wherever it is needed. Do not call the
-factory inside a React component or during rendering; doing so creates a new
-component identity on every call.
-
-Internal links preserve separate pathname, search, and hash values. A non-empty
-`search` includes its leading `?`, and a non-empty `hash` includes its leading
-`#`. External links accept only explicit protocols (`http:`, `https:`,
-`mailto:`, and `tel:` by default), use document navigation, and add
-`noopener noreferrer` whenever they open a new tab. The resolver throws a
-structured error for malformed data or internal document types outside the
-registry.
-
-Consumers can pair their own route-data projection with the normalized link
-contract without importing React Router or Zod. For TypeGen, prefer the static
-canonical projections inside a named `defineQuery`:
-
-```ts
-import { defineQuery } from 'groq'
-import { sanityLinkQueryFragment } from '@standard/sanity-kit/link'
-
-export const navigationQuery = defineQuery(`
-  *[_type == "navigation"][0]{items[]{${sanityLinkQueryFragment}}}
-`)
-```
-
-`sanityPortableTextLinkQueryFragment` is the equivalent annotation projection
-without a label. Both dereference `internalDestination` to `_id`, `_type`, and
-`"pathname": pathname.current`. They do not change the stored link fields or
-introduce legacy aliases. For custom runtime projections, the factory remains
-available:
-
-```ts
-import { createSanityLinkQueryFragments } from '@standard/sanity-kit/link'
-import { sanityRouteDataQueryFragment } from '@standard/sanity-kit/react-router'
-
-export const { linkQueryFragment, portableTextLinkQueryFragment } =
-	createSanityLinkQueryFragments({
-		internalDestinationQueryFragment: sanityRouteDataQueryFragment,
-	})
-```
-
-The matching server registry pairs every route type with a query and decoder:
-
-```ts
-import {
-	createSanityLoaders,
-	defineSanityLoader,
-} from '@standard/sanity-kit/react-router/server'
-
-export const sanityLoaders = createSanityLoaders({
-	routes: sanityRoutes,
-	kit: sanity,
-	loaders: [
-		defineSanityLoader({
-			type: 'article',
-			query: articleQuery,
-			decoder: articleDecoder,
-			previewDecoder: draftArticleDecoder,
-		}),
-	],
-	cache: applicationCacheAdapter,
-})
-
-export const loader = sanityLoaders.loader
-```
-
-Registry parity is checked at startup. Published data must validate before any
-cache write. Caches store raw query results, not decoder transforms, and reads
-are decoded again. Preview bypasses caches, validates a clean shadow for strict
-diagnostics, then passes the original Stega-bearing data to `previewDecoder`.
-The loader result and `mutate` input include both published and draft types.
-Without a preview decoder, raw drafts pass through with only `SanityRoutable`
-type guarantees. Loaders with
-custom query parameters must supply a corresponding `cacheKey` to opt into page
-caching; otherwise the kit bypasses that cache to prevent cross-variant data.
-
-See [loader validation, preview diagnostics, and caching](docs/loaders.md) for
-the request-scoped integration recipe and alpha migration requirements.
-
-## Sitemaps
-
-`createSanitySitemapLoader` from `@standard/sanity-kit/react-router/server`
-combines an application-owned query, required decoder, and entry mapper into
-a published-only XML resource route. Supply the canonical site origin and
-optionally inject a query cache. Preview cookies never select draft content.
-
-For other integrations, `@standard/sanity-kit/sitemap` provides
-`serializeSitemap`, `serializeSitemapIndex`, `createSitemapResponse`, and
-`createSitemapIndexResponse`. The serializers escape XML, validate URLs and
-dates, deduplicate canonical URLs, and enforce protocol limits.
-
-See [sitemap integration and caching](docs/sitemaps.md) for complete examples.
-
-## Intended boundaries
-
-- `@standard/sanity-kit/core`: browser-safe configuration and shared contracts
-- `@standard/sanity-kit/image`: explicit image URL helpers
-- `@standard/sanity-kit/image/react`: optional responsive React image component
-- `@standard/sanity-kit/link`: framework-neutral link contracts, GROQ fragments,
-  and safe resolution
-- `@standard/sanity-kit/sitemap`: portable XML sitemap and index serialization
-  and Web Response helpers
-- `@standard/sanity-kit/react-router`: client-safe React Router integration
-- `@standard/sanity-kit/react-router/visual-editing`: optional lazy browser
-  overlays and headless preview-exit control
-- `@standard/sanity-kit/react-router/server`: server-only clients, preview
-  sessions, handlers, and loaders
-- `@standard/sanity-kit/validation/zod`: optional Zod adapter
-
-Only documented entrypoints are exported. Packed-consumer checks cover runtime
-imports, declarations, optional peers, and browser bundle boundaries.
-
-## Development
-
-Node.js 24 and pnpm 11.26.0 are used in CI.
+CI uses Node 24 and pnpm 11.26.0.
 
 ```sh
 pnpm install --frozen-lockfile
@@ -380,15 +143,18 @@ pnpm test:coverage
 pnpm test:package
 ```
 
-`pnpm verify` runs the baseline formatting, build, lint, type, and unit checks.
-Full CI also runs coverage and packed-consumer checks, including publint and
-Are the Types Wrong, on every push, pull request, and manual dispatch. See the
-[prerelease guide](docs/prerelease.md#verification-and-handoff) for details.
-CI does not publish or deploy.
+`pnpm verify` checks formatting, builds, lints, typechecks, and runs unit tests.
+Coverage and packed-consumer checks are additional CI gates. The package checks
+exercise runtime imports, declarations, optional peers, browser/server
+boundaries, and TypeGen query extraction. CI runs on pushes, pull requests, and
+manual dispatch; it does not publish or deploy.
 
-No commits are created until each logical change set and its proposed commit
-message have been reviewed.
+### Building and preparing a release
 
-`pnpm build` assembles a compiled-only package in `dist`; root packing is blocked.
-After approval and commit, `pnpm pack:release` creates a local tarball with
-commit and checksum metadata. It does not tag, push, or publish.
+`pnpm build` assembles a compiled-only package, including these guides, in `dist`.
+Packing the repository root is blocked. After review and commit,
+`pnpm pack:release` creates a local tarball with commit and checksum metadata;
+it does not tag, push, or publish. See [verification and handoff](docs/prerelease.md#verification-and-handoff).
+
+Each logical change set and its commit message must be reviewed before a commit
+is created. The [changelog](CHANGELOG.md) records release changes.

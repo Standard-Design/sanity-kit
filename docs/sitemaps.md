@@ -5,6 +5,12 @@ Your application supplies its canonical origin, query, decoder, and mapping from
 content to URLs. These APIs use standard Web APIs and require no Cloudflare
 bindings.
 
+Import portable helpers from `@standard/sanity-kit/sitemap`; they need no React
+integration. The loader is available from the server-only
+`@standard/sanity-kit/react-router/server` entrypoint and uses its
+[peer dependencies](prerelease.md#supported-peers). Zod in the example below is
+optional; see [core decoders](core.md#the-decoder-contract).
+
 ## React Router integration
 
 Create the loader in a server module. This example assumes a project whose
@@ -65,6 +71,10 @@ application's error handling; invalid results are never returned as a successful
 empty sitemap. Decoders should be pure because caching may require validation
 both before storage and after lookup.
 
+HEAD performs the same fetching, validation, and serialization as GET, but omits
+the response body. Other methods return 405 with `Allow: GET, HEAD` and no-store
+headers. The loader does not implement conditional requests or compression.
+
 ## Portable XML helpers
 
 ```ts
@@ -80,6 +90,8 @@ const response = createSitemapResponse(entries, {
 })
 ```
 
+### URL rules
+
 `loc` accepts a root-relative path or an absolute HTTP(S) URL on the same origin.
 `siteUrl` must contain only an origin, with an optional trailing slash. Subpath
 deployments should include the subpath in every entry. Credentials, fragments,
@@ -87,6 +99,8 @@ protocol-relative URLs, controls, backslashes, malformed percent escapes, and
 URLs of 2,048 or more characters are rejected. Supply percent-encoded spaces;
 Unicode paths are URL-encoded. Stega metadata is cleaned before validation and
 XML values are escaped.
+
+### Modification dates and duplicates
 
 `lastmod` is optional. Supply a valid `Date`, `YYYY-MM-DD`, or ISO timestamp with
 seconds and a timezone. Use the page's actual modification date, which may
@@ -98,6 +112,8 @@ supplied `lastmod`. Entries otherwise preserve input order; order your query
 when deterministic output across fetches matters. Trailing slashes and query
 strings remain distinct, so the application should choose its canonical forms.
 No default priority or change frequency is emitted.
+
+### Response headers
 
 Response helpers set `application/xml; charset=utf-8` and `nosniff`. They default
 to `Cache-Control: no-cache`; use `headers` to supply your application's caching
@@ -116,11 +132,16 @@ cache: {
 }
 ```
 
-The application owns TTLs and invalidation. Include the site, dataset, query
-version, and every parameter variant in the key. The key callback receives
+The application owns TTLs and invalidation. Include the site, project, dataset,
+API/query version, and every parameter variant in the key. The key callback receives
 loader arguments and can return `null` to bypass caching. Do not reuse a cache
 that can contain preview data. A decoded shape alone cannot establish whether
 an arbitrary cache value was originally fetched from the published perspective.
+
+The cache stores raw query results, not mapper output or XML. A valid query result
+may already have been stored before a later mapping/serialization failure; use
+application invalidation to repair stale content or mapping assumptions. Do not
+store a fallback when the provided fetch/validate callback rejects.
 
 ## Large sites and sitemap indexes
 
@@ -152,3 +173,10 @@ remain application concerns.
 
 Protocol references: [Sitemaps XML format](https://www.sitemaps.org/protocol.html)
 and [Google's sitemap guidance](https://developers.google.com/search/docs/crawling-indexing/sitemaps/build-sitemap).
+
+## Source and related guides
+
+Implementation: `src/sitemap/index.ts` and `src/react-router/server/sitemap.ts`.
+Tests: `tests/sitemap` and `tests/react-router/sitemap.test.ts`. See
+[server clients](server.md), [validation](core.md), or the
+[documentation index](README.md).

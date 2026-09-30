@@ -3,11 +3,21 @@
 Version `0.1.0-alpha.2` is intended for reviewed integration testing. The package
 remains private and unlicensed; there is no npm publication in this workflow.
 
+These repository docs also describe pending changes after alpha.2. In particular,
+[loader hardening](loaders.md#alpha-compatibility-changes) and
+[static link fragments](link.md#query-fragments-and-typegen), along with the
+[request-context rename](server.md#migration-from-alpha2), are not included in
+the alpha.2 artifact. Use documentation from the exact artifact/revision you
+consume; the expanded source documentation is not a new release.
+
 ## Distribution
 
 `pnpm build` replaces generated output and assembles `dist` as a complete package
 root. Its exports reference compiled JavaScript and declarations directly.
-The artifact includes README, LICENSE, CHANGELOG, this guide, and sitemap docs.
+The current build includes README, LICENSE, CHANGELOG, the
+[documentation index](README.md), all subsystem guides, this prerelease guide,
+and extraction provenance. These expanded guides will ship with the next approved
+artifact; previously released tarballs are unchanged.
 Source files, source maps, tests, development dependencies, and lifecycle scripts
 are excluded. Source-level debugging uses the matching repository commit.
 
@@ -45,6 +55,11 @@ checked separately with `skipLibCheck: true`: its upstream `@sanity/types` and
 does not disable strict checking of application code. It may download dependencies.
 Temporary consumers are retained
 under the system temporary directory and their location is printed for inspection.
+
+The current package check also installs a temporary pnpm Studio/frontend
+workspace and verifies that Sanity codegen 8.1.0 can extract queries containing
+the static link fragments. See [TypeGen integration](link.md#monorepo-code-generation)
+for the direct-dependency requirement and limits of that check.
 
 The `esm-only` profile matches the supported ESM exports; CommonJS and legacy
 Node 10 resolution are not supported. No other ATTW rules are suppressed.
@@ -139,3 +154,5 @@ separate from the package's isolated checks.
 
 The package intentionally leaves application schemas, query ownership, styles,
 runtime cache implementations, and deployment configuration to the consumer.
+
+Return to the [documentation index](README.md) or [package overview](../README.md).

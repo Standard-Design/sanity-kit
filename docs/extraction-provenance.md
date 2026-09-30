@@ -48,5 +48,9 @@ Cloudflare cache remain application-owned; the extraction adds portable XML
 serialization, strict validation, and an explicitly configured server loader.
 
 Standard Stack is coordinated separately and remains read-only. It will consume
-only a reviewed packed artifact or exact Git revision after the package passes
-its integration gates; it will not import this workspace's source directly.
+only a reviewed compiled tarball tied to an exact Git revision after the package
+passes its integration gates; direct Git dependency installation is not supported.
+It will not import this workspace's source directly. See the
+[prerelease guide](prerelease.md) for the current distribution contract.
+
+Return to the [documentation index](README.md).

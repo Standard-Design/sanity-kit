@@ -73,7 +73,7 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package.json|README.md|LICENSE|CHANGELOG.md|docs\/(sitemaps|prerelease|loaders).md)$/u.test(
+			/^(package\.json|README\.md|LICENSE|CHANGELOG\.md|docs\/(README|core|image|image-react|link|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
@@ -92,6 +92,16 @@ for (const required of [
 	'docs/sitemaps.md',
 	'docs/prerelease.md',
 	'docs/loaders.md',
+	'docs/README.md',
+	'docs/core.md',
+	'docs/image.md',
+	'docs/image-react.md',
+	'docs/link.md',
+	'docs/react-router.md',
+	'docs/server.md',
+	'docs/visual-editing.md',
+	'docs/validation-zod.md',
+	'docs/extraction-provenance.md',
 ])
 	assert.ok(contents.has(required), `Missing ${required}`)
 assert.equal(distManifest.private, true)
