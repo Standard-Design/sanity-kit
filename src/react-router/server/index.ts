@@ -75,7 +75,7 @@ export interface CreateSanityKitConfig extends SanityPublicConfig {
 	}
 }
 
-export interface SanityPreviewContext {
+export interface SanityRequestContext {
 	preview: boolean
 	perspective: ClientPerspective
 	client: SanityClient
@@ -83,12 +83,12 @@ export interface SanityPreviewContext {
 }
 
 export interface SanityPreviewHandlers {
-	getContext: (request: Request) => Promise<SanityPreviewContext>
 	enable: (args: { request: Request }) => Promise<Response>
 	disable: (args: { request: Request }) => Promise<Response>
 }
 
 export interface SanityKit {
+	getContext: (request: Request) => Promise<SanityRequestContext>
 	publishedClient: SanityClient
 	previewClient: SanityClient
 	clientFor: (preview: boolean) => SanityClient
@@ -153,7 +153,7 @@ export function createSanityKit(config: CreateSanityKitConfig): SanityKit {
 	const validateUrl: SanityPreviewUrlValidator =
 		config.preview?.validateUrl ?? validatePreviewUrl
 
-	async function getContext(request: Request): Promise<SanityPreviewContext> {
+	async function getContext(request: Request): Promise<SanityRequestContext> {
 		const session = await sessionStorage.getSession(
 			request.headers.get('Cookie'),
 		)
@@ -213,10 +213,11 @@ export function createSanityKit(config: CreateSanityKitConfig): SanityKit {
 	}
 
 	return {
+		getContext,
 		publishedClient,
 		previewClient,
 		clientFor: (preview) => (preview ? previewClient : publishedClient),
-		preview: { getContext, enable, disable },
+		preview: { enable, disable },
 	}
 }
 

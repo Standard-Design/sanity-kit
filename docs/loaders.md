@@ -143,6 +143,10 @@ types. See [Sanity's TypeGen documentation](https://www.sanity.io/docs/apis-and-
 
 ## Alpha compatibility changes
 
+- Replace `kit.preview.getContext(request)` with `kit.getContext(request)` and
+  `SanityPreviewContext` with `SanityRequestContext`. The returned fields and
+  session behavior are unchanged. Update custom kit mocks too; the old names
+  are not retained as aliases. Preview enable/disable handlers stay in place.
 - Published `passthrough` is no longer supported; remove it and fix invalid
   published documents instead of caching/rendering them as validated data.
 - Handle draft types in mutations/components, or provide a preview decoder.

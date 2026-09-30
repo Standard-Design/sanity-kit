@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+- **Breaking (alpha):** move `kit.preview.getContext(request)` to
+  `kit.getContext(request)` and rename `SanityPreviewContext` to
+  `SanityRequestContext`. No compatibility aliases are retained. Published and
+  preview selection, result fields, and session behavior are unchanged;
+  `kit.preview.enable` and `kit.preview.disable` remain in place.
 - Validate route lookups and route documents before cache writes; revalidate
   cache reads and store raw results so decoder transforms do not accumulate.
 - Add per-loader `previewDecoder` for typed tolerant drafts, preserving original

@@ -15,7 +15,7 @@ import {
 	sanityRouteDataQuery,
 	type SanityRouteData,
 } from '../route-data.js'
-import type { SanityKit, SanityPreviewContext } from './index.js'
+import type { SanityKit, SanityRequestContext } from './index.js'
 
 const defaultRouteDataCachePrefix = 'SANITY_ROUTE_DATA:'
 const defaultRouteCachePrefix = 'SANITY_ROUTE:'
@@ -155,11 +155,11 @@ export function createSanityLoaders<
 	const loadersByType = createLoaderMap(config.routes.types, config.loaders)
 
 	async function loader(args: LoaderFunctionArgs): Promise<unknown> {
-		const previewContext = await config.kit.preview.getContext(args.request)
+		const requestContext = await config.kit.getContext(args.request)
 		const url = args.url
 		const routeData = await loadRouteData(
 			config,
-			previewContext,
+			requestContext,
 			args.request,
 			url.pathname,
 		)
@@ -171,17 +171,17 @@ export function createSanityLoaders<
 		}
 
 		const context: SanityLoaderContext = {
-			client: previewContext.client,
+			client: requestContext.client,
 			context: args.context,
 			params: args.params,
 			pattern: args.pattern,
-			perspective: previewContext.perspective,
-			preview: previewContext.preview,
+			perspective: requestContext.perspective,
+			preview: requestContext.preview,
 			request: args.request,
 			routeData,
 			url,
 		}
-		const cacheKey = previewContext.preview
+		const cacheKey = requestContext.preview
 			? null
 			: matched.cacheKey
 				? matched.cacheKey(context)
@@ -190,7 +190,7 @@ export function createSanityLoaders<
 					: `${defaultRouteCachePrefix}${url.pathname}${url.search}`
 		const data = await loadWithCache(
 			config.cache,
-			previewContext.preview,
+			requestContext.preview,
 			cacheKey,
 			{
 				request: args.request,
@@ -201,7 +201,7 @@ export function createSanityLoaders<
 				const additionalParams = matched.params
 					? await matched.params(context)
 					: {}
-				return previewContext.client.fetch<unknown>(
+				return requestContext.client.fetch<unknown>(
 					matched.query,
 					{
 						...additionalParams,
@@ -209,7 +209,7 @@ export function createSanityLoaders<
 						pathname: routeData.pathname,
 					},
 					{
-						...previewContext.options,
+						...requestContext.options,
 						signal: args.request.signal,
 					},
 				)
@@ -312,20 +312,20 @@ async function loadRouteData(
 		cache?: SanityLoaderCache
 		validation?: CreateSanityLoadersConfig<string>['validation']
 	},
-	previewContext: SanityPreviewContext,
+	requestContext: SanityRequestContext,
 	request: Request,
 	pathname: string,
 ): Promise<SanityRouteData> {
 	return loadWithCache(
 		config.cache,
-		previewContext.preview,
+		requestContext.preview,
 		`${defaultRouteDataCachePrefix}${pathname}`,
 		{ request, scope: 'route-data' },
 		() =>
-			previewContext.client.fetch<unknown>(
+			requestContext.client.fetch<unknown>(
 				sanityRouteDataQuery,
 				{ pathname },
-				{ ...previewContext.options, signal: request.signal },
+				{ ...requestContext.options, signal: request.signal },
 			),
 		async (raw, source) => {
 			const validation = await validateSanityData(raw, sanityRouteDataDecoder)
@@ -333,7 +333,7 @@ async function loadRouteData(
 				await config.validation?.onFailure?.({
 					data: raw,
 					diagnostics: validation.result.diagnostics,
-					preview: previewContext.preview,
+					preview: requestContext.preview,
 					request,
 					stage: 'route-data',
 					source,

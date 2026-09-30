@@ -159,7 +159,7 @@ export const sanity = createSanityKit({
 ```
 
 The returned `sanity.preview.enable` and `sanity.preview.disable` functions are
-drop-in resource-route loaders. `sanity.preview.getContext(request)` selects a
+drop-in resource-route loaders. `sanity.getContext(request)` selects a
 published or preview client and typed fetch options without reading global
 environment state. The cookie-signing secret is intentionally separate from
 Sanity's preview URL validation protocol.
@@ -174,7 +174,7 @@ import {
 } from '@standard/sanity-kit/react-router/visual-editing'
 
 export async function loader({ request }: Route.LoaderArgs) {
-	const context = await sanity.preview.getContext(request)
+	const context = await sanity.getContext(request)
 	return { sanityPreview: { enabled: context.preview } }
 }
 

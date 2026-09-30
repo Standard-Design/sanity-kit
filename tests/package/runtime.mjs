@@ -125,7 +125,11 @@ if (process.argv.includes('--full')) {
 		sessionSecret: 'test-session-secret-at-least-32-characters',
 	})
 	const request = new Request('https://example.com/sitemap.xml')
-	assert.equal((await kit.preview.getContext(request)).preview, false)
+	const { preview, options, client } = await kit.getContext(request)
+	assert.equal(preview, false)
+	assert.equal(client, kit.publishedClient)
+	assert.deepEqual(options, { perspective: 'published', stega: false })
+	assert.deepEqual(Object.keys(kit.preview).sort(), ['disable', 'enable'])
 	kit.publishedClient.fetch = async () => [{ path: '/' }]
 	const loader = createSanitySitemapLoader({
 		client: kit.publishedClient,

@@ -70,16 +70,14 @@ function createKit(
 	fetch: ReturnType<typeof vi.fn>,
 ): SanityKit {
 	return {
-		preview: {
-			getContext: vi.fn().mockResolvedValue({
-				preview,
-				perspective: preview ? 'drafts' : 'published',
-				client: { fetch } as unknown as SanityClient,
-				options: preview
-					? { perspective: 'drafts', stega: true }
-					: { perspective: 'published', stega: false },
-			}),
-		},
+		getContext: vi.fn().mockResolvedValue({
+			preview,
+			perspective: preview ? 'drafts' : 'published',
+			client: { fetch } as unknown as SanityClient,
+			options: preview
+				? { perspective: 'drafts', stega: true }
+				: { perspective: 'published', stega: false },
+		}),
 	} as unknown as SanityKit
 }
 

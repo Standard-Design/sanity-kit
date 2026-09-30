@@ -16,6 +16,7 @@ import {
 	createSanityLoaders,
 	defineSanityLoader,
 	createSanitySitemapLoader,
+	type SanityRequestContext,
 } from '@standard/sanity-kit/react-router/server'
 import { createZodDecoder } from '@standard/sanity-kit/validation/zod'
 import {
@@ -34,6 +35,16 @@ const kit = createSanityKit({
 	readToken: 'server-only-test-token',
 	sessionSecret: 'server-only-session-secret-at-least-32-characters',
 })
+
+// Check the public declaration and the same destructuring used in the guide.
+export async function readRequestContext(request: Request) {
+	const context: SanityRequestContext = await kit.getContext(request)
+	const { preview, options, client } = context
+	const enabled: boolean = preview
+	// @ts-expect-error Request context is no longer a preview-only operation.
+	void kit.preview.getContext
+	return { preview: enabled, options, client }
+}
 const images = createSanityImageTools(publicConfig)
 const Image = createSanityImageComponent(publicConfig)
 const prepared = prepareSanityImage({

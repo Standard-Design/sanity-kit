@@ -35,11 +35,12 @@ describe('createSanityKit', () => {
 		})
 		expect(kit.clientFor(false)).toBe(kit.publishedClient)
 		expect(kit.clientFor(true)).toBe(kit.previewClient)
+		expect(Object.keys(kit.preview).sort()).toEqual(['disable', 'enable'])
 	})
 
 	it('returns a published context without a preview cookie', async () => {
 		const kit = createSanityKit(baseConfig)
-		const context = await kit.preview.getContext(
+		const context = await kit.getContext(
 			new Request('https://example.com/page'),
 		)
 
@@ -49,6 +50,65 @@ describe('createSanityKit', () => {
 			client: kit.publishedClient,
 			options: { perspective: 'published', stega: false },
 		})
+	})
+
+	it('supports destructuring and keeps published and preview requests independent', async () => {
+		const kit = createSanityKit({
+			...baseConfig,
+			preview: { validateUrl: vi.fn().mockResolvedValue({ isValid: true }) },
+		})
+		const enabled = await kit.preview.enable({
+			request: new Request('https://example.com/preview/enable'),
+		})
+		const cookie = enabled.headers.get('Set-Cookie')?.split(';', 1)[0] ?? ''
+		const { getContext } = kit
+		const [published, draft] = await Promise.all([
+			getContext(new Request('https://example.com/page')),
+			getContext(
+				new Request('https://example.com/page', {
+					headers: { Cookie: cookie },
+				}),
+			),
+		])
+		const { preview, options, client } = draft
+		expect(preview).toBe(true)
+		expect(options).toEqual({ perspective: 'drafts', stega: true })
+		expect(client).toBe(kit.previewClient)
+		expect(published).toEqual({
+			preview: false,
+			perspective: 'published',
+			client: kit.publishedClient,
+			options: { perspective: 'published', stega: false },
+		})
+		expect(await getContext(new Request('https://example.com/page'))).toEqual(
+			published,
+		)
+	})
+
+	it('returns published context after the preview session is cleared', async () => {
+		const kit = createSanityKit({
+			...baseConfig,
+			preview: { validateUrl: vi.fn().mockResolvedValue({ isValid: true }) },
+		})
+		const enabled = await kit.preview.enable({
+			request: new Request('https://example.com/preview/enable'),
+		})
+		const cookie = enabled.headers.get('Set-Cookie')?.split(';', 1)[0] ?? ''
+		const disabled = await kit.preview.disable({
+			request: new Request('https://example.com/preview/disable', {
+				headers: { Cookie: cookie },
+			}),
+		})
+		const clearedCookie =
+			disabled.headers.get('Set-Cookie')?.split(';', 1)[0] ?? ''
+		const { preview, options, client } = await kit.getContext(
+			new Request('https://example.com/page', {
+				headers: { Cookie: clearedCookie },
+			}),
+		)
+		expect(preview).toBe(false)
+		expect(options).toEqual({ perspective: 'published', stega: false })
+		expect(client).toBe(kit.publishedClient)
 	})
 
 	it('enables preview with a signed, secure session cookie', async () => {
@@ -82,7 +142,7 @@ describe('createSanityKit', () => {
 		)
 
 		const cookie = setCookie?.split(';', 1)[0]
-		const context = await kit.preview.getContext(
+		const context = await kit.getContext(
 			new Request('https://example.com/draft', {
 				headers: { Cookie: cookie ?? '' },
 			}),
