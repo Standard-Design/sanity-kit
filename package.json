@@ -33,7 +33,8 @@
 		},
 		"./link": {
 			"types": "./dist/link/index.d.ts",
-			"import": "./dist/link/index.js"
+			"import": "./dist/link/index.js",
+			"default": "./dist/link/index.js"
 		},
 		"./sitemap": {
 			"types": "./dist/sitemap/index.d.ts",

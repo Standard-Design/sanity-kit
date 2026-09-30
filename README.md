@@ -270,7 +270,23 @@ structured error for malformed data or internal document types outside the
 registry.
 
 Consumers can pair their own route-data projection with the normalized link
-contract without importing React Router or Zod:
+contract without importing React Router or Zod. For TypeGen, prefer the static
+canonical projections inside a named `defineQuery`:
+
+```ts
+import { defineQuery } from 'groq'
+import { sanityLinkQueryFragment } from '@standard/sanity-kit/link'
+
+export const navigationQuery = defineQuery(`
+  *[_type == "navigation"][0]{items[]{${sanityLinkQueryFragment}}}
+`)
+```
+
+`sanityPortableTextLinkQueryFragment` is the equivalent annotation projection
+without a label. Both dereference `internalDestination` to `_id`, `_type`, and
+`"pathname": pathname.current`. They do not change the stored link fields or
+introduce legacy aliases. For custom runtime projections, the factory remains
+available:
 
 ```ts
 import { createSanityLinkQueryFragments } from '@standard/sanity-kit/link'
@@ -298,6 +314,7 @@ export const sanityLoaders = createSanityLoaders({
 			type: 'article',
 			query: articleQuery,
 			decoder: articleDecoder,
+			previewDecoder: draftArticleDecoder,
 		}),
 	],
 	cache: applicationCacheAdapter,
@@ -306,12 +323,18 @@ export const sanityLoaders = createSanityLoaders({
 export const loader = sanityLoaders.loader
 ```
 
-Registry parity is checked at startup. Published data is strict by default;
-preview data retains its original Stega strings and reports decoder diagnostics
-before passing incomplete drafts through. Cache adapters receive only published
-requests, and cached values are always decoded again before use. Loaders with
+Registry parity is checked at startup. Published data must validate before any
+cache write. Caches store raw query results, not decoder transforms, and reads
+are decoded again. Preview bypasses caches, validates a clean shadow for strict
+diagnostics, then passes the original Stega-bearing data to `previewDecoder`.
+The loader result and `mutate` input include both published and draft types.
+Without a preview decoder, raw drafts pass through with only `SanityRoutable`
+type guarantees. Loaders with
 custom query parameters must supply a corresponding `cacheKey` to opt into page
 caching; otherwise the kit bypasses that cache to prevent cross-variant data.
+
+See [loader validation, preview diagnostics, and caching](docs/loaders.md) for
+the request-scoped integration recipe and alpha migration requirements.
 
 ## Sitemaps
 

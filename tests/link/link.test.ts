@@ -3,6 +3,8 @@ import {
 	createSanityLinkQueryFragments,
 	createSanityLinkResolver,
 	SanityLinkResolutionError,
+	sanityLinkQueryFragment,
+	sanityPortableTextLinkQueryFragment,
 	type SanityLink,
 } from '../../src/link/index.js'
 
@@ -13,6 +15,19 @@ const resolver = createSanityLinkResolver({
 type LinkableType = (typeof resolver.linkableTypes)[number]
 
 describe('createSanityLinkResolver', () => {
+	it('keeps static canonical fragments equivalent to the custom factory', () => {
+		const fragments = createSanityLinkQueryFragments({
+			internalDestinationQueryFragment:
+				'"pathname": pathname.current, _type, _id',
+		})
+		const normalize = (value: string) => value.replace(/\s+/g, '')
+		expect(normalize(sanityLinkQueryFragment)).toBe(
+			normalize(fragments.linkQueryFragment),
+		)
+		expect(normalize(sanityPortableTextLinkQueryFragment)).toBe(
+			normalize(fragments.portableTextLinkQueryFragment),
+		)
+	})
 	it('resolves registered internal documents with search and hash intact', () => {
 		expect(
 			resolver.resolve({

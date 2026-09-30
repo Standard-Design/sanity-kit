@@ -1,5 +1,23 @@
 # Changelog
 
+## Unreleased
+
+- Validate route lookups and route documents before cache writes; revalidate
+  cache reads and store raw results so decoder transforms do not accumulate.
+- Add per-loader `previewDecoder` for typed tolerant drafts, preserving original
+  Stega render strings. Strict diagnostics remain available through `onFailure`.
+- Include lookup failures, validation stage, and fetch/cache source in the
+  server-only failure hook. Public loader errors now contain only a stable code
+  and generic message, never diagnostic details or request paths.
+- Add static canonical link fragments for TypeGen; custom fragment factories
+  and the stored link contract remain unchanged. The `/link` export now has a
+  default ESM resolution target for TypeGen's static module resolver.
+- **Breaking (alpha):** remove published `passthrough`; published data must
+  validate. Loader results and mutation inputs now include the preview decoder
+  output, or only `SanityRoutable` guarantees for undecoded drafts. Failure-hook
+  `routeData` and `type` are optional because lookup can fail before resolution.
+  Bump application cache namespaces when upgrading from transformed caches.
+
 ## 0.1.0-alpha.2
 
 - Add draft-safe `prepareSanityImage` with official asset identity/dimension

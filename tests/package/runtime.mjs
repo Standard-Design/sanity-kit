@@ -1,12 +1,22 @@
 import assert from 'node:assert/strict'
+import { createRequire } from 'node:module'
 import {
 	defineSanityConfig,
 	defineSanityDataDecoder,
 	requireValidSanityData,
 	validateSanityData,
 } from '@standard/sanity-kit'
-import { createSanityLinkQueryFragments } from '@standard/sanity-kit/link'
+import {
+	createSanityLinkQueryFragments,
+	sanityLinkQueryFragment,
+	sanityPortableTextLinkQueryFragment,
+} from '@standard/sanity-kit/link'
 import { createSitemapResponse } from '@standard/sanity-kit/sitemap'
+
+// TypeGen uses CommonJS-style module resolution to read ESM source statically.
+assert.ok(createRequire(import.meta.url).resolve('@standard/sanity-kit/link'))
+assert.match(sanityLinkQueryFragment, /internalDestination->/u)
+assert.match(sanityPortableTextLinkQueryFragment, /pathname\.current/u)
 
 assert.equal(
 	defineSanityConfig({

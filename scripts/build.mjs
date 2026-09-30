@@ -59,6 +59,7 @@ for (const file of [
 	'CHANGELOG.md',
 	'docs/sitemaps.md',
 	'docs/prerelease.md',
+	'docs/loaders.md',
 ]) {
 	await copyFile(
 		new URL(`../${file}`, import.meta.url),

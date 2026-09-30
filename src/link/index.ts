@@ -1,5 +1,30 @@
 import { stegaClean } from '@sanity/client/stega'
 
+/** Static projection for canonical links; suitable for TypeGen interpolation. */
+export const sanityLinkQueryFragment = /* groq */ `
+	"_key": coalesce(_key, label),
+	_type,
+	linkType,
+	label,
+	internalDestination->{"pathname": pathname.current, _type, _id},
+	search,
+	hash,
+	url,
+	openInNewTab
+`
+
+/** Static canonical link annotation projection, without a stored label. */
+export const sanityPortableTextLinkQueryFragment = /* groq */ `
+	_type,
+	_key,
+	linkType,
+	internalDestination->{"pathname": pathname.current, _type, _id},
+	search,
+	hash,
+	url,
+	openInNewTab
+`
+
 export const defaultSanityExternalLinkProtocols = [
 	'http:',
 	'https:',

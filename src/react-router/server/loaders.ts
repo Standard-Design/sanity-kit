@@ -37,17 +37,23 @@ export interface SanityLoaderContext {
 export interface SanityLoaderConfig<
 	TType extends string = string,
 	TData extends SanityRoutable<TType> = SanityRoutable<TType>,
+	TPreview extends SanityRoutable<TType> = SanityRoutable<TType>,
 > {
 	type: TType
 	query: string
 	decoder: SanityDataDecoder<TData>
+	/** Decode original preview data; preserve Stega strings used for rendering. */
+	previewDecoder?: SanityDataDecoder<TPreview>
 	/**
 	 * Add parameters beyond the protected `id` and `pathname` defaults. Loaders
 	 * with custom parameters bypass page caching unless `cacheKey` is supplied.
 	 */
 	params?: (context: SanityLoaderContext) => QueryParams | Promise<QueryParams>
 	/** Transform validated or preview-preserving data after fetch/cache lookup. */
-	mutate?: (data: TData, context: SanityLoaderContext) => TData | Promise<TData>
+	mutate?: (
+		data: NoInfer<TData | TPreview>,
+		context: SanityLoaderContext,
+	) => NoInfer<TData | TPreview> | Promise<NoInfer<TData | TPreview>>
 	/** Override the published page cache key, or return null to bypass caching. */
 	cacheKey?: (context: SanityLoaderContext) => string | null
 }
@@ -56,7 +62,10 @@ export interface SanityLoaderConfig<
 export function defineSanityLoader<
 	const TType extends string,
 	TData extends SanityRoutable<TType>,
->(config: SanityLoaderConfig<TType, TData>): SanityLoaderConfig<TType, TData> {
+	TPreview extends SanityRoutable<TType> = SanityRoutable<TType>,
+>(
+	config: SanityLoaderConfig<TType, TData, TPreview>,
+): SanityLoaderConfig<NoInfer<TType>, NoInfer<TData>, NoInfer<TPreview>> {
 	return config
 }
 
@@ -69,7 +78,9 @@ export interface SanityLoaderCacheContext {
 
 /**
  * Runtime-neutral cache adapter. It receives unknown because persistent caches
- * may JSON-roundtrip values; every returned value is decoded again by the kit.
+ * may JSON-roundtrip values. `load` returns strictly validated RAW data, never
+ * decoder output. Every adapter-returned value is decoded again by the kit.
+ * Do not transform values or catch a load failure and cache its error/fallback.
  */
 export type SanityLoaderCache = (
 	context: SanityLoaderCacheContext,
@@ -81,13 +92,16 @@ export interface SanityLoaderValidationFailure {
 	diagnostics: readonly SanityValidationDiagnostic[]
 	preview: boolean
 	request: Request
-	routeData: SanityRouteData
-	type: string
+	routeData?: SanityRouteData
+	type?: string
+	stage: 'route-data' | 'published' | 'preview'
+	/** Cache means adapter-returned data, including a read-through miss. */
+	source: 'fetch' | 'cache'
 }
 
 // Heterogeneous decoders and callbacks retain their types in the input tuple.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type AnyLoaderConfig<TType extends string> = SanityLoaderConfig<TType, any>
+type AnyLoaderConfig<TType extends string> = SanityLoaderConfig<TType, any, any>
 
 export interface CreateSanityLoadersConfig<
 	TType extends string,
@@ -101,8 +115,8 @@ export interface CreateSanityLoadersConfig<
 	/** Published-data cache adapter. Preview requests always bypass it. */
 	cache?: SanityLoaderCache
 	validation?: {
-		/** Defaults to `throw`. */
-		published?: SanityLoaderValidationPolicy
+		/** Published data must pass validation, including before cache writes. */
+		published?: 'throw'
 		/** Defaults to `passthrough` so incomplete drafts can render. */
 		preview?: SanityLoaderValidationPolicy
 		onFailure?: (failure: SanityLoaderValidationFailure) => void | Promise<void>
@@ -116,7 +130,9 @@ export interface SanityLoaders<TData extends SanityRoutable> {
 type RuntimeLoaderConfig = SanityLoaderConfig<string, SanityRoutable>
 
 type LoaderData<TLoader> =
-	TLoader extends SanityLoaderConfig<string, infer TData> ? TData : never
+	TLoader extends SanityLoaderConfig<string, infer TData, infer TPreview>
+		? TData | TPreview
+		: never
 
 /**
  * Build the server half of a Sanity-driven route. The factory validates client
@@ -151,11 +167,7 @@ export function createSanityLoaders<
 		if (!matched) {
 			// React Router uses thrown responses for route-level HTTP failures.
 			// eslint-disable-next-line @typescript-eslint/only-throw-error
-			throw jsonErrorResponse(404, 'SANITY_ROUTE_NOT_REGISTERED', {
-				message: `No Sanity route is registered for _type "${routeData._type}".`,
-				pathname: url.pathname,
-				type: routeData._type,
-			})
+			throw jsonErrorResponse(404, 'SANITY_ROUTE_NOT_REGISTERED')
 		}
 
 		const context: SanityLoaderContext = {
@@ -176,7 +188,7 @@ export function createSanityLoaders<
 				: matched.params
 					? null
 					: `${defaultRouteCachePrefix}${url.pathname}${url.search}`
-		const raw = await loadWithCache(
+		const data = await loadWithCache(
 			config.cache,
 			previewContext.preview,
 			cacheKey,
@@ -202,41 +214,55 @@ export function createSanityLoaders<
 					},
 				)
 			},
+			async (raw, source) => {
+				const validation = await validateSanityData(raw, matched.decoder)
+				const report = async (
+					stage: 'published' | 'preview',
+					diagnostics: readonly SanityValidationDiagnostic[],
+				) => {
+					await config.validation?.onFailure?.({
+						data: raw,
+						diagnostics,
+						preview: context.preview,
+						request: args.request,
+						routeData,
+						type: matched.type,
+						stage,
+						source,
+					})
+				}
+				if (!validation.result.success) {
+					await report('published', validation.result.diagnostics)
+					if (!context.preview || config.validation?.preview === 'throw') {
+						// eslint-disable-next-line @typescript-eslint/only-throw-error
+						throw jsonErrorResponse(500, 'SANITY_ROUTE_INVALID')
+					}
+				}
+
+				let value: unknown = raw
+				if (context.preview) {
+					if (matched.previewDecoder) {
+						// Deliberately not validateSanityData: render strings retain Stega.
+						const draft = await matched.previewDecoder.decode(raw)
+						if (!draft.success) {
+							await report('preview', draft.diagnostics)
+							// eslint-disable-next-line @typescript-eslint/only-throw-error
+							throw jsonErrorResponse(500, 'SANITY_PREVIEW_INVALID')
+						}
+						value = draft.value
+					}
+				} else if (validation.result.success) {
+					value = validation.result.value
+				}
+				// Check raw identity as well as decoded output before permitting a write.
+				assertLoadedType(raw, matched.type)
+				assertLoadedType(value, matched.type)
+				return value
+			},
 		)
 
-		const validation = await validateSanityData(raw, matched.decoder)
-		let data: unknown
-		if (validation.result.success) {
-			data = previewContext.preview ? validation.data : validation.result.value
-		} else {
-			await config.validation?.onFailure?.({
-				data: validation.data,
-				diagnostics: validation.result.diagnostics,
-				preview: previewContext.preview,
-				request: args.request,
-				routeData,
-				type: matched.type,
-			})
-
-			const policy = previewContext.preview
-				? (config.validation?.preview ?? 'passthrough')
-				: (config.validation?.published ?? 'throw')
-			if (policy === 'throw') {
-				// React Router uses thrown responses for route-level HTTP failures.
-				// eslint-disable-next-line @typescript-eslint/only-throw-error
-				throw jsonErrorResponse(500, 'SANITY_ROUTE_INVALID', {
-					diagnostics: validation.result.diagnostics,
-					message: `Sanity route data for "${url.pathname}" failed validation.`,
-					pathname: url.pathname,
-					type: matched.type,
-				})
-			}
-			data = validation.data
-		}
-
-		assertLoadedType(data, matched.type, url.pathname)
 		const mutated = matched.mutate ? await matched.mutate(data, context) : data
-		assertLoadedType(mutated, matched.type, url.pathname)
+		assertLoadedType(mutated, matched.type)
 		return mutated
 	}
 
@@ -284,12 +310,13 @@ async function loadRouteData(
 	config: {
 		kit: SanityKit
 		cache?: SanityLoaderCache
+		validation?: CreateSanityLoadersConfig<string>['validation']
 	},
 	previewContext: SanityPreviewContext,
 	request: Request,
 	pathname: string,
 ): Promise<SanityRouteData> {
-	const raw = await loadWithCache(
+	return loadWithCache(
 		config.cache,
 		previewContext.preview,
 		`${defaultRouteDataCachePrefix}${pathname}`,
@@ -300,43 +327,49 @@ async function loadRouteData(
 				{ pathname },
 				{ ...previewContext.options, signal: request.signal },
 			),
+		async (raw, source) => {
+			const validation = await validateSanityData(raw, sanityRouteDataDecoder)
+			if (!validation.result.success) {
+				await config.validation?.onFailure?.({
+					data: raw,
+					diagnostics: validation.result.diagnostics,
+					preview: previewContext.preview,
+					request,
+					stage: 'route-data',
+					source,
+				})
+				const missing = raw === null || raw === undefined
+				// eslint-disable-next-line @typescript-eslint/only-throw-error
+				throw jsonErrorResponse(
+					missing ? 404 : 500,
+					missing ? 'SANITY_ROUTE_NOT_FOUND' : 'SANITY_ROUTE_DATA_INVALID',
+				)
+			}
+			return validation.result.value
+		},
 	)
-
-	const validation = await validateSanityData(raw, sanityRouteDataDecoder)
-	if (!validation.result.success) {
-		const missing = raw === null || raw === undefined
-		// React Router uses thrown responses for route-level HTTP failures.
-		// eslint-disable-next-line @typescript-eslint/only-throw-error
-		throw jsonErrorResponse(
-			missing ? 404 : 500,
-			missing ? 'SANITY_ROUTE_NOT_FOUND' : 'SANITY_ROUTE_DATA_INVALID',
-			{
-				diagnostics: validation.result.diagnostics,
-				message: missing
-					? `No Sanity route found for "${pathname}".`
-					: `Sanity route lookup data for "${pathname}" is invalid.`,
-				pathname,
-			},
-		)
-	}
-	return validation.result.value
 }
 
-async function loadWithCache(
+async function loadWithCache<TValue>(
 	cache: SanityLoaderCache | undefined,
 	preview: boolean,
 	key: string | null,
 	context: Omit<SanityLoaderCacheContext, 'key'>,
 	load: () => Promise<unknown>,
-): Promise<unknown> {
-	if (preview || !cache || key === null) return load()
-	return cache({ ...context, key }, load)
+	decode: (raw: unknown, source: 'fetch' | 'cache') => Promise<TValue>,
+): Promise<TValue> {
+	if (preview || !cache || key === null) return decode(await load(), 'fetch')
+	const raw = await cache({ ...context, key }, async () => {
+		const fetched = await load()
+		await decode(fetched, 'fetch')
+		return fetched
+	})
+	return decode(raw, 'cache')
 }
 
 function assertLoadedType(
 	data: unknown,
 	expectedType: string,
-	pathname: string,
 ): asserts data is SanityRoutable {
 	if (
 		typeof data !== 'object' ||
@@ -346,26 +379,27 @@ function assertLoadedType(
 	) {
 		// React Router uses thrown responses for route-level HTTP failures.
 		// eslint-disable-next-line @typescript-eslint/only-throw-error
-		throw jsonErrorResponse(500, 'SANITY_ROUTE_TYPE_MISMATCH', {
-			message: `Sanity route data for "${pathname}" must have _type "${expectedType}".`,
-			pathname,
-			type: expectedType,
-		})
+		throw jsonErrorResponse(500, 'SANITY_ROUTE_TYPE_MISMATCH')
 	}
 }
 
-function jsonErrorResponse(
-	status: number,
-	code: string,
-	details: Record<string, unknown>,
-): Response {
-	return new Response(JSON.stringify({ code, ...details }), {
-		status,
-		headers: {
-			'Cache-Control': 'no-store',
-			'Content-Type': 'application/json; charset=utf-8',
+function jsonErrorResponse(status: number, code: string): Response {
+	return new Response(
+		JSON.stringify({
+			code,
+			message:
+				status === 404
+					? 'Sanity content not found.'
+					: 'Unable to load Sanity content.',
+		}),
+		{
+			status,
+			headers: {
+				'Cache-Control': 'no-store',
+				'Content-Type': 'application/json; charset=utf-8',
+			},
 		},
-	})
+	)
 }
 
 function assertNonEmpty(value: string, name: string): void {

@@ -18,6 +18,10 @@ import {
 	createSanitySitemapLoader,
 } from '@standard/sanity-kit/react-router/server'
 import { createZodDecoder } from '@standard/sanity-kit/validation/zod'
+import {
+	sanityLinkQueryFragment,
+	sanityPortableTextLinkQueryFragment,
+} from '@standard/sanity-kit/link'
 
 const publicConfig = {
 	projectId: 'project',
@@ -62,6 +66,14 @@ const loaders = createSanityLoaders({
 			type: 'page',
 			query: '*[_id == $id][0]',
 			decoder: createZodDecoder(schema),
+			previewDecoder: createZodDecoder(schema.partial({ title: true })),
+			mutate(data) {
+				const title: string | undefined = data.title
+				// @ts-expect-error Draft titles need not satisfy the published schema.
+				const requiredTitle: string = data.title
+				void requiredTitle
+				return { ...data, title: title ?? 'Untitled' }
+			},
 		}),
 	],
 })
@@ -86,4 +98,6 @@ export {
 	html,
 	imageHtml,
 	imageFailure,
+	sanityLinkQueryFragment,
+	sanityPortableTextLinkQueryFragment,
 }

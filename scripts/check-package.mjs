@@ -73,7 +73,7 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package.json|README.md|LICENSE|CHANGELOG.md|docs\/(sitemaps|prerelease).md)$/u.test(
+			/^(package.json|README.md|LICENSE|CHANGELOG.md|docs\/(sitemaps|prerelease|loaders).md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
@@ -91,6 +91,7 @@ for (const required of [
 	'CHANGELOG.md',
 	'docs/sitemaps.md',
 	'docs/prerelease.md',
+	'docs/loaders.md',
 ])
 	assert.ok(contents.has(required), `Missing ${required}`)
 assert.equal(distManifest.private, true)
@@ -271,6 +272,74 @@ for (const matrix of matrices) {
 	await checkBrowserBundles(cwd, matrix.full)
 	console.log(`PASS ${matrix.name}: ${JSON.stringify(matrix.peers)}`)
 }
+
+// Exercise Sanity's real static resolver from a sibling Studio workspace,
+// not a custom resolver or source-tree import that bypasses package exports.
+const codegenRoot = join(temporary, 'typegen-workspace')
+const studio = join(codegenRoot, 'apps/studio')
+const web = join(codegenRoot, 'apps/web')
+await mkdir(studio, { recursive: true })
+await mkdir(join(web, 'app/data'), { recursive: true })
+await writeFile(
+	join(codegenRoot, 'package.json'),
+	JSON.stringify({
+		name: 'sanity-kit-typegen-workspace',
+		private: true,
+		packageManager: sourceManifest.packageManager,
+	}),
+)
+await writeFile(
+	join(codegenRoot, 'pnpm-workspace.yaml'),
+	"packages:\n  - 'apps/*'\n",
+)
+for (const [cwd, name] of [
+	[studio, 'studio'],
+	[web, 'web'],
+]) {
+	await writeFile(
+		join(cwd, 'package.json'),
+		JSON.stringify({
+			name: `sanity-kit-typegen-${name}`,
+			private: true,
+			type: 'module',
+			devDependencies: {
+				'@standard/sanity-kit': `file:${tarball}`,
+				'@sanity/client': current['@sanity/client'],
+				...(name === 'studio'
+					? { '@sanity/codegen': '8.1.0' }
+					: { groq: current.groq }),
+			},
+		}),
+	)
+}
+await writeFile(
+	join(studio, 'tsconfig.json'),
+	JSON.stringify({
+		compilerOptions: { module: 'ESNext', moduleResolution: 'Bundler' },
+	}),
+)
+await copyFile(
+	join(root, 'tests/package/typegen.mjs'),
+	join(studio, 'typegen.mjs'),
+)
+await copyFile(
+	join(root, 'tests/package/typegen-queries.ts'),
+	join(web, 'app/data/queries.ts'),
+)
+run(
+	'pnpm',
+	[
+		'install',
+		'--ignore-scripts',
+		'--strict-peer-dependencies',
+		'--no-frozen-lockfile',
+	],
+	codegenRoot,
+)
+run(process.execPath, ['typegen.mjs'], studio)
+console.log(
+	'PASS typegen-workspace: Studio codegen resolves installed kit fragments from sibling web queries.',
+)
 console.log(
 	`Verified ${contents.size} packed files; tarball ${tarball}; integrity ${packed.integrity}`,
 )
