@@ -1,3 +1,15 @@
+/**
+ * Check image content before rendering, including unfinished draft images.
+ *
+ * Publicly re-exported from `/image`; `/image/react` calls it before rendering.
+ * Applications can call it earlier to omit unusable drafts or render a fallback.
+ * Expected content problems return a failure reason instead of throwing. A
+ * success contains the asset, usable crop/hotspot, and original dimensions—not
+ * alt text, captions, or placeholder UI. The app chooses how to handle failure.
+ *
+ * @see docs/image.md#prepare-unknown-or-incomplete-image-data
+ * @see docs/image-react.md#prepare-and-render-an-image
+ */
 import { getAssetDocumentId, parseImageAssetId } from '@sanity/asset-utils'
 import { stegaClean } from '@sanity/client/stega'
 import type {
@@ -7,13 +19,20 @@ import type {
 	SanityImageRect,
 } from '@sanity/image-url'
 
-/** Ready to spread into a configured SanityImage; dimensions are ORIGINAL pixels. */
+/** Ready to spread into SanityImage; dimensions describe the asset before cropping. */
 export interface PreparedSanityImage {
 	value: SanityImageObject & { crop: SanityImageCrop }
 	intrinsicWidth: number
 	intrinsicHeight: number
 }
 
+/**
+ * Failure reasons an app can use to choose a placeholder or an editor message.
+ * Missing includes an upload without an asset; invalid-asset covers unsupported
+ * identities; invalid-dimensions covers an unusable size encoded in that ID;
+ * invalid-crop is malformed fractional data; empty-crop retains no usable pixels.
+ * @see docs/image.md#failure-results
+ */
 export type SanityImagePreparationFailure =
 	| 'missing-asset'
 	| 'invalid-asset'
@@ -21,6 +40,7 @@ export type SanityImagePreparationFailure =
 	| 'invalid-crop'
 	| 'empty-crop'
 
+/** Check `success` before passing `image` to the configured React component. */
 export type SanityImagePreparationResult =
 	| { success: true; image: PreparedSanityImage }
 	| { success: false; reason: SanityImagePreparationFailure }
@@ -30,6 +50,19 @@ export type SanityImagePreparationResult =
  * Resolves identity and original dimensions from the asset ID, not metadata.
  * Returns a new minimal source; never mutates input or chooses a serving origin.
  * Partial crops default missing edges to zero. Unusable hotspots are omitted.
+ *
+ * Accepts an asset ID/URL/path, reference/asset object, or image object containing
+ * an asset. Explicit IDs take precedence over URL metadata. The upstream parser
+ * requires real Sanity-style IDs, including the full hash; synthetic shortened
+ * IDs in fixtures are not a supported format.
+ * These checks do not fetch the asset or validate component width/ratio settings.
+ * @see docs/image.md#asset-identity-and-origin
+ * @see docs/image.md#crop-and-hotspot-handling
+ *
+ * @example
+ * const result = prepareSanityImage(document.heroImage)
+ * if (!result.success) return null // Application-selected fallback.
+ * // Pass result.image.value/intrinsicWidth/intrinsicHeight to SanityImage.
  */
 export function prepareSanityImage(
 	source: unknown,
@@ -81,6 +114,8 @@ export function prepareSanityImage(
 	if (crop.left + crop.right >= 1 || crop.top + crop.bottom >= 1) {
 		return { success: false, reason: 'empty-crop' }
 	}
+	// Valid fractions can still remove every pixel of a tiny image after rounding.
+	// Reject that now so the React component never gets an empty crop rectangle.
 	const rect = getSanityImageCropRect(width, height, crop)
 	if (rect.width < 1 || rect.height < 1) {
 		return { success: false, reason: 'empty-crop' }
@@ -96,7 +131,15 @@ export function prepareSanityImage(
 	}
 }
 
-/** Internal: mirror @sanity/image-url's editorial-crop pixel rounding. */
+/**
+ * Calculate the pixels left after the editor's crop. Preparation uses this to
+ * reject empty crops; the React component uses the same calculation to choose
+ * widths and a natural aspect ratio. Rounding left/top before the remaining
+ * dimensions matches Sanity's URL builder and prevents the two callers drifting.
+ * This internal export does not position hotspots or select an output fit mode,
+ * and is not exposed by the public `/image` entrypoint.
+ * @see docs/image-react.md#how-responsive-sizing-works for the formula.
+ */
 export function getSanityImageCropRect(
 	width: number,
 	height: number,
@@ -112,6 +155,11 @@ export function getSanityImageCropRect(
 	}
 }
 
+/**
+ * Keep a complete, valid hotspot. An unfinished hotspot should not hide an
+ * otherwise usable draft image: omitting it lets Sanity use its centered default.
+ * Invalid crops are different because they can leave no pixels to render.
+ */
 function normalizeHotspot(value: unknown): SanityImageHotspot | undefined {
 	if (!isRecord(value)) return undefined
 	const { x, y, width, height } = value
@@ -127,6 +175,7 @@ function normalizeHotspot(value: unknown): SanityImageHotspot | undefined {
 	return { x, y, width, height }
 }
 
+/** Inclusive normalized-coordinate guard; hotspot dimensions separately reject zero. */
 function isFraction(value: unknown): value is number {
 	return (
 		typeof value === 'number' &&
@@ -136,6 +185,7 @@ function isFraction(value: unknown): value is number {
 	)
 }
 
+/** Distinguish image/reference records from null, arrays, and primitive sources. */
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === 'object' && value !== null && !Array.isArray(value)
 }

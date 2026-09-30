@@ -1,6 +1,25 @@
+/**
+ * Validate and resolve Sanity links without fetching data or requiring React.
+ *
+ * The app's query first turns stored references into destination objects. This
+ * resolver checks those objects and returns a clean href plus new-tab settings.
+ * `/react-router/links.tsx` renders the result; other callers can use it directly.
+ * Allowed destination types normally come from the route registry's linkableTypes.
+ * The app still owns Studio schemas, legacy-field conversion, and label rendering.
+ *
+ * @see docs/link.md#stored-fields-versus-query-results
+ * @see docs/link.md#resolve-links-without-react
+ */
 import { stegaClean } from '@sanity/client/stega'
 
-/** Static projection for canonical links; suitable for TypeGen interpolation. */
+/**
+ * Fields to select for a labeled link in an app query. Insert this literal into
+ * a named `defineQuery` so TypeGen can read it without executing a factory.
+ * Stored references become the same destination shape as route-data.ts, without
+ * importing React Router. Labels keep their editing metadata. The label fallback
+ * for `_key` does not guarantee unique array keys; the app must ensure those.
+ * @see docs/link.md#query-fragments-and-typegen
+ */
 export const sanityLinkQueryFragment = /* groq */ `
 	"_key": coalesce(_key, label),
 	_type,
@@ -13,7 +32,12 @@ export const sanityLinkQueryFragment = /* groq */ `
 	openInNewTab
 `
 
-/** Static canonical link annotation projection, without a stored label. */
+/**
+ * Literal projection for Portable Text markDefs, which use `_key` to attach marks
+ * and do not need a separate label. The application still owns the Portable Text
+ * serializer; this export only supplies GROQ fields for its link annotations.
+ * @see docs/link.md#query-fragments-and-typegen
+ */
 export const sanityPortableTextLinkQueryFragment = /* groq */ `
 	_type,
 	_key,
@@ -25,6 +49,7 @@ export const sanityPortableTextLinkQueryFragment = /* groq */ `
 	openInNewTab
 `
 
+/** Conservative default protocol allowlist; config overrides are trusted app policy. */
 export const defaultSanityExternalLinkProtocols = [
 	'http:',
 	'https:',
@@ -32,12 +57,14 @@ export const defaultSanityExternalLinkProtocols = [
 	'tel:',
 ] as const
 
+/** Destination fields selected by the query, not the stored `{ _ref }` reference. */
 export interface SanityInternalLinkDestination<TType extends string = string> {
 	_id: string
 	_type: TType
 	pathname: string
 }
 
+/** Canonical internal link after projection; destination must have a route pathname. */
 export interface SanityInternalLink<TType extends string = string> {
 	linkType: 'internal'
 	internalDestination: SanityInternalLinkDestination<TType>
@@ -48,6 +75,7 @@ export interface SanityInternalLink<TType extends string = string> {
 	openInNewTab?: boolean | null
 }
 
+/** An explicit absolute URL; even a same-site URL here uses external navigation policy. */
 export interface SanityExternalLink {
 	linkType: 'external'
 	url: string
@@ -62,6 +90,7 @@ export type SanityLink<TType extends string = string> =
 export type SanityLabeledLink<TType extends string = string> =
 	SanityLink<TType> & { label: string }
 
+/** Clean, immutable navigation result; render the original label separately. */
 export interface ResolvedSanityInternalLink<TType extends string = string> {
 	linkType: 'internal'
 	href: string
@@ -71,6 +100,7 @@ export interface ResolvedSanityInternalLink<TType extends string = string> {
 	openInNewTab: boolean
 }
 
+/** Validated protocol and clean href; URL existence/reachability is not checked. */
 export interface ResolvedSanityExternalLink {
 	linkType: 'external'
 	href: string
@@ -78,9 +108,11 @@ export interface ResolvedSanityExternalLink {
 	openInNewTab: boolean
 }
 
+/** `linkType` tells the React adapter whether to use router or document navigation. */
 export type ResolvedSanityLink<TType extends string = string> =
 	ResolvedSanityInternalLink<TType> | ResolvedSanityExternalLink
 
+/** App settings for allowed document types and external URL protocols. */
 export interface CreateSanityLinkResolverConfig<TType extends string = string> {
 	/** Internal document types accepted by this application. */
 	linkableTypes: readonly TType[]
@@ -88,6 +120,7 @@ export interface CreateSanityLinkResolverConfig<TType extends string = string> {
 	allowedExternalProtocols?: readonly string[]
 }
 
+/** Frozen policy snapshot plus a validator reusable across many links. */
 export interface SanityLinkResolver<TType extends string = string> {
 	readonly linkableTypes: readonly TType[]
 	readonly allowedExternalProtocols: readonly string[]
@@ -95,6 +128,12 @@ export interface SanityLinkResolver<TType extends string = string> {
 	resolve: (link: unknown) => ResolvedSanityLink<TType>
 }
 
+/**
+ * Invalid-link error whose `path` identifies the field that failed. The React
+ * adapter lets it reach the app rather than silently rendering a broken anchor.
+ * The app chooses a fallback; error messages may not be safe to show publicly.
+ * @see docs/link.md#invalid-links-and-migration-from-application-specific-shapes
+ */
 export class SanityLinkResolutionError extends TypeError {
 	readonly code = 'SANITY_LINK_INVALID'
 
@@ -108,8 +147,15 @@ export class SanityLinkResolutionError extends TypeError {
 }
 
 /**
- * Create a runtime-neutral link resolver. Bind it to the route registry's
- * `linkableTypes` so the CMS cannot navigate to an unhandled document type.
+ * Configure a resolver once and reuse it for many links. With React Router,
+ * supply the registry's `linkableTypes` so links and renderers share one list.
+ * An allowed type does not prove that a document exists or that a visitor may
+ * access it. Only navigation fields are Stega-cleaned; the original object and
+ * its label stay unchanged so visible text can retain Visual Editing metadata.
+ *
+ * @throws TypeError for invalid factory configuration.
+ * @throws SanityLinkResolutionError when `resolve` receives malformed link data.
+ * @see docs/link.md#resolve-links-without-react
  */
 export function createSanityLinkResolver<const TType extends string>(
 	config: CreateSanityLinkResolverConfig<TType>,
@@ -121,6 +167,7 @@ export function createSanityLinkResolver<const TType extends string>(
 	)
 	const allowedExternalProtocolSet = new Set(allowedExternalProtocols)
 
+	/** Called by the React adapter on render, or directly by other integrations. */
 	function resolve(link: unknown): ResolvedSanityLink<TType> {
 		const value = readRecord(link, [], 'Expected a Sanity link object.')
 		const linkType = readString(value, 'linkType', ['linkType'])
@@ -145,6 +192,8 @@ export function createSanityLinkResolver<const TType extends string>(
 				)
 			}
 
+			// Keep path, search, and hash separate until each has passed its own
+			// checks; a document pathname must not smuggle another origin or suffix.
 			const pathname = readString(destination, 'pathname', [
 				'internalDestination',
 				'pathname',
@@ -176,6 +225,8 @@ export function createSanityLinkResolver<const TType extends string>(
 					'External URLs must not contain surrounding whitespace or control characters.',
 				)
 			}
+			// Parse for protocol validation, but retain the cleaned authored URL
+			// rather than imposing URL-parser serialization on mailto/tel/etc.
 			let protocol: string
 			try {
 				protocol = new URL(url).protocol.toLowerCase()
@@ -211,14 +262,19 @@ export function createSanityLinkResolver<const TType extends string>(
 	})
 }
 
+/** Trusted GROQ source supplied by developers, never interpolated user input. */
 export interface CreateSanityLinkQueryFragmentsOptions {
 	/** GROQ fields used to resolve `internalDestination`. */
 	internalDestinationQueryFragment: string
 }
 
 /**
- * Build query fragments for the normalized link contract without imposing a
- * document model or schema library on the consumer.
+ * Build link projections using the app's destination fields. This assembles GROQ
+ * at runtime; it does not validate returned links or install a Studio schema.
+ * TypeGen may not evaluate this function call and the destructuring that follows.
+ * For generation, prefer the static exports above or app-owned literal fragments
+ * for custom schemas. Only pass trusted query source, never visitor input.
+ * @see docs/link.md#query-fragments-and-typegen
  */
 export function createSanityLinkQueryFragments(
 	options: CreateSanityLinkQueryFragmentsOptions,
@@ -256,6 +312,7 @@ export function createSanityLinkQueryFragments(
 	})
 }
 
+/** Copy the type list so changing the caller's array cannot change allowed links. */
 function normalizeLinkableTypes<const TType extends string>(
 	types: readonly TType[],
 ): readonly TType[] {
@@ -279,6 +336,7 @@ function normalizeLinkableTypes<const TType extends string>(
 	return Object.freeze(normalized)
 }
 
+/** Lowercase and deduplicate protocols without adding any the app did not allow. */
 function normalizeProtocols(protocols: readonly string[]): readonly string[] {
 	const normalized: string[] = []
 	const seen = new Set<string>()
@@ -303,6 +361,7 @@ function normalizeProtocols(protocols: readonly string[]): readonly string[] {
 	return Object.freeze(normalized)
 }
 
+/** Fail with the caller's field path instead of allowing property-access errors. */
 function readRecord(
 	value: unknown,
 	path: readonly string[],
@@ -314,6 +373,7 @@ function readRecord(
 	return value as Record<string, unknown>
 }
 
+/** Clean only fields used for navigation logic, not the original CMS object. */
 function readString(
 	record: Record<string, unknown>,
 	key: string,
@@ -331,6 +391,7 @@ function readString(
 	return cleaned
 }
 
+/** Treat unset draft flags as false; reject truthy non-booleans rather than coercing. */
 function readOpenInNewTab(record: Record<string, unknown>): boolean {
 	const value = record.openInNewTab
 	if (value === undefined || value === null) return false
@@ -341,6 +402,7 @@ function readOpenInNewTab(record: Record<string, unknown>): boolean {
 	)
 }
 
+/** Preserve authored suffixes, requiring their delimiter and rejecting mixed query/hash. */
 function readUrlSuffix(
 	record: Record<string, unknown>,
 	key: 'search' | 'hash',
@@ -369,6 +431,7 @@ function readUrlSuffix(
 	return cleaned
 }
 
+/** Reject origin-like paths and URL separators that belong in separate link fields. */
 function assertInternalPathname(pathname: string): void {
 	if (
 		!pathname.startsWith('/') ||
@@ -385,6 +448,7 @@ function assertInternalPathname(pathname: string): void {
 	}
 }
 
+/** Shared rejection of ASCII controls that URL parsers may discard or reinterpret. */
 function containsControlCharacter(value: string): boolean {
 	for (const character of value) {
 		const codePoint = character.codePointAt(0)
@@ -395,6 +459,7 @@ function containsControlCharacter(value: string): boolean {
 	return false
 }
 
+/** Centralize typed errors and copy/freeze their path before returning to callers. */
 function invalid(
 	path: readonly string[],
 	message: string,

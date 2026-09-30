@@ -1,3 +1,15 @@
+/**
+ * Fetch published content for a React Router sitemap resource route.
+ *
+ * Run the app's query, validate raw results before any cache write, decode the
+ * returned data, and let the app map it to entries for `/sitemap` to serialize.
+ * Unlike page loaders, this never reads preview cookies: sitemap fetches remain
+ * published even when an editor visits. Use the kit's published client; storage
+ * is supplied by the app, with no Cloudflare or Node cache assumed.
+ *
+ * @see docs/sitemaps.md#react-router-integration
+ * @see docs/sitemaps.md#query-caching
+ */
 import type { QueryParams, SanityClient } from '@sanity/client'
 import type { LoaderFunctionArgs } from 'react-router'
 import {
@@ -12,13 +24,21 @@ import {
 	type SitemapResponseOptions,
 } from '../../sitemap/index.js'
 
+/**
+ * App-owned storage for original query results, not decoder output or XML Responses.
+ * Like page caching, results validate before storage and after retrieval.
+ * Let `load` failures reach the caller; do not cache a substitute result. The app
+ * chooses expiry/eviction and must keep this cache separate from preview data.
+ * @see docs/sitemaps.md#query-caching
+ */
 export interface SanitySitemapCache {
-	/** Include query variants, dataset, and site origin; null bypasses caching. */
+	/** Include site/project/dataset, API/query version, and variants; null skips caching. */
 	key: (args: LoaderFunctionArgs) => string | null
 	/** Store query data, not Responses. Values are validated after every lookup. */
 	getOrLoad: (key: string, load: () => Promise<unknown>) => Promise<unknown>
 }
 
+/** App-supplied query, decoder, and entry mapper, plus optional storage/response settings. */
 export interface CreateSanitySitemapLoaderConfig<
 	TData,
 > extends SitemapResponseOptions {
@@ -29,7 +49,9 @@ export interface CreateSanitySitemapLoaderConfig<
 	params?:
 		| QueryParams
 		| ((args: LoaderFunctionArgs) => QueryParams | Promise<QueryParams>)
+	/** Strict decoder with no side effects; may run twice on the same raw result. */
 	decoder: SanityDataDecoder<TData>
+	/** Map decoded records to loc/lastmod, not arbitrary XML; called per request. */
 	toEntries: (
 		data: TData,
 		args: LoaderFunctionArgs,
@@ -37,7 +59,20 @@ export interface CreateSanitySitemapLoaderConfig<
 	cache?: SanitySitemapCache
 }
 
-/** Build a resource-route loader with strict validation and published-only fetches. */
+/**
+ * Build a resource-route loader with strict validation and published-only fetches.
+ * Export the returned function as the app's sitemap route loader. Construction
+ * checks canonical origin/query configuration. Requests accept GET/HEAD only,
+ * forward the abort signal, and force published perspective with Stega disabled.
+ * HEAD still performs validation/serialization to return matching XML headers.
+ *
+ * Decoder failures throw SanityDataValidationError; invalid entries/limits throw
+ * serializer errors. The app owns safe error handling and any custom HTTP cache
+ * headers. Only query data is cached: mapping/XML failures may occur after a
+ * successfully decoded raw result has entered that cache.
+ * @see docs/sitemaps.md#react-router-integration
+ * @see docs/sitemaps.md#query-caching
+ */
 export function createSanitySitemapLoader<TData>(
 	config: CreateSanitySitemapLoaderConfig<TData>,
 ): (args: LoaderFunctionArgs) => Promise<Response> {
@@ -73,6 +108,9 @@ export function createSanitySitemapLoader<TData>(
 			config.cache && key != null
 				? await config.cache.getOrLoad(key, load)
 				: await load()
+		// Validate what storage actually returned, even if this request just wrote
+		// it. Without a cache, this also decodes the fetched raw value again. Never
+		// pass an earlier decoder output here: transforms could then apply twice.
 		const data = requireValidSanityData(
 			await validateSanityData(raw, config.decoder),
 		)

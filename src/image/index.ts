@@ -1,3 +1,15 @@
+/**
+ * Prepare Sanity image data and build URLs without requiring React.
+ *
+ * `prepare.ts` turns unknown CMS input into a usable source and original asset
+ * dimensions. `createSanityImageTools` builds URLs. `/image/react` combines them
+ * and limits responsive images to the pixels left after cropping.
+ * These lower-level URL tools do not cap dimensions or fetch assets. The app
+ * supplies configuration and owns alt text, layout, and custom proxy origins.
+ *
+ * @see docs/image.md for URL options and preparation results.
+ * @see docs/image-react.md for responsive rendering and pixel limits.
+ */
 import {
 	createImageUrlBuilder,
 	type FitMode,
@@ -12,17 +24,21 @@ export {
 	type SanityImagePreparationResult,
 } from './prepare.js'
 
+/** Shared by the low-level builder and configured React image component. */
 export interface SanityImageConfig {
+	/** Project owning the source assets; no API token is needed to construct URLs. */
 	projectId: string
+	/** Dataset owning the source assets. */
 	dataset: string
 	/** Override the default Sanity image CDN base URL. */
 	baseUrl?: string
 }
 
+/** Common builder options; use `urlFor` for upstream transformations not listed here. */
 export interface SanityImageUrlOptions {
-	/** Requested output width in whole CSS pixels. */
+	/** Requested encoded-image width in whole pixels, not the CSS layout width. */
 	width?: number
-	/** Requested output height in whole CSS pixels. */
+	/** Requested encoded-image height in whole pixels, not the CSS layout height. */
 	height?: number
 	/**
 	 * Positive ratio as a number or `width/height` string. Requires `width`
@@ -37,6 +53,7 @@ export interface SanityImageUrlOptions {
 	autoFormat?: boolean
 }
 
+/** Two ways to build a URL; neither performs an HTTP request. */
 export interface SanityImageTools {
 	/** Start a native Sanity image URL builder chain. */
 	urlFor: (source: SanityImageSource) => ImageUrlBuilder
@@ -47,7 +64,18 @@ export interface SanityImageTools {
 	) => string
 }
 
-/** Create image URL helpers from explicit, browser-safe configuration. */
+/**
+ * Create image URL helpers from explicit, browser-safe configuration.
+ * Each call starts a separate Sanity builder chain. The React adapter creates
+ * these tools once and uses them for src, srcSet, and preload URLs so every
+ * rendition uses the same configured CDN or proxy base URL.
+ *
+ * `buildUrl` validates common options and defaults to automatic format selection;
+ * `urlFor` exposes the native builder without these defaults or validation.
+ * Neither caps requests against source dimensions; use `/image/react` for that.
+ * @throws TypeError for invalid identifiers or common sizing/quality options.
+ * @see docs/image.md#configure-the-url-builder
+ */
 export function createSanityImageTools(
 	config: SanityImageConfig,
 ): SanityImageTools {
@@ -101,6 +129,8 @@ export function createSanityImageTools(
 				image = image.quality(options.quality)
 			}
 
+			// Width alone keeps the editor's crop ratio. Supplying height or a ratio
+			// requests a new rectangle, so default to cropping it to fit.
 			const hasSizedCrop =
 				options.height !== undefined || options.aspectRatio !== undefined
 			const fit = options.fit ?? (hasSizedCrop ? 'crop' : undefined)
@@ -113,7 +143,13 @@ export function createSanityImageTools(
 	}
 }
 
-/** Parse and validate a positive image aspect ratio. */
+/**
+ * Shared ratio parser used by buildUrl and the responsive React adapter.
+ * Accepts a finite positive number or a two-part fraction such as `16/9`.
+ * Checks the quotient too: finite operands can still overflow or underflow.
+ * It does not select image dimensions or enforce source-size constraints.
+ * @see docs/image.md#configure-the-url-builder for accepted ratio formats.
+ */
 export function parseSanityImageAspectRatio(value: number | string): number {
 	if (typeof value === 'number') {
 		assertPositiveFinite(value, 'aspectRatio')
@@ -145,12 +181,14 @@ export function parseSanityImageAspectRatio(value: number | string): number {
 	return ratio
 }
 
+/** Reject fractional/zero/non-finite explicit output dimensions at URL boundaries. */
 function assertPixelDimension(value: number, name: string): void {
 	if (!Number.isInteger(value) || value <= 0) {
 		throw new TypeError(`[sanity-kit] \`${name}\` must be a positive integer.`)
 	}
 }
 
+/** Shared numeric guard for numeric ratios and parsed fraction results. */
 function assertPositiveFinite(value: number, name: string): void {
 	if (!Number.isFinite(value) || value <= 0) {
 		throw new TypeError(
@@ -159,6 +197,7 @@ function assertPositiveFinite(value: number, name: string): void {
 	}
 }
 
+/** Validate browser-supplied identifiers without echoing their contents in errors. */
 function assertNonEmpty(value: unknown, name: string): void {
 	if (typeof value !== 'string') {
 		throw new TypeError(`[sanity-kit] \`${name}\` must be a string.`)

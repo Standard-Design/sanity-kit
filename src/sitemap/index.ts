@@ -1,5 +1,19 @@
+/**
+ * Turn page URLs or sitemap-file URLs into validated XML and Web Responses.
+ *
+ * The server sitemap adapter fetches published data, decodes it, and asks the app
+ * to map it into these entries. Other runtimes can call these helpers directly.
+ * The app chooses canonical URLs and real update dates, filters noindex pages,
+ * and splits large sites into files. This module checks URLs/dates, combines
+ * duplicates, escapes XML, and enforces entry and UTF-8 byte limits.
+ * It does not query Sanity, read preview cookies, or discover application routes.
+ *
+ * @see docs/sitemaps.md#portable-xml-helpers
+ * @see docs/sitemaps.md#large-sites-and-sitemap-indexes
+ */
 import { stegaClean } from '@sanity/client/stega'
 
+/** Shared input for a page URL in a sitemap or a sitemap URL in an index. */
 export interface SitemapEntry {
 	/** Root-relative path or an absolute URL on the configured site origin. */
 	loc: string
@@ -7,22 +21,34 @@ export interface SitemapEntry {
 	lastmod?: string | Date
 }
 
+/** The app supplies the canonical origin; never derive it from a visitor's Host header. */
 export interface SitemapOptions {
 	/** Canonical HTTP(S) origin, independent of the incoming request host. */
 	siteUrl: string
 }
 
+/** Web-response settings shared by these helpers and the React Router adapter. */
 export interface SitemapResponseOptions extends SitemapOptions {
 	/** Application cache policy and other headers; XML content type is fixed. */
 	headers?: HeadersInit
 }
 
+// Count unique entries and the complete uncompressed XML, including outer tags
+// and escaped characters. The app must split oversized collections into files.
 const namespace = 'http://www.sitemaps.org/schemas/sitemap/0.9'
 const maxEntries = 50_000
 const maxBytes = 52_428_800
 const encoder = new TextEncoder()
 
-/** Serialize a sitemap. Duplicate canonical URLs retain the latest lastmod. */
+/**
+ * Serialize a sitemap. Duplicate canonical URLs retain the latest lastmod.
+ * Stega is removed from loc/date strings, not from the caller's input objects.
+ * Relative locations resolve against siteUrl; every resulting URL must share
+ * that origin. Input order determines first occurrence order after deduplication.
+ * @throws TypeError for invalid entries/origin/dates, RangeError for size limits.
+ * @see docs/sitemaps.md#url-rules
+ * @see docs/sitemaps.md#modification-dates-and-duplicates
+ */
 export function serializeSitemap(
 	entries: readonly SitemapEntry[],
 	options: SitemapOptions,
@@ -30,7 +56,12 @@ export function serializeSitemap(
 	return serialize(entries, options, 'urlset', 'url')
 }
 
-/** Serialize an index of same-origin sitemap files, using their update dates. */
+/**
+ * Serialize an index of same-origin sitemap files, using their update dates.
+ * Uses the same canonicalization, deduplication, and limits as serializeSitemap.
+ * Supply sitemap locations explicitly; this does not split or write sitemap files.
+ * @see docs/sitemaps.md#large-sites-and-sitemap-indexes
+ */
 export function serializeSitemapIndex(
 	entries: readonly SitemapEntry[],
 	options: SitemapOptions,
@@ -38,6 +69,12 @@ export function serializeSitemapIndex(
 	return serialize(entries, options, 'sitemapindex', 'sitemap')
 }
 
+/**
+ * Wrap a page sitemap in an XML Response. Used by the React Router adapter;
+ * also suitable for any runtime implementing the Web Response/Headers APIs.
+ * Defaults to no-cache (revalidation), not no-store; apps may supply cache policy.
+ * @see docs/sitemaps.md#response-headers
+ */
 export function createSitemapResponse(
 	entries: readonly SitemapEntry[],
 	options: SitemapResponseOptions,
@@ -45,6 +82,7 @@ export function createSitemapResponse(
 	return xmlResponse(serializeSitemap(entries, options), options.headers)
 }
 
+/** XML Response counterpart of serializeSitemapIndex, with identical header policy. */
 export function createSitemapIndexResponse(
 	entries: readonly SitemapEntry[],
 	options: SitemapResponseOptions,
@@ -52,6 +90,7 @@ export function createSitemapIndexResponse(
 	return xmlResponse(serializeSitemapIndex(entries, options), options.headers)
 }
 
+/** Allow app caching headers while always setting the XML content type and nosniff. */
 function xmlResponse(xml: string, initial?: HeadersInit): Response {
 	const headers = new Headers(initial)
 	headers.set('Content-Type', 'application/xml; charset=utf-8')
@@ -60,6 +99,7 @@ function xmlResponse(xml: string, initial?: HeadersInit): Response {
 	return new Response(xml, { headers })
 }
 
+/** Build page sitemaps and indexes the same way; only their outer and entry tags differ. */
 function serialize(
 	entries: readonly SitemapEntry[],
 	options: SitemapOptions,
@@ -70,6 +110,9 @@ function serialize(
 	if (!isArray(entries)) {
 		throw new TypeError('[sanity-kit] Sitemap entries must be an array.')
 	}
+	// A relative path and its equivalent absolute URL should appear only once.
+	// Updating a Map value keeps the first occurrence's position but lets us use
+	// a later modification date for a duplicate URL.
 	const unique = new Map<string, string | undefined>()
 	for (const entry of entries) {
 		if (!entry || typeof entry.loc !== 'string') {
@@ -96,6 +139,8 @@ function serialize(
 	const opening = `<?xml version="1.0" encoding="UTF-8"?>\n<${root} xmlns="${namespace}">\n`
 	const closing = `</${root}>`
 	const parts = [opening]
+	// Measure UTF-8 bytes after XML escaping, not JavaScript string length.
+	// Include the outer tags before adding entries so the full document fits.
 	let bytes = encoder.encode(opening + closing).byteLength
 	for (const [loc, lastmod] of unique) {
 		const row = `<${tag}><loc>${escapeXml(loc)}</loc>${lastmod === undefined ? '' : `<lastmod>${escapeXml(lastmod)}</lastmod>`}</${tag}>\n`
@@ -111,10 +156,12 @@ function serialize(
 	return parts.join('')
 }
 
+/** Keep runtime validation effective for JavaScript/untyped callers. */
 function isArray(value: unknown): value is readonly unknown[] {
 	return Array.isArray(value)
 }
 
+/** Accept only an HTTP(S) origin, excluding paths, credentials, query, and fragment. */
 function parseSite(value: string): URL {
 	if (
 		typeof value !== 'string' ||
@@ -140,6 +187,11 @@ function parseSite(value: string): URL {
 	return url
 }
 
+/**
+ * Reject unsafe input before URL parsing can silently rewrite it. Then check
+ * the origin and final URL length. Queries are allowed; fragments and URLs
+ * starting with `//` are not. The final href is also the duplicate-detection key.
+ */
 function parseLocation(value: string, site: URL): string {
 	if (
 		value.length === 0 ||
@@ -170,12 +222,19 @@ function parseLocation(value: string, site: URL): string {
 	return url.href
 }
 
+/** Shared guard against parser normalization surprises and malformed Unicode. */
 function hasUnsafeCharacters(value: string): boolean {
 	// URL parsers silently discard controls and rewrite backslashes. Reject them.
 	// eslint-disable-next-line no-control-regex
 	return /[\u0000-\u0020\u007f\\]/u.test(value) || !value.isWellFormed()
 }
 
+/**
+ * Accept a calendar date or a timestamp with a timezone. Check each calendar
+ * field because Date.parse can silently turn impossible dates into valid ones.
+ * Date objects become UTC ISO strings; valid authored strings keep their precision
+ * and offset. Only the app can know whether this date reflects a real content edit.
+ */
 function parseLastmod(value: string | Date): string {
 	if (value instanceof Date) {
 		if (!Number.isFinite(value.getTime()))
@@ -214,6 +273,7 @@ function parseLastmod(value: string | Date): string {
 	return value
 }
 
+/** Escape text only after URL/date validation; ampersands must be replaced first. */
 function escapeXml(value: string): string {
 	return value
 		.replaceAll('&', '&amp;')

@@ -1,3 +1,19 @@
+/**
+ * Fetch page data for the browser route registry defined in ../index.tsx.
+ *
+ * Each request reads preview state, finds a route, runs that type's page query,
+ * validates the result, and applies any app mutation before returning the page.
+ * The route lookup and full-page query both use the same raw-data cache helper.
+ * Preview never uses that cache. Published results must validate before storage
+ * and after retrieval; raw data means the query result before decoder transforms.
+ *
+ * The app owns storage, cache key prefixes, schemas, safe logging, and wrappers
+ * such as `{ page, diagnostics }`. It also owns successful response headers.
+ * tests/react-router/loaders.test.ts and packed consumers check behavior and types.
+ *
+ * @see docs/loaders.md#what-happens-on-a-request
+ * @see docs/loaders.md#cache-raw-data-not-decoder-output
+ */
 import type {
 	ClientPerspective,
 	QueryParams,
@@ -17,30 +33,46 @@ import {
 } from '../route-data.js'
 import type { SanityKit, SanityRequestContext } from './index.js'
 
+// These distinguish query stages, not projects or datasets. Adapters must add
+// deployment/query-version namespaces before using shared persistent storage.
 const defaultRouteDataCachePrefix = 'SANITY_ROUTE_DATA:'
 const defaultRouteCachePrefix = 'SANITY_ROUTE:'
 
+/** Whether a strict published-schema failure can be tolerated in preview; never in published mode. */
 export type SanityLoaderValidationPolicy = 'throw' | 'passthrough'
 
+/** Request-scoped inputs passed to page params, cacheKey, and mutate callbacks. */
 export interface SanityLoaderContext {
+	/** Selected published/preview client; never serialize this context to the browser. */
 	client: SanityClient
+	/** The app's original React Router context, not a kit-created dependency container. */
 	context: LoaderFunctionArgs['context']
 	params: LoaderFunctionArgs['params']
 	pattern: string
 	perspective: ClientPerspective
 	preview: boolean
 	request: Request
+	/** Validated first-stage lookup used to protect `$id` and `$pathname`. */
 	routeData: SanityRouteData
+	/** React Router's normalized args.url, not the raw data-request URL. */
 	url: URL
 }
 
+/**
+ * Query and decoders for one type registered with `defineSanityRoute`.
+ * The renderer must handle both published and draft decoder outputs. Without
+ * a draft decoder, only `_type` is guaranteed for preview—not published fields.
+ * @see docs/loaders.md#published-and-draft-decoders
+ */
 export interface SanityLoaderConfig<
 	TType extends string = string,
 	TData extends SanityRoutable<TType> = SanityRoutable<TType>,
 	TPreview extends SanityRoutable<TType> = SanityRoutable<TType>,
 > {
 	type: TType
+	/** App GROQ query; receives protected id/pathname parameters from route lookup. */
 	query: string
+	/** Strict clean-shadow decoder, also run in preview to collect publication issues. */
 	decoder: SanityDataDecoder<TData>
 	/** Decode original preview data; preserve Stega strings used for rendering. */
 	previewDecoder?: SanityDataDecoder<TPreview>
@@ -49,7 +81,11 @@ export interface SanityLoaderConfig<
 	 * with custom parameters bypass page caching unless `cacheKey` is supplied.
 	 */
 	params?: (context: SanityLoaderContext) => QueryParams | Promise<QueryParams>
-	/** Transform validated or preview-preserving data after fetch/cache lookup. */
+	/**
+	 * Request-specific transform after decoding, including on cache hits. Output
+	 * is not cached and must retain `_type`. NoInfer keeps the decoder's output
+	 * types in control rather than letting this callback infer a broader type.
+	 */
 	mutate?: (
 		data: NoInfer<TData | TPreview>,
 		context: SanityLoaderContext,
@@ -58,7 +94,14 @@ export interface SanityLoaderConfig<
 	cacheKey?: (context: SanityLoaderContext) => string | null
 }
 
-/** Identity helper that preserves loader type and decoded data inference. */
+/**
+ * Preserve each loader's own data types when combining different page loaders.
+ * NoInfer stops the containing list from supplying `any` when previewDecoder is
+ * omitted; preview must then keep its honest, minimal `_type` guarantee.
+ * This helper adds no runtime checks. The factory checks registry structure,
+ * and requests run the decoders against actual content.
+ * @see docs/loaders.md#create-matching-server-loaders
+ */
 export function defineSanityLoader<
 	const TType extends string,
 	TData extends SanityRoutable<TType>,
@@ -69,6 +112,7 @@ export function defineSanityLoader<
 	return config
 }
 
+/** Storage metadata; `type` exists only for full-page lookups, after routing resolves. */
 export interface SanityLoaderCacheContext {
 	key: string
 	request: Request
@@ -77,16 +121,27 @@ export interface SanityLoaderCacheContext {
 }
 
 /**
- * Runtime-neutral cache adapter. It receives unknown because persistent caches
- * may JSON-roundtrip values. `load` returns strictly validated RAW data, never
- * decoder output. Every adapter-returned value is decoded again by the kit.
- * Do not transform values or catch a load failure and cache its error/fallback.
+ * App-supplied storage function. Return a hit or call `load` and store its result.
+ * `load` checks validity but returns the original query data, not transformed
+ * decoder output. The kit decodes whatever the adapter returns again, including
+ * values saved and restored as JSON. That is why the adapter returns `unknown`.
+ * Do not transform data or cache a fallback when `load` rejects. The app chooses
+ * expiry/eviction and prefixes both lookup and page keys with project, dataset,
+ * API/query version, and any variants. It does not need to repeat the decoder.
+ * @see docs/loaders.md#cache-raw-data-not-decoder-output
  */
 export type SanityLoaderCache = (
 	context: SanityLoaderCacheContext,
 	load: () => Promise<unknown>,
 ) => Promise<unknown>
 
+/**
+ * Detailed failure information for a server callback, not a public response.
+ * Raw data and Request may contain secrets: select safe fields instead of logging
+ * the whole object. Collect preview issues in a new array for each request, never
+ * a shared module-level array. A failed initial lookup has no routeData or type.
+ * @see docs/loaders.md#request-scoped-diagnostics
+ */
 export interface SanityLoaderValidationFailure {
 	data: unknown
 	diagnostics: readonly SanityValidationDiagnostic[]
@@ -99,10 +154,16 @@ export interface SanityLoaderValidationFailure {
 	source: 'fetch' | 'cache'
 }
 
-// Heterogeneous decoders and callbacks retain their types in the input tuple.
+/**
+ * Internal list constraint that accepts loaders with different page types.
+ * `defineSanityLoader` keeps each entry's specific types; LoaderData combines
+ * those into the public result union. Do not use this broad shape for app data.
+ * Runtime validation still happens before any mutation is called.
+ */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type AnyLoaderConfig<TType extends string> = SanityLoaderConfig<TType, any, any>
 
+/** Dependencies supplied by the host; no environment or provider-specific storage. */
 export interface CreateSanityLoadersConfig<
 	TType extends string,
 	TLoaders extends readonly AnyLoaderConfig<TType>[] =
@@ -119,16 +180,20 @@ export interface CreateSanityLoadersConfig<
 		published?: 'throw'
 		/** Defaults to `passthrough` so incomplete drafts can render. */
 		preview?: SanityLoaderValidationPolicy
+		/** Awaited for failed decoder results, not arbitrary thrown/fetch exceptions. */
 		onFailure?: (failure: SanityLoaderValidationFailure) => void | Promise<void>
 	}
 }
 
+/** Export loader directly from a route module, or wrap it in an app data envelope. */
 export interface SanityLoaders<TData extends SanityRoutable> {
 	loader: (args: LoaderFunctionArgs) => Promise<TData>
 }
 
+/** Erased runtime registry shape; each entry's decoder restores its data contract. */
 type RuntimeLoaderConfig = SanityLoaderConfig<string, SanityRoutable>
 
+/** Result union across every registered type and its draft variant. */
 type LoaderData<TLoader> =
 	TLoader extends SanityLoaderConfig<string, infer TData, infer TPreview>
 		? TData | TPreview
@@ -138,6 +203,15 @@ type LoaderData<TLoader> =
  * Build the server half of a Sanity-driven route. The factory validates client
  * and server registry parity immediately, then resolves route data and page
  * data with explicit preview, validation, mutation, and cache boundaries.
+ *
+ * Return the page document, not a wrapper containing diagnostics. In preview
+ * without a previewDecoder, this is the original data with a checked `_type`.
+ * Apps add their own diagnostic wrapper and successful response headers, including
+ * no-store for preview. Kit errors are generic no-store Responses; unexpected
+ * decoder, fetch, or hook exceptions go to the application's error handling.
+ * @throws TypeError at construction for duplicate or mismatched registries.
+ * @see docs/loaders.md#create-matching-server-loaders
+ * @see docs/loaders.md#request-scoped-diagnostics
  */
 export function createSanityLoaders<
 	const TRoutes extends { types: readonly string[] },
@@ -154,8 +228,11 @@ export function createSanityLoaders<
 }): SanityLoaders<LoaderData<TLoaders[number]>> {
 	const loadersByType = createLoaderMap(config.routes.types, config.loaders)
 
+	/** One invocation per React Router request; never retain request data in the factory. */
 	async function loader(args: LoaderFunctionArgs): Promise<unknown> {
 		const requestContext = await config.kit.getContext(args.request)
+		// Data requests may have a transport suffix in request.url. Routing and
+		// default cache keys must use the router-normalized URL instead.
 		const url = args.url
 		const routeData = await loadRouteData(
 			config,
@@ -181,6 +258,8 @@ export function createSanityLoaders<
 			routeData,
 			url,
 		}
+		// Short-circuit before calling app cacheKey in preview. Custom params can
+		// change query results, so implicit pathname-only caching is unsafe for them.
 		const cacheKey = requestContext.preview
 			? null
 			: matched.cacheKey
@@ -205,6 +284,7 @@ export function createSanityLoaders<
 					matched.query,
 					{
 						...additionalParams,
+						// Set these last so app parameters cannot replace the matched document.
 						id: routeData._id,
 						pathname: routeData.pathname,
 					},
@@ -215,6 +295,8 @@ export function createSanityLoaders<
 				)
 			},
 			async (raw, source) => {
+				// The strict decoder observes clean text even for an incomplete draft.
+				// Its parsed output is authoritative only in published mode.
 				const validation = await validateSanityData(raw, matched.decoder)
 				const report = async (
 					stage: 'published' | 'preview',
@@ -245,6 +327,8 @@ export function createSanityLoaders<
 						// Deliberately not validateSanityData: render strings retain Stega.
 						const draft = await matched.previewDecoder.decode(raw)
 						if (!draft.success) {
+							// Preview may tolerate failed publication rules, but a failed
+							// draft decoder cannot safely claim its own output type.
 							await report('preview', draft.diagnostics)
 							// eslint-disable-next-line @typescript-eslint/only-throw-error
 							throw jsonErrorResponse(500, 'SANITY_PREVIEW_INVALID')
@@ -261,6 +345,7 @@ export function createSanityLoaders<
 			},
 		)
 
+		// Mutation must run on both cache hits and misses, outside the cache writer.
 		const mutated = matched.mutate ? await matched.mutate(data, context) : data
 		assertLoadedType(mutated, matched.type)
 		return mutated
@@ -271,6 +356,10 @@ export function createSanityLoaders<
 	}
 }
 
+/**
+ * Fail at factory creation if client renderers and server fetchers disagree.
+ * Only registry.types participates; extraLinkableTypes may be served elsewhere.
+ */
 function createLoaderMap<TType extends string>(
 	routeTypes: readonly TType[],
 	loaders: readonly AnyLoaderConfig<TType>[],
@@ -306,6 +395,11 @@ function createLoaderMap<TType extends string>(
 	return loadersByType
 }
 
+/**
+ * First-stage identity lookup. Clean decoded routing fields guide page fetching,
+ * even in preview; they are not the Stega-bearing text that the page renders.
+ * Null/undefined means missing (404); a malformed object means invalid data (500).
+ */
 async function loadRouteData(
 	config: {
 		kit: SanityKit
@@ -350,6 +444,16 @@ async function loadRouteData(
 	)
 }
 
+/**
+ * Apply the same cache rules to the initial route lookup and the full page query.
+ * The callback validates before handing raw data to storage. Decode the adapter's
+ * return value again because a hit or JSON-restored value must not be trusted.
+ * On a miss this may decode twice, but both calls receive raw input: defaults or
+ * transforms are never applied to an earlier decoder output. A bad hit throws;
+ * the app decides whether to evict or retry. A compliant adapter stores nothing
+ * when the callback rejects.
+ * @see docs/loaders.md#cache-raw-data-not-decoder-output
+ */
 async function loadWithCache<TValue>(
 	cache: SanityLoaderCache | undefined,
 	preview: boolean,
@@ -367,6 +471,12 @@ async function loadWithCache<TValue>(
 	return decode(raw, 'cache')
 }
 
+/**
+ * Check raw, decoded, and mutated page identity against the selected registry entry.
+ * A decoder must not disguise data for a different renderer by rewriting `_type`.
+ * This checks only `_type`, the field used to choose a renderer. It does not
+ * rerun the full schema after mutation; app mutations must honor their types.
+ */
 function assertLoadedType(
 	data: unknown,
 	expectedType: string,
@@ -383,6 +493,7 @@ function assertLoadedType(
 	}
 }
 
+/** Public errors omit documents, diagnostic text, tokens, and paths; details stay in onFailure. */
 function jsonErrorResponse(status: number, code: string): Response {
 	return new Response(
 		JSON.stringify({
@@ -402,12 +513,14 @@ function jsonErrorResponse(status: number, code: string): Response {
 	)
 }
 
+/** Check developer-supplied registry labels/query source at factory construction. */
 function assertNonEmpty(value: string, name: string): void {
 	if (value.trim().length === 0) {
 		throw new TypeError(`[sanity-kit] \`${name}\` must not be empty.`)
 	}
 }
 
+/** Human-readable registry mismatch details; used only in configuration errors. */
 function formatList(values: readonly string[]): string {
 	return values.length === 0
 		? 'none'
