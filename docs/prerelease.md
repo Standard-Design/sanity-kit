@@ -1,14 +1,13 @@
 # Prerelease integration
 
-Version `0.1.0-alpha.2` is intended for reviewed integration testing. The package
+Version `0.1.0-alpha.3` is prepared for reviewed integration testing. The package
 remains private and unlicensed; there is no npm publication in this workflow.
 
-These repository docs also describe pending changes after alpha.2. In particular,
-[loader hardening](loaders.md#alpha-compatibility-changes) and
-[static link fragments](link.md#query-fragments-and-typegen), along with the
-[request-context rename](server.md#migration-from-alpha2), are not included in
-the alpha.2 artifact. Use documentation from the exact artifact/revision you
-consume; the expanded source documentation is not a new release.
+These docs describe the alpha.3 API. It includes breaking changes to request
+context naming and loader validation/types, as well as static link fragments and
+expanded documentation. Follow the [upgrade checklist](#upgrading-from-alpha2)
+when replacing alpha.2. Use the approved artifact for the intended revision;
+preparing this version does not itself tag, push, or publish a release.
 
 ## Distribution
 
@@ -16,8 +15,8 @@ consume; the expanded source documentation is not a new release.
 root. Its exports reference compiled JavaScript and declarations directly.
 The current build includes README, LICENSE, CHANGELOG, the
 [documentation index](README.md), all subsystem guides, this prerelease guide,
-and extraction provenance. These expanded guides will ship with the next approved
-artifact; previously released tarballs are unchanged.
+and extraction provenance. These expanded guides are part of the alpha.3 package;
+previously released tarballs are unchanged.
 Source files, source maps, tests, development dependencies, and lifecycle scripts
 are excluded. Source-level debugging uses the matching repository commit.
 
@@ -85,7 +84,7 @@ Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
 
 ```sh
-pnpm add ./vendor/standard-sanity-kit-0.1.0-alpha.2.tgz
+pnpm add ./vendor/standard-sanity-kit-0.1.0-alpha.3.tgz
 ```
 
 Keep that exact file accessible to CI and other developers and commit the
@@ -97,6 +96,37 @@ access first. Never put credentials into dependency URLs or lockfiles.
 Direct Git dependencies are not supported by this compiled-only handoff. The
 repository's source manifest references build output, while the installable
 manifest lives in the assembled distribution. Use the verified tarball.
+
+## Upgrading from alpha.2
+
+1. Install the approved alpha.3 tarball and update the consumer lockfile. In a
+   Studio/frontend monorepo using the link fragments with TypeGen, install the
+   same artifact as a direct Studio/codegen dev dependency as well as the
+   frontend runtime dependency. Do not rely on package hoisting.
+2. Replace `sanity.preview.getContext(request)` with `sanity.getContext(request)`.
+   Rename imported `SanityPreviewContext` types to `SanityRequestContext` and
+   update hand-written kit mocks. There are no old-name aliases. Returned fields,
+   cookie behavior, and preview enable/disable handlers are unchanged.
+3. Remove `validation.published: 'passthrough'`. Every page loader still requires
+   an app-supplied decoder, and published validation failures now always throw.
+   Fix invalid published data rather than treating it as validated output.
+4. Add `previewDecoder` where useful, and handle published/draft output in page
+   components and mutations. Without a preview decoder, draft types guarantee
+   only `_type`. Keep original encoded render strings for Visual Editing.
+5. Review cache adapters: store raw query results, let load failures propagate,
+   and namespace both lookup and page keys. Clear or version any caches that
+   previously stored transformed data. Decoders can run twice on a cache miss,
+   so keep them free of side effects. Preview still bypasses the page-data cache.
+6. Read detailed validation issues through server-side `onFailure`, not public
+   error responses. Route information may be absent when the first lookup fails.
+   Update error UI/logging and keep preview diagnostics request-scoped and private.
+
+The [server migration notes](server.md#migration-from-alpha2),
+[loader guide](loaders.md#alpha-compatibility-changes), and
+[TypeGen setup](link.md#monorepo-code-generation) explain these changes in detail.
+No stored-link migration or dependency-range changes are required by alpha.3.
+Generate types with the application's own schema and queries, then run the
+[application acceptance checks](#standard-stack-acceptance) before deployment.
 
 ## Peer dependencies
 
@@ -134,8 +164,8 @@ Node 24+ is required. This prerelease targets ESM, React 19.2.7+ and React Route
 
 The manifest is the authority for supported ranges. Client 7 and 8 are supported;
 preview URL secret 3 and 4 are supported. The optional Visual Editing adapter
-requires `@sanity/visual-editing ^6.1.2`; Standard Stack's older 4.x package must
-be upgraded. Its `styled-components` peer must also be satisfied by the consuming
+requires `@sanity/visual-editing ^6.1.2`; consumers still using 4.x must upgrade.
+Its `styled-components` peer must also be satisfied by the consuming
 application/package manager. Unused optional integrations need not be installed.
 
 Keep server imports and secrets in application server modules. The portable

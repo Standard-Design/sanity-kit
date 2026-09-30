@@ -1,6 +1,6 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-alpha.3
 
 - **Breaking (alpha):** move `kit.preview.getContext(request)` to
   `kit.getContext(request)` and rename `SanityPreviewContext` to
@@ -22,6 +22,17 @@
   output, or only `SanityRoutable` guarantees for undecoded drafts. Failure-hook
   `routeData` and `type` are optional because lookup can fail before resolution.
   Bump application cache namespaces when upgrading from transformed caches.
+- Reorganize the README and add a documentation index and subsystem guides,
+  included in the compiled tarball. Expand source comments with plain-language
+  explanations and references to those guides.
+- Add installed-package TypeGen extraction coverage for a separate Studio/web
+  workspace, plus tests for request-context selection, typed drafts, cache
+  validation, and safe public errors.
+
+Consumers must install the new compiled tarball and follow the
+[alpha.3 upgrade checklist](docs/prerelease.md#upgrading-from-alpha2).
+Runtime dependencies and peer ranges are unchanged. Existing tags and artifacts
+remain unchanged; no npm publication is performed.
 
 ## 0.1.0-alpha.2
 

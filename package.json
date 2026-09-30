@@ -1,6 +1,6 @@
 {
 	"name": "@standard/sanity-kit",
-	"version": "0.1.0-alpha.2",
+	"version": "0.1.0-alpha.3",
 	"private": true,
 	"description": "Runtime-explicit Sanity primitives for Standard Design applications",
 	"license": "UNLICENSED",

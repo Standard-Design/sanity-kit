@@ -5,9 +5,9 @@ modules. `createSanityLoaders` connects the [browser route registry](react-route
 to the [server kit](server.md): it looks up a pathname, chooses a page query,
 validates the result, and handles preview/cache separation.
 
-This guide describes **unreleased changes after alpha.2**, including strict
-published validation before cache writes and typed preview decoding. See
-[migration requirements](#alpha-compatibility-changes) before adopting them.
+This guide describes alpha.3, including strict published validation before cache
+writes and typed preview decoding. Consumers upgrading from alpha.2 should read
+the [migration requirements](#alpha-compatibility-changes).
 
 Applications own schemas, queries, cache storage and key prefixes, diagnostic
 logging/redaction, and any wrapper object returned around the page. No hosting
@@ -243,7 +243,7 @@ Type generation does not replace runtime decoding.
 - Invalidate/version any existing transformed-result caches before adoption.
 
 No peer dependencies, canonical stored link fields, or hosting-specific APIs
-are added or changed by this slice.
+are added or changed in alpha.3.
 
 ## Source and related guides
 

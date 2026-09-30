@@ -72,7 +72,7 @@ root loader should return only required serializable state such as
 
 ### Migration from alpha.2
 
-This naming change is unreleased. Replace `sanity.preview.getContext(request)`
+In alpha.3, replace `sanity.preview.getContext(request)`
 with `sanity.getContext(request)` and rename any imported `SanityPreviewContext`
 type to `SanityRequestContext`. The old method and type are not retained as aliases.
 The result fields, signed cookies, client selection, and fetch options are unchanged.

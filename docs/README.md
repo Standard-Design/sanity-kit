@@ -1,9 +1,10 @@
 # Documentation
 
-These guides explain the current source of `@standard/sanity-kit`. The released
-baseline is alpha.2; loader hardening, request-context naming, and static link fragments documented here
-are pending changes, not part of that artifact. Check the
-[prerelease guide](prerelease.md) and [changelog](../CHANGELOG.md) before upgrading.
+These guides explain `@standard/sanity-kit` version `0.1.0-alpha.3`, including
+loader hardening, request-context naming, and static link fragments. These changes
+are not in the alpha.2 artifact. Read the
+[upgrade checklist](prerelease.md#upgrading-from-alpha2) and
+[changelog](../CHANGELOG.md) before adopting the approved alpha.3 tarball.
 
 ## Choose a starting point
 
@@ -63,7 +64,7 @@ package's own exports, not arbitrary application import graphs.
 - [Extraction provenance](extraction-provenance.md): source revision and reasons
   for a clean extraction from Sawkill.
 - [Package overview](../README.md): setup order and development commands.
-- [Changelog](../CHANGELOG.md): release history and pending changes.
+- [Changelog](../CHANGELOG.md): version history and compatibility changes.
 
 Source and test paths mentioned in these guides refer to the matching repository
 revision. They are not shipped in the compiled tarball. Public declarations and

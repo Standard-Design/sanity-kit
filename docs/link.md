@@ -111,7 +111,7 @@ the original label or Portable Text children to retain Visual Editing metadata.
 
 ## Query fragments and TypeGen
 
-The static exports in this section are **unreleased**, after alpha.2. They
+The static exports in this section are new in `0.1.0-alpha.3`. They
 project canonical fields without requiring a runtime factory call:
 
 ```ts

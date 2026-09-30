@@ -21,19 +21,17 @@ storage expect you to supply those pieces; the kit does not generate them.
 
 ## Installation and release status
 
-The released integration baseline is `0.1.0-alpha.2`. The package is private and
-is **not published to npm**. Install a reviewed, compiled tarball, not this Git
+This source is prepared for `0.1.0-alpha.3` integration testing. The package is
+private and is **not published to npm**. Install an approved, compiled tarball, not this Git
 repository as a dependency. The [prerelease guide](docs/prerelease.md) covers
 installation, peer dependencies, verification, and release handoff.
 
-These repository docs describe the current source, which includes **unreleased
-loader hardening, request-context naming, and static link fragments**. Installing alpha.2 does not include
-those changes. The [loader migration notes](docs/loaders.md#alpha-compatibility-changes)
-identify the pending behavior changes. Match documentation to the exact artifact
-you consume; no new release is implied by these docs.
-
-The pending [request-context rename](docs/server.md#migration-from-alpha2) moves
-`getContext` onto the kit itself, since it selects both published and preview fetching.
+These docs describe alpha.3, including stricter published-data validation,
+typed draft decoding, static link fragments, and the top-level `getContext` API.
+See the [upgrade checklist](docs/prerelease.md#upgrading-from-alpha2) before moving
+from alpha.2. Match documentation to the exact artifact you consume; earlier
+tarballs do not include these changes. A version bump in source does not itself
+publish an artifact.
 
 Node 24+ and ESM are required. React entrypoints target React/React DOM 19.2.7+;
 router entrypoints also require React Router 8.4+. Only install optional peers
