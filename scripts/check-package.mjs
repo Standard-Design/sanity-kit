@@ -40,6 +40,16 @@ const guard = spawnSync('npm', ['pack', '--pack-destination', temporary], {
 })
 assert.notEqual(guard.status, 0, 'Repository-root packing must be blocked.')
 assert.match(guard.stderr, /Do not pack or publish the repository root/u)
+const publishGuard = spawnSync('npm', ['publish', '--dry-run'], {
+	cwd: root,
+	encoding: 'utf8',
+})
+assert.notEqual(
+	publishGuard.status,
+	0,
+	'Repository-root publishing must be blocked.',
+)
+assert.match(publishGuard.stderr, /Do not pack or publish the repository root/u)
 const [packed] = JSON.parse(
 	run(
 		'npm',
@@ -74,6 +84,49 @@ const packedManifest = JSON.parse(
 assert.equal(sourceManifest.license, 'MIT')
 assert.equal(distManifest.license, 'MIT')
 assert.equal(packedManifest.license, 'MIT')
+assert.equal(sourceManifest.name, '@standard-design/sanity-kit')
+assert.equal(packedManifest.name, sourceManifest.name)
+assert.equal(
+	packed.filename,
+	`standard-design-sanity-kit-${sourceManifest.version}.tgz`,
+)
+const notices = await readFile(join(root, 'THIRD_PARTY_NOTICES.md'), 'utf8')
+assert.match(notices, /Copyright \(c\) 2025 Sanity\.io/u)
+assert.match(notices, /Tinloof/u)
+assert.equal(
+	run('tar', ['-xOf', tarball, 'package/THIRD_PARTY_NOTICES.md'], root, true),
+	notices,
+	'Packed third-party notices must match the source notices in full.',
+)
+// Never remove --dry-run here: CI checks publication shape, not credentials,
+// registry ownership, attribution clearance, or permission to release.
+const publication = JSON.parse(
+	run(
+		'npm',
+		[
+			'publish',
+			tarball,
+			'--dry-run',
+			'--ignore-scripts',
+			'--json',
+			'--access',
+			'public',
+			'--tag',
+			'alpha',
+			'--registry',
+			'https://registry.npmjs.org/',
+		],
+		root,
+		true,
+	),
+)
+// npm may key publish results by package name rather than return one pack result.
+const published = publication[sourceManifest.name] ?? publication
+assert.equal(published.name, sourceManifest.name)
+assert.equal(published.version, sourceManifest.version)
+assert.equal(published.integrity, packed.integrity)
+assert.deepEqual(published.files, packed.files)
+assert.deepEqual(published.bundled, [])
 // Validate the exact artifact installed below, not the source manifest.
 run('pnpm', ['exec', 'publint', tarball, '--strict'])
 run('pnpm', ['exec', 'attw', tarball, '--profile', 'esm-only'])
@@ -91,12 +144,17 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package\.json|README\.md|LICENSE|CHANGELOG\.md|docs\/(README|core|image|image-react|link|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
+			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
 	)
 	const content = await readFile(join(root, 'dist', path), 'utf8')
+	assert.doesNotMatch(
+		content,
+		/\/Users\/|\/home\/|Sawkill|sawkill-lumber/u,
+		`Private workstation or project detail in ${path}`,
+	)
 	assert.doesNotMatch(
 		content,
 		/sourceMappingURL|sourcesContent/u,
@@ -106,6 +164,7 @@ for (const path of contents) {
 for (const required of [
 	'README.md',
 	'LICENSE',
+	'THIRD_PARTY_NOTICES.md',
 	'CHANGELOG.md',
 	'docs/sitemaps.md',
 	'docs/prerelease.md',
@@ -122,7 +181,14 @@ for (const required of [
 	'docs/extraction-provenance.md',
 ])
 	assert.ok(contents.has(required), `Missing ${required}`)
-assert.equal(distManifest.private, true)
+assert.equal(sourceManifest.private, true)
+assert.equal(distManifest.private, false)
+assert.deepEqual(distManifest.publishConfig, {
+	access: 'public',
+	tag: 'alpha',
+	registry: 'https://registry.npmjs.org/',
+})
+assert.deepEqual(packedManifest, distManifest)
 assert.deepEqual(distManifest.dependencies, sourceManifest.dependencies)
 for (const field of ['scripts', 'devDependencies', 'packageManager'])
 	assert.equal(
@@ -203,7 +269,7 @@ for (const matrix of matrices) {
 				private: true,
 				type: 'module',
 				dependencies: {
-					'@standard/sanity-kit': `file:${tarball}`,
+					'@standard-design/sanity-kit': `file:${tarball}`,
 					...matrix.peers,
 				},
 			},
@@ -237,7 +303,7 @@ for (const matrix of matrices) {
 	}
 	const installed = JSON.parse(
 		await readFile(
-			join(cwd, 'node_modules/@standard/sanity-kit/package.json'),
+			join(cwd, 'node_modules/@standard-design/sanity-kit/package.json'),
 			'utf8',
 		),
 	)
@@ -331,7 +397,7 @@ for (const [cwd, name] of [
 			private: true,
 			type: 'module',
 			devDependencies: {
-				'@standard/sanity-kit': `file:${tarball}`,
+				'@standard-design/sanity-kit': `file:${tarball}`,
 				'@sanity/client': current['@sanity/client'],
 				...(name === 'studio'
 					? { '@sanity/codegen': '8.1.0' }
@@ -387,7 +453,7 @@ async function checkBrowserBundles(cwd, full) {
 		modules
 			.map(
 				(suffix, index) =>
-					`import * as api${index} from '@standard/sanity-kit${suffix}'; console.log(api${index});`,
+					`import * as api${index} from '@standard-design/sanity-kit${suffix}'; console.log(api${index});`,
 			)
 			.join('\n'),
 	)
@@ -415,7 +481,7 @@ async function checkBrowserBundles(cwd, full) {
 	if (!full) return
 	await writeFile(
 		join(cwd, 'preview.js'),
-		"export { SanityVisualEditing } from '@standard/sanity-kit/react-router/visual-editing'",
+		"export { SanityVisualEditing } from '@standard-design/sanity-kit/react-router/visual-editing'",
 	)
 	const preview = await build({
 		...options,

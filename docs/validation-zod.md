@@ -1,6 +1,6 @@
 # Zod validation adapter
 
-Import `createZodDecoder` from `@standard/sanity-kit/validation/zod`. This
+Import `createZodDecoder` from `@standard-design/sanity-kit/validation/zod`. This
 browser-safe optional entrypoint connects Zod to the kit's library-independent
 [decoder contract](core.md#the-decoder-contract). It requires the Zod peer;
 consumers using another decoder do not need to install Zod.
@@ -9,11 +9,11 @@ consumers using another decoder do not need to install Zod.
 
 ```ts
 import { z } from 'zod'
-import { createZodDecoder } from '@standard/sanity-kit/validation/zod'
+import { createZodDecoder } from '@standard-design/sanity-kit/validation/zod'
 import {
 	requireValidSanityData,
 	validateSanityData,
-} from '@standard/sanity-kit/core'
+} from '@standard-design/sanity-kit/core'
 
 const articleSchema = z.object({
 	_type: z.literal('article'),

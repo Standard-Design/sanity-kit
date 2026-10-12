@@ -4,25 +4,25 @@ import {
 	createSanityImageTools,
 	prepareSanityImage,
 	type SanityImagePreparationFailure,
-} from '@standard/sanity-kit/image'
-import { createSanityImageComponent } from '@standard/sanity-kit/image/react'
+} from '@standard-design/sanity-kit/image'
+import { createSanityImageComponent } from '@standard-design/sanity-kit/image/react'
 import {
 	createSanityRoutes,
 	createSanityLinks,
 	defineSanityRoute,
-} from '@standard/sanity-kit/react-router'
+} from '@standard-design/sanity-kit/react-router'
 import {
 	createSanityKit,
 	createSanityLoaders,
 	defineSanityLoader,
 	createSanitySitemapLoader,
 	type SanityRequestContext,
-} from '@standard/sanity-kit/react-router/server'
-import { createZodDecoder } from '@standard/sanity-kit/validation/zod'
+} from '@standard-design/sanity-kit/react-router/server'
+import { createZodDecoder } from '@standard-design/sanity-kit/validation/zod'
 import {
 	sanityLinkQueryFragment,
 	sanityPortableTextLinkQueryFragment,
-} from '@standard/sanity-kit/link'
+} from '@standard-design/sanity-kit/link'
 
 const publicConfig = {
 	projectId: 'project',

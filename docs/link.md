@@ -1,7 +1,7 @@
 # Links
 
-Use `@standard/sanity-kit/link` to resolve Sanity link data without a framework.
-Use `createSanityLinks` from `@standard/sanity-kit/react-router` for the React
+Use `@standard-design/sanity-kit/link` to resolve Sanity link data without a framework.
+Use `createSanityLinks` from `@standard-design/sanity-kit/react-router` for the React
 Router component. Both are browser-safe; neither fetches documents or requires
 server secrets. The router adapter needs the [React Router peers](prerelease.md#supported-peers).
 
@@ -41,7 +41,7 @@ Missing or null `openInNewTab` means false; truthy non-booleans are rejected.
 ## Resolve links without React
 
 ```ts
-import { createSanityLinkResolver } from '@standard/sanity-kit/link'
+import { createSanityLinkResolver } from '@standard-design/sanity-kit/link'
 
 const links = createSanityLinkResolver({ linkableTypes: ['article', 'page'] })
 const resolved = links.resolve(link)
@@ -81,7 +81,7 @@ navigation behavior in the React adapter.
 In a shared application module such as `app/components/sanity-link.tsx`:
 
 ```tsx
-import { createSanityLinks } from '@standard/sanity-kit/react-router'
+import { createSanityLinks } from '@standard-design/sanity-kit/react-router'
 import { sanityRoutes } from '../sanity/routes'
 
 export const sanityLinks = createSanityLinks({ routes: sanityRoutes })
@@ -116,7 +116,7 @@ project canonical fields without requiring a runtime factory call:
 
 ```ts
 import { defineQuery } from 'groq'
-import { sanityLinkQueryFragment } from '@standard/sanity-kit/link'
+import { sanityLinkQueryFragment } from '@standard-design/sanity-kit/link'
 
 export const navigationQuery = defineQuery(`
   *[_type == "navigation"][0]{items[]{${sanityLinkQueryFragment}}}
@@ -132,8 +132,8 @@ and `"pathname": pathname.current`. The kit does not ship a Portable Text render
 For custom projections at runtime, the existing factory remains available:
 
 ```ts
-import { createSanityLinkQueryFragments } from '@standard/sanity-kit/link'
-import { sanityRouteDataQueryFragment } from '@standard/sanity-kit/react-router'
+import { createSanityLinkQueryFragments } from '@standard-design/sanity-kit/link'
+import { sanityRouteDataQueryFragment } from '@standard-design/sanity-kit/react-router'
 
 export const { linkQueryFragment, portableTextLinkQueryFragment } =
 	createSanityLinkQueryFragments({
@@ -169,8 +169,8 @@ Diagnostic messages are not guaranteed safe for public error payloads.
 
 Legacy fields such as `kind` or `page` are not aliases in this contract. Adapt
 them in application queries or migrate stored data explicitly. The kit is a
-reusable version of the Sawkill pattern, not a copy of every Sawkill schema or
-style assumption. Check actual projections against the canonical shape above.
+reusable integration pattern, not a copy of an application's schema or style
+assumptions. Check actual projections against the canonical shape above.
 
 ## Source and related guides
 

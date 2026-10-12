@@ -1,6 +1,6 @@
 # Loader validation, preview, and caching
 
-Import from `@standard/sanity-kit/react-router/server` in server-only application
+Import from `@standard-design/sanity-kit/react-router/server` in server-only application
 modules. `createSanityLoaders` connects the [browser route registry](react-router.md)
 to the [server kit](server.md): it looks up a pathname, chooses a page query,
 validates the result, and handles preview/cache separation.
@@ -21,8 +21,8 @@ decoder and Stega terminology used here.
 import {
 	createSanityLoaders,
 	defineSanityLoader,
-} from '@standard/sanity-kit/react-router/server'
-import { createZodDecoder } from '@standard/sanity-kit/validation/zod'
+} from '@standard-design/sanity-kit/react-router/server'
+import { createZodDecoder } from '@standard-design/sanity-kit/validation/zod'
 import { sanity } from '../sanity.server'
 import { sanityRoutes } from './routes'
 import { articleQuery, articleSchema, draftArticleSchema } from './article'
@@ -111,7 +111,7 @@ published-schema check, not for route identity or a failed preview decoder.
 The cache adapter handles storage only:
 
 ```ts
-import type { SanityLoaderCache } from '@standard/sanity-kit/react-router/server'
+import type { SanityLoaderCache } from '@standard-design/sanity-kit/react-router/server'
 
 const cache: SanityLoaderCache = async ({ key }, load) => {
 	const hit = await storage.get(key)
@@ -159,7 +159,7 @@ Use a fresh closure per request to collect only the strict diagnostics intended
 for preview. Do not keep diagnostic state in a module-level array.
 
 ```ts
-import type { SanityValidationDiagnostic } from '@standard/sanity-kit/core'
+import type { SanityValidationDiagnostic } from '@standard-design/sanity-kit/core'
 
 export async function loader(args: Route.LoaderArgs) {
 	const diagnostics: SanityValidationDiagnostic[] = []

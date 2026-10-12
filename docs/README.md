@@ -1,10 +1,12 @@
 # Documentation
 
-These guides explain `@standard/sanity-kit` version `0.1.0-alpha.3`, including
-loader hardening, request-context naming, and static link fragments. These changes
-are not in the alpha.2 artifact. Read the
-[upgrade checklist](prerelease.md#upgrading-from-alpha2) and
-[changelog](../CHANGELOG.md) before adopting the approved alpha.3 tarball.
+These guides explain `@standard-design/sanity-kit` version `0.1.0-alpha.4`. It
+prepares the new package scope, MIT licensing, attribution, and public npm
+distribution without changing runtime behavior. Read the
+[scope migration](prerelease.md#upgrading-from-alpha3) and
+[changelog](../CHANGELOG.md) before adopting the approved alpha.4 tarball.
+Consumers still on alpha.2 must also follow the
+[API upgrade checklist](prerelease.md#upgrading-from-alpha2).
 
 ## Choose a starting point
 
@@ -61,8 +63,10 @@ package's own exports, not arbitrary application import graphs.
 
 - [Prerelease integration](prerelease.md): installation, dependencies, testing,
   artifact preparation, and application acceptance checks.
-- [Extraction provenance](extraction-provenance.md): source revision and reasons
-  for a clean extraction from Sawkill.
+- [Extraction provenance](extraction-provenance.md): extraction boundaries and
+  the focused attribution audit.
+- [Third-party notices](../THIRD_PARTY_NOTICES.md): copied/adapted code credits
+  and the licensing clarification required before public release.
 - [Package overview](../README.md): setup order and development commands.
 - [Changelog](../CHANGELOG.md): version history and compatibility changes.
 

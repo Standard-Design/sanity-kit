@@ -1,6 +1,6 @@
 # Responsive React images
 
-Import from `@standard/sanity-kit/image/react`. This optional adapter uses
+Import from `@standard-design/sanity-kit/image/react`. This optional adapter uses
 [image tools](image.md) to render a native `<img>` with responsive URLs, layout
 dimensions, and optional preload. It works in server-rendered React and in the
 browser. It requires React, React DOM, and `@sanity/image-url` peers.
@@ -10,7 +10,7 @@ browser. It requires React, React DOM, and `@sanity/image-url` peers.
 In a shared application module, for example `app/components/sanity-image.tsx`:
 
 ```tsx
-import { createSanityImageComponent } from '@standard/sanity-kit/image/react'
+import { createSanityImageComponent } from '@standard-design/sanity-kit/image/react'
 
 export const SanityImage = createSanityImageComponent({
 	projectId: 'your-project-id',
@@ -35,7 +35,7 @@ the list is sorted. Quality, fit, and automatic format behavior follow the
 ## Prepare and render an image
 
 ```tsx
-import { prepareSanityImage } from '@standard/sanity-kit/image'
+import { prepareSanityImage } from '@standard-design/sanity-kit/image'
 import { SanityImage } from './sanity-image'
 
 export function ContentImage({ value, alt }: { value: unknown; alt: string }) {

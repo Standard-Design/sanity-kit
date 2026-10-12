@@ -138,6 +138,8 @@ export function prepareSanityImage(
  * dimensions matches Sanity's URL builder and prevents the two callers drifting.
  * This internal export does not position hotspots or select an output fit mode,
  * and is not exposed by the public `/image` entrypoint.
+ * Crop rounding is adapted from @sanity/image-url (MIT, Sanity.io).
+ * See THIRD_PARTY_NOTICES.md for the upstream notice.
  * @see docs/image-react.md#how-responsive-sizing-works for the formula.
  */
 export function getSanityImageCropRect(

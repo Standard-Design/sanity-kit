@@ -1,6 +1,6 @@
 # React Router: page components and metadata
 
-Import from `@standard/sanity-kit/react-router`. This browser-safe entrypoint
+Import from `@standard-design/sanity-kit/react-router`. This browser-safe entrypoint
 maps Sanity document types to React components, supplies metadata dispatch, and
 exposes the route information used by [links](link.md) and [server loaders](loaders.md).
 It does not contain clients, credentials, or content-fetching code.
@@ -27,7 +27,7 @@ import { stegaClean } from '@sanity/client/stega'
 import {
 	createSanityRoutes,
 	defineSanityRoute,
-} from '@standard/sanity-kit/react-router'
+} from '@standard-design/sanity-kit/react-router'
 
 // In an application, derive this from published and preview decoder outputs.
 type Article = { _type: 'article'; title?: string | null }

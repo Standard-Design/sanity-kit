@@ -1,11 +1,11 @@
-import { defineSanityConfig } from '@standard/sanity-kit'
+import { defineSanityConfig } from '@standard-design/sanity-kit'
 import {
 	defineSanityDataDecoder,
 	requireValidSanityData,
 	validateSanityData,
-} from '@standard/sanity-kit/core'
-import { createSanityLinkQueryFragments } from '@standard/sanity-kit/link'
-import { createSitemapResponse } from '@standard/sanity-kit/sitemap'
+} from '@standard-design/sanity-kit/core'
+import { createSanityLinkQueryFragments } from '@standard-design/sanity-kit/link'
+import { createSitemapResponse } from '@standard-design/sanity-kit/sitemap'
 
 const config = defineSanityConfig({
 	projectId: 'project',

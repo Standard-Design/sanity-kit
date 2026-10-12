@@ -1,56 +1,62 @@
 # Extraction provenance
 
-## Source
+## Origin and history
 
-- Project: Sawkill Lumber
-- Repository path: `/Users/austinmaurer/Dev/Sawkill/sawkill-lumber`
-- Source revision: `e16501c35bb4d10ee1d9c5397563935874148d2a`
-- Original package path: `packages/sanity-kit`
-- Extraction model: clean repository history with explicit provenance
+SanityKit grew out of an application-owned integration maintained by Standard
+Design. It was extracted into a standalone repository with clean history rather
+than importing an unrelated application's full Git history. The package changed
+its build, runtime boundaries, validation strategy, and public API during that
+extraction.
 
-The source revision was clean for the package and its related design documents
-when this extraction began. Sawkill remains read-only.
+The repository's earlier revisions retain the internal extraction record.
+This distributed guide intentionally excludes workstation paths, private project
+names, and private source revisions. None is needed to install or use the kit.
+Third-party attribution is preserved separately in
+[THIRD_PARTY_NOTICES.md](../THIRD_PARTY_NOTICES.md), including conflicting
+image-lineage license declarations and Standard Design's decision to proceed
+under an MIT interpretation while leaving upstream confirmation as a follow-up.
 
-## Why the history is clean
+## What changed during extraction
 
-Sawkill's Git history describes a complete application, not an independently
-versioned package. The extracted package also changes the distribution model,
-runtime boundaries, validation strategy, and public API. Importing the
-application-wide history would add unrelated commits and imply a continuity
-that the hardened package does not have.
+The standalone package replaces:
 
-Relevant source commits remain discoverable in Sawkill's history:
-
-- `bde815c`: initial workspace-package extraction
-- `b707aa2`: subpath exports and factory API refactor
-- `a05c5b9`: React Router route-export binding fix
-- `74093f0`: explicit TSX extension fix in the route barrel
-- `b5b06af`: route-data fragment support for link schemas
-
-## Reuse policy
-
-The extraction preserves useful behavior and lessons, but it does not copy the
-source package wholesale. In particular, the standalone package must replace:
-
-- raw TypeScript package exports with compiled ESM and declarations;
-- package-internal `import.meta.env` reads with explicit configuration;
-- unconditional Zod coupling with an optional parser contract;
+- raw TypeScript exports with compiled ESM and declarations;
+- package-internal environment reads with explicit configuration;
+- unconditional Zod coupling with an optional decoder adapter;
 - preview validation bypasses with structured diagnostics;
-- Sawkill CSS class and token assumptions with headless or minimal UI;
-- broad server barrels with physically separate, explicit entrypoints;
-- Cloudflare-specific imports with runtime-neutral interfaces.
+- application CSS and content-model assumptions with headless building blocks;
+- broad server imports with explicit browser and server entrypoints;
+- hosting-specific storage with application-supplied cache adapters.
 
-## Reference integration
+Sitemap generation preserves an application integration pattern, while adding
+portable XML serialization, strict validation, and an explicitly configured
+server loader. Schema-specific queries and storage remain application-owned.
 
-Sitemap generation is adapted from the application route
-`app/routes/sitemap.xml.tsx` in Sawkill Lumber. Its schema-specific query and
-Cloudflare cache remain application-owned; the extraction adds portable XML
-serialization, strict validation, and an explicitly configured server loader.
+## Focused attribution review
 
-Standard Stack is coordinated separately and remains read-only. It will consume
-only a reviewed compiled tarball tied to an exact Git revision after the package
-passes its integration gates; direct Git dependency installation is not supported.
-It will not import this workspace's source directly. See the
-[prerelease guide](prerelease.md) for the current distribution contract.
+The alpha.4 preparation reviewed source files and their introduction history,
+the earlier package/image/sitemap implementations, image upstream sources and
+licenses, the TypeScript build, and packed-file contents. Findings:
+
+- Responsive images inherit Tinloof provenance through the earlier application
+  implementation. Standard Design interprets the conflicting upstream license
+  declarations as MIT. Upstream confirmation remains a non-blocking follow-up;
+  the decision, notice, and pinned references are in the third-party notices.
+- The crop-rounding helper adapts Sanity's MIT-licensed image URL builder; its
+  complete notice ships in every compiled distribution.
+- Other integrations call installed dependencies rather than vendoring their
+  implementations. The build does not bundle those dependencies or ship test
+  bundles, fonts, icons, or styles. No additional copied third-party material was
+  identified in the reviewed scope. This is not a legal clearance of unknown
+  historical contributions or of consumers' downstream bundles.
+
+## Package identity
+
+The alpha.0 through alpha.3 artifacts used `@standard/sanity-kit` and proprietary
+licensing. Those tags, tarballs, and checksums are unchanged. Alpha.4 prepares
+`@standard-design/sanity-kit` for public npm distribution with MIT licensing for
+original code and separate third-party notices. Renaming does not alias the old
+package or rewrite earlier artifacts. See the [prerelease guide](prerelease.md)
+for migration steps and release gates.
 
 Return to the [documentation index](README.md).

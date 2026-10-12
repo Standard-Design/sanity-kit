@@ -1,6 +1,6 @@
 # Server clients and preview sessions
 
-Import from `@standard/sanity-kit/react-router/server` only in server-side
+Import from `@standard-design/sanity-kit/react-router/server` only in server-side
 application code. This entrypoint creates Sanity clients and signed preview
 sessions. It also exports [page loaders](loaders.md) and the
 [sitemap loader](sitemaps.md), documented separately.
@@ -13,7 +13,7 @@ an application-global environment. Install the server adapter's
 
 ```ts
 // app/sanity.server.ts — env is supplied by your application's runtime.
-import { createSanityKit } from '@standard/sanity-kit/react-router/server'
+import { createSanityKit } from '@standard-design/sanity-kit/react-router/server'
 
 export const sanity = createSanityKit({
 	projectId: env.PUBLIC_SANITY_PROJECT_ID,

@@ -1,43 +1,61 @@
 # Prerelease integration
 
-Version `0.1.0-alpha.3` is the existing integration release. The current source
-uses the [MIT license](../LICENSE); this licensing change is not yet released.
-The package retains its private publishing safeguard, and there is no npm
-publication in this workflow.
+Version `0.1.0-alpha.4` prepares `@standard-design/sanity-kit` for a first public
+npm alpha. It is not yet published. Original code uses the [MIT license](../LICENSE);
+[third-party notices](../THIRD_PARTY_NOTICES.md) describe adapted code and
+Standard Design's MIT interpretation of conflicting Tinloof license declarations.
+Upstream confirmation remains a follow-up, not a release prerequisite.
 
-These docs describe the alpha.3 API. It includes breaking changes to request
+The API is unchanged from alpha.3, which introduced breaking changes to request
 context naming and loader validation/types, as well as static link fragments and
 expanded documentation. Follow the [upgrade checklist](#upgrading-from-alpha2)
 when replacing alpha.2. Use the approved artifact for the intended revision;
 preparing this version does not itself tag, push, or publish a release.
 
-## Licensing change after alpha.3
+## Upgrading from alpha.3
 
-The source license and package metadata now use MIT, copyright 2026 Standard
-Design LLC. The build copies the complete `LICENSE` into the compiled package and
-preserves `license: "MIT"` in its manifest. Package checks verify both inside the
-actual tarball. Third-party dependencies retain their own licenses and notices.
+Alpha.4 changes the package identity from `@standard/sanity-kit` to
+`@standard-design/sanity-kit`; the exported APIs, subpaths, and runtime behavior
+are unchanged. There is no compatibility alias or replacement artifact under
+the old name.
 
-The existing alpha.3 tarball still contains the proprietary license and
-`UNLICENSED` metadata. Do not overwrite that asset or treat a source edit as an
-updated release. After review and commit, prepare `0.1.0-alpha.4` as a separate
-release with a new tarball, manifest, and checksums. Consumers must install that
-reviewed artifact and update their lockfiles to receive the licensing change.
-No API or dependency changes are part of this licensing slice.
+1. Remove the old dependency key and install the reviewed new package/version.
+   Update frontend and Studio/codegen dependencies together; do not keep both
+   package identities installed as a migration shortcut.
+2. Change imports and any package-specific tooling references from
+   `@standard/sanity-kit` to `@standard-design/sanity-kit`, preserving subpaths.
+   For example, `/image/react` and `/react-router/server` remain the same.
+3. Regenerate the consumer lockfile and run its typechecks, build, and TypeGen.
+   No stored-data migration, cache reset, or decoder change is needed from alpha.3.
+4. When redistributing the kit, retain `LICENSE` and `THIRD_PARTY_NOTICES.md`.
+
+### Licensing change after alpha.3
+
+Original code and package metadata use MIT, copyright 2026 Standard Design LLC.
+The build copies the complete license and third-party notices into the compiled
+package; checks verify both inside the actual tarball. Third-party terms are
+not replaced by the kit's license.
+
+The old alpha.3 tarball still contains the proprietary license and `UNLICENSED`
+metadata. Do not overwrite or relabel it. The new artifact is
+`standard-design-sanity-kit-0.1.0-alpha.4.tgz`, with a new manifest and checksums.
+Keep existing working pins until that reviewed release is available.
 
 ## Distribution
 
 `pnpm build` replaces generated output and assembles `dist` as a complete package
 root. Its exports reference compiled JavaScript and declarations directly.
-The current build includes README, LICENSE, CHANGELOG, the
+The current build includes README, LICENSE, THIRD_PARTY_NOTICES, CHANGELOG, the
 [documentation index](README.md), all subsystem guides, this prerelease guide,
-and extraction provenance. These expanded guides are part of the alpha.3 package;
+and extraction provenance. These expanded guides have shipped since alpha.3;
 previously released tarballs are unchanged.
 Source files, source maps, tests, development dependencies, and lifecycle scripts
 are excluded. Source-level debugging uses the matching repository commit.
 
-The repository root blocks ordinary pack/publish commands. Do not disable that
-guard to distribute the root. Both manifests retain `private: true`.
+The repository root retains `private: true` and blocks pack/publish commands.
+Do not disable those guards. The generated `dist/package.json` deliberately sets
+`private: false` and `publishConfig` to public access, the `alpha` tag, and
+`https://registry.npmjs.org/`. No dependency code is bundled into the tarball.
 
 ## Verification and handoff
 
@@ -58,7 +76,8 @@ The package check builds and packs `dist`, checks the tarball with
 `publint --strict` and Are the Types Wrong (`attw --profile esm-only`), then
 installs that same tarball in temporary
 consumer projects with install scripts disabled and strict peer resolution. It
-checks artifact contents, runtime imports, TypeScript declarations, hidden deep
+checks the complete license and third-party notices, package identity, artifact
+contents, runtime imports, TypeScript declarations, hidden deep
 imports, ordinary browser bundles, and a separate lazy Visual Editing chunk.
 It exercises minimal core peers, current development peers, and declared minimum
 peer versions, plus Standard Stack's client 7/React 19.3 combination. Ordinary
@@ -78,10 +97,11 @@ for the direct-dependency requirement and limits of that check.
 
 The `esm-only` profile matches the supported ESM exports; CommonJS and legacy
 Node 10 resolution are not supported. No other ATTW rules are suppressed.
-Unlike CFKit, this private, non-npm distribution does not run `npm publish
---dry-run`. Actual packing, artifact inspection, both package linters, and
-no-script consumer installs validate the distribution without testing publication
-or removing the `private: true` safeguards.
+The check also runs `npm publish <tarball> --dry-run --ignore-scripts` with
+explicit public access and the `alpha` tag. It checks the exact compiled tarball,
+not the repository root, and verifies its reported integrity. Dry-run success
+does not confirm registry write permission, name availability, license clearance,
+or publication. Root packing and root publishing dry-runs must still fail.
 
 After reviewing and committing the slice on the intended release branch, run:
 
@@ -100,7 +120,7 @@ Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
 
 ```sh
-pnpm add ./vendor/standard-sanity-kit-0.1.0-alpha.3.tgz
+pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.4.tgz
 ```
 
 Keep that exact file accessible to CI and other developers and commit the
@@ -113,9 +133,45 @@ Direct Git dependencies are not supported by this compiled-only handoff. The
 repository's source manifest references build output, while the installable
 manifest lives in the assembled distribution. Use the verified tarball.
 
+## Public npm publication
+
+Public publication is a separate, explicitly approved step. Standard Design has
+chosen to proceed under the MIT interpretation recorded in
+[third-party notices](../THIRD_PARTY_NOTICES.md); confirmation from Tinloof is
+not a release prerequisite. This maintainer decision does not establish upstream
+confirmation. Package tests check technical packaging, not redistribution rights.
+
+Before the first publication:
+
+1. Review the recorded license interpretation and included notices as part of
+   the final change set. Retain the Tinloof confirmation task as a follow-up.
+2. Confirm the publisher's npm account can publish under `standard-design`,
+   satisfy its authentication/2FA requirements, and check that the exact package
+   version is not already published. Organization creation alone is not proof
+   of this environment's permissions. These account checks remain a release gate.
+3. Commit the reviewed slice, pass CI, and run `pnpm pack:release` from clean
+   history. Inspect the generated manifest, file list, and SHA-256; the tarball
+   must contain only compiled output, docs, and the required notices.
+4. After explicit publication approval, publish that exact reviewed tarball
+   generated from `dist` with `--access public --tag alpha` and the npm registry.
+   Never publish the repository root, suppress its guards, or repack changed code
+   under an existing version. Do not use the `latest` tag for this alpha.
+5. Verify the registry's name, version, integrity, public access, and `alpha` tag;
+   install the registry package in a clean consumer before handing it off.
+
+Once published, consumers can install the exact version:
+
+```sh
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.4
+```
+
+The checked-in CI workflow does not publish, manage npm credentials, or configure
+trusted publishing. See npm's [publication documentation](https://docs.npmjs.com/cli/v11/commands/npm-publish/)
+and [organization-scoped package instructions](https://docs.npmjs.com/creating-and-publishing-an-organization-scoped-package/).
+
 ## Upgrading from alpha.2
 
-1. Install the approved alpha.3 tarball and update the consumer lockfile. In a
+1. Install the approved alpha.4 tarball and update the consumer lockfile. In a
    Studio/frontend monorepo using the link fragments with TypeGen, install the
    same artifact as a direct Studio/codegen dev dependency as well as the
    frontend runtime dependency. Do not rely on package hoisting.

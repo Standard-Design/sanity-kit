@@ -1,13 +1,13 @@
 # Core: configuration and validation
 
-Import from `@standard/sanity-kit/core` or the package root; both expose the same
+Import from `@standard-design/sanity-kit/core` or the package root; both expose the same
 core API. This entrypoint is browser-safe and does not import React Router, Zod,
 image tooling, or Visual Editing. `@sanity/client` is its required peer.
 
 ## Public configuration
 
 ```ts
-import { defineSanityConfig } from '@standard/sanity-kit/core'
+import { defineSanityConfig } from '@standard-design/sanity-kit/core'
 
 export const sanityConfig = defineSanityConfig({
 	projectId: 'your-project-id',
@@ -36,7 +36,7 @@ A decoder checks an unknown input and describes the value it can safely return.
 It can be synchronous or asynchronous. It is not tied to a schema library.
 
 ```ts
-import { defineSanityDataDecoder } from '@standard/sanity-kit/core'
+import { defineSanityDataDecoder } from '@standard-design/sanity-kit/core'
 
 export const titleDecoder = defineSanityDataDecoder<string>({
 	decode(input) {
@@ -71,7 +71,7 @@ cache-backed loaders can call them more than once for the same input.
 import {
 	validateSanityData,
 	requireValidSanityData,
-} from '@standard/sanity-kit/core'
+} from '@standard-design/sanity-kit/core'
 
 const validation = await validateSanityData(queryResult, pageDecoder)
 

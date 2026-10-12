@@ -5,16 +5,18 @@ import {
 	defineSanityDataDecoder,
 	requireValidSanityData,
 	validateSanityData,
-} from '@standard/sanity-kit'
+} from '@standard-design/sanity-kit'
 import {
 	createSanityLinkQueryFragments,
 	sanityLinkQueryFragment,
 	sanityPortableTextLinkQueryFragment,
-} from '@standard/sanity-kit/link'
-import { createSitemapResponse } from '@standard/sanity-kit/sitemap'
+} from '@standard-design/sanity-kit/link'
+import { createSitemapResponse } from '@standard-design/sanity-kit/sitemap'
 
 // TypeGen uses CommonJS-style module resolution to read ESM source statically.
-assert.ok(createRequire(import.meta.url).resolve('@standard/sanity-kit/link'))
+assert.ok(
+	createRequire(import.meta.url).resolve('@standard-design/sanity-kit/link'),
+)
 assert.match(sanityLinkQueryFragment, /internalDestination->/u)
 assert.match(sanityPortableTextLinkQueryFragment, /pathname\.current/u)
 
@@ -42,7 +44,7 @@ assert.match(
 	/https:\/\/example.com\//,
 )
 await assert.rejects(
-	import('@standard/sanity-kit/dist/react-router/server/index.js'),
+	import('@standard-design/sanity-kit/dist/react-router/server/index.js'),
 	{ code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' },
 )
 
@@ -51,16 +53,16 @@ if (process.argv.includes('--full')) {
 	const { renderToStaticMarkup } = await import('react-dom/server')
 	const { z } = await import('zod')
 	const { createZodDecoder } =
-		await import('@standard/sanity-kit/validation/zod')
+		await import('@standard-design/sanity-kit/validation/zod')
 	const { createSanityImageTools, prepareSanityImage } =
-		await import('@standard/sanity-kit/image')
+		await import('@standard-design/sanity-kit/image')
 	const { createSanityImageComponent } =
-		await import('@standard/sanity-kit/image/react')
-	const router = await import('@standard/sanity-kit/react-router')
+		await import('@standard-design/sanity-kit/image/react')
+	const router = await import('@standard-design/sanity-kit/react-router')
 	const { createSanityKit, createSanitySitemapLoader } =
-		await import('@standard/sanity-kit/react-router/server')
+		await import('@standard-design/sanity-kit/react-router/server')
 	const { SanityVisualEditing } =
-		await import('@standard/sanity-kit/react-router/visual-editing')
+		await import('@standard-design/sanity-kit/react-router/visual-editing')
 	assert.equal(
 		renderToStaticMarkup(
 			createElement(SanityVisualEditing, { enabled: false }),

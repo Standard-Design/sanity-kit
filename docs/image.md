@@ -1,6 +1,6 @@
 # Image tools
 
-Import from `@standard/sanity-kit/image`. These browser-safe, framework-independent
+Import from `@standard-design/sanity-kit/image`. These browser-safe, framework-independent
 helpers prepare image data and construct URLs without fetching the image.
 Install the optional `@sanity/image-url` peer. `@sanity/asset-utils` is an
 automatically installed package dependency, used for source parsing.
@@ -10,7 +10,7 @@ For a ready-to-use responsive `<img>`, see [React images](image-react.md).
 ## Configure the URL builder
 
 ```ts
-import { createSanityImageTools } from '@standard/sanity-kit/image'
+import { createSanityImageTools } from '@standard-design/sanity-kit/image'
 
 export const images = createSanityImageTools({
 	projectId: 'your-project-id',
@@ -54,7 +54,7 @@ Drafts may contain an empty image field, a missing asset, or incomplete crop
 settings. `prepareSanityImage` gives you a result to inspect before rendering:
 
 ```ts
-import { prepareSanityImage } from '@standard/sanity-kit/image'
+import { prepareSanityImage } from '@standard-design/sanity-kit/image'
 
 const prepared = prepareSanityImage(documentImage)
 if (prepared.success) {

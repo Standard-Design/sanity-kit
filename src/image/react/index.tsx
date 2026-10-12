@@ -6,6 +6,8 @@
  * turns each candidate into a URL; this component renders a native img and,
  * when requested, preloads it. The app still chooses alt text, sizes, and layout.
  * No CSS system, framework image service, or hosting-specific API is required.
+ * The earlier application implementation credited Tinloof's Sanity image
+ * component. See THIRD_PARTY_NOTICES.md for that provenance and license status.
  *
  * @see docs/image-react.md for the shared-component pattern and sizing rules.
  * @see docs/image.md for source preparation and the lower-level URL builder.

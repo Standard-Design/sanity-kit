@@ -1,12 +1,30 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-alpha.4
 
-- License the source under MIT, copyright 2026 Standard Design LLC, and set package
-  metadata to `MIT`. Verify that compiled tarballs include the complete license.
-- Keep third-party licenses, publishing safeguards, and existing release assets
-  unchanged. The existing alpha.3 artifact retains its proprietary license;
-  consumers need a new reviewed `0.1.0-alpha.4` artifact for this change.
+- **Breaking (package identity):** rename `@standard/sanity-kit` to
+  `@standard-design/sanity-kit`. Update dependency keys and imports; public
+  subpaths, exported APIs, runtime behavior, and dependency ranges are unchanged.
+- License original code under MIT, copyright 2026 Standard Design LLC. Include
+  the full license and focused third-party notices in the compiled package.
+- Prepare public npm distribution from compiled output with explicit public
+  access and the `alpha` tag. Keep repository-root packing/publishing blocked.
+  Add publication dry-run and packed-notice checks; CI never publishes.
+- Remove workstation paths and private project details from distributed guides.
+- Record Standard Design's decision to interpret the credited Tinloof image
+  lineage as MIT despite conflicting upstream package metadata, and include a
+  notice under that interpretation. Upstream confirmation remains a follow-up,
+  not a public-release prerequisite.
+
+Alpha.4 is prepared, not published. Earlier tags, artifacts, checksums, and their
+original license terms remain unchanged. Follow the
+[scope migration](docs/prerelease.md#upgrading-from-alpha3) when adopting the
+new reviewed artifact; no cache reset or runtime API migration is required.
+
+## Historical releases under `@standard/sanity-kit`
+
+The entries below describe the original private, non-npm distribution. Their
+package name, license terms, and release assets are not retroactively changed.
 
 ## 0.1.0-alpha.3
 

@@ -1,11 +1,11 @@
-# `@standard/sanity-kit`
+# `@standard-design/sanity-kit`
 
 Reusable Sanity tools for Standard Design applications: configuration, validation,
 images, links, React Router pages and preview, and sitemaps.
 
-The kit is a clean extraction from Sawkill. It keeps useful integration patterns
-without depending on Sawkill's content models, styles, environment variables, or
-Cloudflare bindings. See [extraction provenance](docs/extraction-provenance.md).
+The kit extracts reusable application integration patterns without depending on
+application content models, styles, environment variables, or hosting bindings.
+See [extraction provenance](docs/extraction-provenance.md).
 
 ## Start here
 
@@ -21,16 +21,30 @@ storage expect you to supply those pieces; the kit does not generate them.
 
 ## Installation and release status
 
-This source is prepared for `0.1.0-alpha.3` integration testing. The package is
-private and is **not published to npm**. Install an approved, compiled tarball, not this Git
-repository as a dependency. The [prerelease guide](docs/prerelease.md) covers
-installation, peer dependencies, verification, and release handoff.
+This source prepares `@standard-design/sanity-kit@0.1.0-alpha.4` for public npm
+distribution under the `alpha` tag. **It is not yet published.**
+[Third-party notices](THIRD_PARTY_NOTICES.md) record Standard Design's decision
+to interpret the conflicting Tinloof license declarations as MIT; upstream
+confirmation is a follow-up, not a release prerequisite.
 
-These docs describe alpha.3, including stricter published-data validation,
-typed draft decoding, static link fragments, and the top-level `getContext` API.
+After the reviewed release is available, install the exact version:
+
+```sh
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.4
+```
+
+Before publication, use only a reviewed compiled tarball supplied by the
+maintainer, not a Git dependency. The [prerelease guide](docs/prerelease.md)
+covers installation, release gates, and the [scope migration](docs/prerelease.md#upgrading-from-alpha3).
+
+Alpha.4 changes the package name, licensing, and distribution settings. Its
+exports and runtime behavior are unchanged from alpha.3; existing consumers
+must update dependency names and imports from `@standard/sanity-kit` to
+`@standard-design/sanity-kit`, retaining each subpath. The API includes stricter
+published-data validation, typed drafts, static link fragments, and `getContext`.
 See the [upgrade checklist](docs/prerelease.md#upgrading-from-alpha2) before moving
-from alpha.2. Match documentation to the exact artifact you consume; earlier
-tarballs do not include these changes. A version bump in source does not itself
+from alpha.2. Match documentation to the exact artifact you consume; alpha.2
+does not include those API changes. A version bump in source does not itself
 publish an artifact.
 
 Node 24+ and ESM are required. React entrypoints target React/React DOM 19.2.7+;
@@ -40,15 +54,16 @@ see the [peer dependency table](docs/prerelease.md#supported-peers).
 
 ## License
 
-The current source is licensed under [MIT](LICENSE), copyright 2026 Standard
-Design LLC. Compiled distributions include the complete license. Dependencies retain
-their own licenses and notices; this change does not replace those terms.
+Original code is licensed under [MIT](LICENSE), copyright 2026 Standard Design
+LLC. Compiled distributions include the complete license and
+[third-party notices](THIRD_PARTY_NOTICES.md). Adapted code and dependencies
+retain their own terms. The notices distinguish Standard Design's MIT
+interpretation of the Tinloof image lineage from upstream confirmation.
 
-This licensing change is unreleased. The existing `0.1.0-alpha.3` tarball still
-contains the earlier proprietary license and `UNLICENSED` metadata. Consumers
-need a new reviewed `0.1.0-alpha.4` artifact to receive the MIT license; do not
-replace or relabel an existing release asset. The `private: true` publishing
-safeguard remains in place and does not change the source license.
+Historical `@standard/sanity-kit` alpha.0–alpha.3 tarballs retain their original
+proprietary license and `UNLICENSED` metadata. Do not replace or relabel them.
+The repository root remains `private: true` and blocks packing/publishing.
+Only the generated compiled distribution is configured for public publication.
 
 ## What the kit owns—and what it does not
 
@@ -69,7 +84,7 @@ adapter.
 ### Browser and server boundaries
 
 Public configuration, images, links, and the route registry can be used in the
-browser. Keep `@standard/sanity-kit/react-router/server` and its secrets in
+browser. Keep `@standard-design/sanity-kit/react-router/server` and its secrets in
 server-only application modules. Never return a kit instance or Sanity client
 as loader data.
 
@@ -82,7 +97,7 @@ Editing integrations are not pulled in through the core entrypoint.
 ### 1. Define public Sanity configuration
 
 ```ts
-import { defineSanityConfig } from '@standard/sanity-kit/core'
+import { defineSanityConfig } from '@standard-design/sanity-kit/core'
 
 export const sanityConfig = defineSanityConfig({
 	apiVersion: '2026-09-18',
@@ -139,7 +154,7 @@ see [sitemaps](docs/sitemaps.md).
 | [Zod](docs/validation-zod.md)            | `/validation/zod`                             | Schema adapter, output types, transforms and draft schemas            |
 | [Sitemaps](docs/sitemaps.md)             | `/sitemap`; adapter in `/react-router/server` | XML, canonical URLs, dates, responses and caching                     |
 
-Imports in the table are relative to `@standard/sanity-kit`. Only documented
+Imports in the table are relative to `@standard-design/sanity-kit`. Only documented
 entrypoints are public; importing internal compiled files is unsupported.
 
 ## Development and verification
@@ -164,7 +179,9 @@ manual dispatch; it does not publish or deploy.
 `pnpm build` assembles a compiled-only package, including these guides, in `dist`.
 Packing the repository root is blocked. After review and commit,
 `pnpm pack:release` creates a local tarball with commit and checksum metadata;
-it does not tag, push, or publish. See [verification and handoff](docs/prerelease.md#verification-and-handoff).
+it does not tag, push, or publish. Public publication is a separately approved
+step after the attribution and registry checks in the
+[prerelease guide](docs/prerelease.md#public-npm-publication).
 
 Each logical change set and its commit message must be reviewed before a commit
 is created. The [changelog](CHANGELOG.md) records release changes.

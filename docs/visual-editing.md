@@ -1,6 +1,6 @@
 # Visual Editing
 
-Import from `@standard/sanity-kit/react-router/visual-editing`. This optional
+Import from `@standard-design/sanity-kit/react-router/visual-editing`. This optional
 browser adapter wraps Sanity's React Router Visual Editing integration and
 provides an unstyled preview-exit link.
 
@@ -31,7 +31,7 @@ import { Outlet, data } from 'react-router'
 import {
 	SanityPreviewExit,
 	SanityVisualEditing,
-} from '@standard/sanity-kit/react-router/visual-editing'
+} from '@standard-design/sanity-kit/react-router/visual-editing'
 import { sanity } from './sanity.server'
 import type { Route } from './+types/root'
 

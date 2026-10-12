@@ -25,7 +25,6 @@ const distribution = Object.fromEntries(
 	[
 		'name',
 		'version',
-		'private',
 		'description',
 		'license',
 		'repository',
@@ -37,6 +36,14 @@ const distribution = Object.fromEntries(
 		'peerDependenciesMeta',
 	].map((key) => [key, manifest[key]]),
 )
+// Only the compiled distribution is publishable. Keep the source manifest's
+// private flag and lifecycle guards; never publish the repository root.
+distribution.private = false
+distribution.publishConfig = {
+	access: 'public',
+	tag: 'alpha',
+	registry: 'https://registry.npmjs.org/',
+}
 distribution.main = './index.js'
 distribution.types = './index.d.ts'
 distribution.exports = Object.fromEntries(
@@ -56,6 +63,7 @@ await mkdir(new URL('../dist/docs/', import.meta.url), { recursive: true })
 for (const file of [
 	'README.md',
 	'LICENSE',
+	'THIRD_PARTY_NOTICES.md',
 	'CHANGELOG.md',
 	'docs/sitemaps.md',
 	'docs/prerelease.md',

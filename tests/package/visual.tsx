@@ -3,7 +3,7 @@ import {
 	SanityVisualEditing,
 	SanityPreviewExit,
 	type SuspiciousStegaReport,
-} from '@standard/sanity-kit/react-router/visual-editing'
+} from '@standard-design/sanity-kit/react-router/visual-editing'
 
 export const html: string = renderToStaticMarkup(
 	<SanityVisualEditing

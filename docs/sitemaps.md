@@ -5,9 +5,9 @@ Your application supplies its canonical origin, query, decoder, and mapping from
 content to URLs. These APIs use standard Web APIs and require no Cloudflare
 bindings.
 
-Import portable helpers from `@standard/sanity-kit/sitemap`; they need no React
+Import portable helpers from `@standard-design/sanity-kit/sitemap`; they need no React
 integration. The loader is available from the server-only
-`@standard/sanity-kit/react-router/server` entrypoint and uses its
+`@standard-design/sanity-kit/react-router/server` entrypoint and uses its
 [peer dependencies](prerelease.md#supported-peers). Zod in the example below is
 optional; see [core decoders](core.md#the-decoder-contract).
 
@@ -20,8 +20,8 @@ responses. A registered or linkable route is not automatically indexable.
 
 ```ts
 // app/sitemap.server.ts
-import { createSanitySitemapLoader } from '@standard/sanity-kit/react-router/server'
-import { createZodDecoder } from '@standard/sanity-kit/validation/zod'
+import { createSanitySitemapLoader } from '@standard-design/sanity-kit/react-router/server'
+import { createZodDecoder } from '@standard-design/sanity-kit/validation/zod'
 import { z } from 'zod'
 import { sanity } from './sanity.server'
 import { siteUrl } from './config.server'
@@ -81,7 +81,7 @@ headers. The loader does not implement conditional requests or compression.
 import {
 	createSitemapResponse,
 	serializeSitemap,
-} from '@standard/sanity-kit/sitemap'
+} from '@standard-design/sanity-kit/sitemap'
 
 const entries = [{ loc: '/' }, { loc: '/articles/one', lastmod: '2026-09-24' }]
 const xml = serializeSitemap(entries, { siteUrl: 'https://example.com' })
@@ -151,7 +151,7 @@ throws instead of truncating content. The application owns pagination and
 partitioning, including stable ordering for paginated Sanity queries.
 
 ```ts
-import { createSitemapIndexResponse } from '@standard/sanity-kit/sitemap'
+import { createSitemapIndexResponse } from '@standard-design/sanity-kit/sitemap'
 
 export function loader() {
 	return createSitemapIndexResponse(
