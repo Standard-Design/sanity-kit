@@ -56,6 +56,24 @@ const [packed] = JSON.parse(
 	),
 )
 const tarball = join(temporary, packed.filename)
+// Check the actual packed files, not just the build directory or file names.
+// Keep the full permission notice and warranty disclaimer intact in distribution.
+const sourceLicense = await readFile(join(root, 'LICENSE'), 'utf8')
+assert.match(
+	sourceLicense,
+	/^MIT License\n\nCopyright \(c\) 2026 Standard Design LLC\n/u,
+)
+assert.equal(
+	run('tar', ['-xOf', tarball, 'package/LICENSE'], root, true),
+	sourceLicense,
+	'Packed LICENSE must preserve the complete source license.',
+)
+const packedManifest = JSON.parse(
+	run('tar', ['-xOf', tarball, 'package/package.json'], root, true),
+)
+assert.equal(sourceManifest.license, 'MIT')
+assert.equal(distManifest.license, 'MIT')
+assert.equal(packedManifest.license, 'MIT')
 // Validate the exact artifact installed below, not the source manifest.
 run('pnpm', ['exec', 'publint', tarball, '--strict'])
 run('pnpm', ['exec', 'attw', tarball, '--profile', 'esm-only'])

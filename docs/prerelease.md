@@ -1,13 +1,29 @@
 # Prerelease integration
 
-Version `0.1.0-alpha.3` is prepared for reviewed integration testing. The package
-remains private and unlicensed; there is no npm publication in this workflow.
+Version `0.1.0-alpha.3` is the existing integration release. The current source
+uses the [MIT license](../LICENSE); this licensing change is not yet released.
+The package retains its private publishing safeguard, and there is no npm
+publication in this workflow.
 
 These docs describe the alpha.3 API. It includes breaking changes to request
 context naming and loader validation/types, as well as static link fragments and
 expanded documentation. Follow the [upgrade checklist](#upgrading-from-alpha2)
 when replacing alpha.2. Use the approved artifact for the intended revision;
 preparing this version does not itself tag, push, or publish a release.
+
+## Licensing change after alpha.3
+
+The source license and package metadata now use MIT, copyright 2026 Standard
+Design LLC. The build copies the complete `LICENSE` into the compiled package and
+preserves `license: "MIT"` in its manifest. Package checks verify both inside the
+actual tarball. Third-party dependencies retain their own licenses and notices.
+
+The existing alpha.3 tarball still contains the proprietary license and
+`UNLICENSED` metadata. Do not overwrite that asset or treat a source edit as an
+updated release. After review and commit, prepare `0.1.0-alpha.4` as a separate
+release with a new tarball, manifest, and checksums. Consumers must install that
+reviewed artifact and update their lockfiles to receive the licensing change.
+No API or dependency changes are part of this licensing slice.
 
 ## Distribution
 

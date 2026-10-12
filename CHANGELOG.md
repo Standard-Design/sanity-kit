@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- License the source under MIT, copyright 2026 Standard Design LLC, and set package
+  metadata to `MIT`. Verify that compiled tarballs include the complete license.
+- Keep third-party licenses, publishing safeguards, and existing release assets
+  unchanged. The existing alpha.3 artifact retains its proprietary license;
+  consumers need a new reviewed `0.1.0-alpha.4` artifact for this change.
+
 ## 0.1.0-alpha.3
 
 - **Breaking (alpha):** move `kit.preview.getContext(request)` to

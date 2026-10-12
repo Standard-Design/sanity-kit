@@ -38,6 +38,18 @@ router entrypoints also require React Router 8.4+. Only install optional peers
 for the integrations you use;
 see the [peer dependency table](docs/prerelease.md#supported-peers).
 
+## License
+
+The current source is licensed under [MIT](LICENSE), copyright 2026 Standard
+Design LLC. Compiled distributions include the complete license. Dependencies retain
+their own licenses and notices; this change does not replace those terms.
+
+This licensing change is unreleased. The existing `0.1.0-alpha.3` tarball still
+contains the earlier proprietary license and `UNLICENSED` metadata. Consumers
+need a new reviewed `0.1.0-alpha.4` artifact to receive the MIT license; do not
+replace or relabel an existing release asset. The `private: true` publishing
+safeguard remains in place and does not change the source license.
+
 ## What the kit owns—and what it does not
 
 The kit provides small, explicitly configured building blocks. It never reads
