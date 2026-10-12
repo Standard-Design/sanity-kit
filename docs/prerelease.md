@@ -1,7 +1,7 @@
 # Prerelease integration
 
-Version `0.1.0-alpha.4` prepares `@standard-design/sanity-kit` for a first public
-npm alpha. It is not yet published. Original code uses the [MIT license](../LICENSE);
+Version `0.1.0-alpha.4` is the first public npm alpha of
+`@standard-design/sanity-kit`. Original code uses the [MIT license](../LICENSE);
 [third-party notices](../THIRD_PARTY_NOTICES.md) describe adapted code and
 Standard Design's MIT interpretation of conflicting Tinloof license declarations.
 Upstream confirmation remains a follow-up, not a release prerequisite.
@@ -10,7 +10,24 @@ The API is unchanged from alpha.3, which introduced breaking changes to request
 context naming and loader validation/types, as well as static link fragments and
 expanded documentation. Follow the [upgrade checklist](#upgrading-from-alpha2)
 when replacing alpha.2. Use the approved artifact for the intended revision;
-preparing this version does not itself tag, push, or publish a release.
+a source version bump does not itself tag, push, or publish a release.
+
+## Release status
+
+Alpha.4 is available on [npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.4)
+and as a [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.4),
+built from commit `7332725e0d61313b1ccfc245f2cb45e1e2ef7726`. The npm download
+matched the reviewed tarball byte-for-byte; a clean registry installation passed
+runtime and strict minimal-consumer TypeScript checks. GitHub assets include the
+tarball, `manifest.json`, and `SHA256SUMS`.
+
+Publication explicitly used `--tag alpha`, but npm also assigned `latest` on
+first publication. An authenticated removal attempt returned HTTP 400. As of
+October 12, 2026, both tags point to alpha.4; `latest` is not a stability guarantee.
+Pin `@standard-design/sanity-kit@0.1.0-alpha.4` for reproducible integration.
+
+These repository docs contain post-release navigation and status corrections.
+The released tarball, its bundled documentation, and its checksums are unchanged.
 
 ## Upgrading from alpha.3
 
@@ -39,7 +56,7 @@ not replaced by the kit's license.
 The old alpha.3 tarball still contains the proprietary license and `UNLICENSED`
 metadata. Do not overwrite or relabel it. The new artifact is
 `standard-design-sanity-kit-0.1.0-alpha.4.tgz`, with a new manifest and checksums.
-Keep existing working pins until that reviewed release is available.
+Update working pins deliberately using the migration checklist above.
 
 ## Distribution
 
@@ -141,7 +158,7 @@ chosen to proceed under the MIT interpretation recorded in
 not a release prerequisite. This maintainer decision does not establish upstream
 confirmation. Package tests check technical packaging, not redistribution rights.
 
-Before the first publication:
+For each future publication:
 
 1. Review the recorded license interpretation and included notices as part of
    the final change set. Retain the Tinloof confirmation task as a follow-up.
@@ -155,11 +172,14 @@ Before the first publication:
 4. After explicit publication approval, publish that exact reviewed tarball
    generated from `dist` with `--access public --tag alpha` and the npm registry.
    Never publish the repository root, suppress its guards, or repack changed code
-   under an existing version. Do not use the `latest` tag for this alpha.
+   under an existing version. Continue explicitly selecting `alpha`; do not
+   assume that prevents the registry from also assigning `latest` (see
+   [release status](#release-status)).
 5. Verify the registry's name, version, integrity, public access, and `alpha` tag;
-   install the registry package in a clean consumer before handing it off.
+   inspect all dist-tags and report unexpected assignments. Install the registry
+   package in a clean consumer before handing it off.
 
-Once published, consumers can install the exact version:
+Consumers can install the published alpha.4 version:
 
 ```sh
 pnpm add @standard-design/sanity-kit@0.1.0-alpha.4

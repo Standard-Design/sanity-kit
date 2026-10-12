@@ -1,12 +1,18 @@
 # Documentation
 
-These guides explain `@standard-design/sanity-kit` version `0.1.0-alpha.4`. It
-prepares the new package scope, MIT licensing, attribution, and public npm
-distribution without changing runtime behavior. Read the
+These guides explain `@standard-design/sanity-kit` version `0.1.0-alpha.4`, now
+published on npm. Alpha.4 introduced the new package scope, MIT licensing,
+attribution, and public npm distribution without changing alpha.3 runtime behavior.
+For a short introduction, start with the [README quick start](../README.md#quick-start)
+and [entry-point map](../README.md#package-entry-points-and-subsystem-guides). Read the
 [scope migration](prerelease.md#upgrading-from-alpha3) and
-[changelog](../CHANGELOG.md) before adopting the approved alpha.4 tarball.
+[changelog](../CHANGELOG.md) before adopting alpha.4.
 Consumers still on alpha.2 must also follow the
 [API upgrade checklist](prerelease.md#upgrading-from-alpha2).
+
+The repository includes post-release navigation and status corrections; the
+published alpha.4 tarball and its bundled documentation remain unchanged. See
+[release status](prerelease.md#release-status) for the npm tag caveat.
 
 ## Choose a starting point
 
@@ -66,8 +72,8 @@ package's own exports, not arbitrary application import graphs.
 - [Extraction provenance](extraction-provenance.md): extraction boundaries and
   the focused attribution audit.
 - [Third-party notices](../THIRD_PARTY_NOTICES.md): copied/adapted code credits
-  and the licensing clarification required before public release.
-- [Package overview](../README.md): setup order and development commands.
+  and the recorded MIT interpretation, with upstream confirmation a follow-up.
+- [Package overview](../README.md): quick start, entry points, and development commands.
 - [Changelog](../CHANGELOG.md): version history and compatibility changes.
 
 Source and test paths mentioned in these guides refer to the matching repository

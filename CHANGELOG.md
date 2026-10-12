@@ -16,8 +16,10 @@
   notice under that interpretation. Upstream confirmation remains a follow-up,
   not a public-release prerequisite.
 
-Alpha.4 is prepared, not published. Earlier tags, artifacts, checksums, and their
-original license terms remain unchanged. Follow the
+Alpha.4 is published on npm and GitHub. npm assigned both `alpha` and `latest`
+on first publication despite the explicit alpha tag; see the
+[release status](docs/prerelease.md#release-status). Earlier tags, artifacts,
+checksums, and their original license terms remain unchanged. Follow the
 [scope migration](docs/prerelease.md#upgrading-from-alpha3) when adopting the
 new reviewed artifact; no cache reset or runtime API migration is required.
 
