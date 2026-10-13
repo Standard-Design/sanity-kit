@@ -1,7 +1,8 @@
 # Prerelease integration
 
-Version `0.1.0-alpha.4` is the first public npm alpha of
-`@standard-design/sanity-kit`. Original code uses the [MIT license](../LICENSE);
+Version `0.1.0-alpha.5` of `@standard-design/sanity-kit` is prepared, not yet
+published. It excludes deprecated client `8.6.0` and includes the improved
+README and guides. Original code uses the [MIT license](../LICENSE);
 [third-party notices](../THIRD_PARTY_NOTICES.md) describe adapted code and
 Standard Design's MIT interpretation of conflicting Tinloof license declarations.
 Upstream confirmation remains a follow-up, not a release prerequisite.
@@ -14,6 +15,11 @@ a source version bump does not itself tag, push, or publish a release.
 
 ## Release status
 
+Alpha.5 requires a reviewed release commit, passing CI, a clean-commit artifact,
+and separate publication approval. Its intended tarball is
+`standard-design-sanity-kit-0.1.0-alpha.5.tgz`. Do not infer availability from the
+source version or a successful publication dry-run.
+
 Alpha.4 is available on [npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.4)
 and as a [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.4),
 built from commit `7332725e0d61313b1ccfc245f2cb45e1e2ef7726`. The npm download
@@ -24,17 +30,34 @@ tarball, `manifest.json`, and `SHA256SUMS`.
 Publication explicitly used `--tag alpha`, but npm also assigned `latest` on
 first publication. An authenticated removal attempt returned HTTP 400. As of
 October 12, 2026, both tags point to alpha.4; `latest` is not a stability guarantee.
-Pin `@standard-design/sanity-kit@0.1.0-alpha.4` for reproducible integration.
+Pin the exact approved version for reproducible integration. Check all registry
+tags again when alpha.5 is published; do not assume `latest` will move with `alpha`.
 
-These repository docs contain post-release navigation and status corrections.
-The released tarball, its bundled documentation, and its checksums are unchanged.
+Alpha.5 will include the navigation and status corrections made after alpha.4.
+The alpha.4 tarball, its bundled documentation, and its checksums are unchanged.
+
+## Upgrading from alpha.4
+
+1. Check the application's installed `@sanity/client` version. Alpha.5 requires
+   `^7.27.0 || ^8.6.1`. Client 7 users in range need no client upgrade; client
+   `8.6.0` users must choose `8.6.1` or a later supported 8.x release. Upstream
+   deprecated `8.6.0` for an abort-listener memory leak.
+2. Once alpha.5 is published, update frontend and Studio/codegen package pins to
+   `@standard-design/sanity-kit@0.1.0-alpha.5` together, then regenerate the
+   consumer lockfile. No import, decoder, stored-data, or cache migration is needed.
+3. Run application typechecks, TypeGen, and build/runtime checks. The package's
+   own lockfile still resolves client `8.6.2`; applications own their client pins.
+
+Exported APIs, subpaths, runtime behavior, and all other peer ranges are unchanged.
+The README reorganization and release-status corrections now ship in the package.
 
 ## Upgrading from alpha.3
 
 Alpha.4 changes the package identity from `@standard/sanity-kit` to
 `@standard-design/sanity-kit`; the exported APIs, subpaths, and runtime behavior
 are unchanged. There is no compatibility alias or replacement artifact under
-the old name.
+the old name. When moving directly to alpha.5, also apply the
+[client compatibility checklist](#upgrading-from-alpha4).
 
 1. Remove the old dependency key and install the reviewed new package/version.
    Update frontend and Studio/codegen dependencies together; do not keep both
@@ -54,7 +77,7 @@ package; checks verify both inside the actual tarball. Third-party terms are
 not replaced by the kit's license.
 
 The old alpha.3 tarball still contains the proprietary license and `UNLICENSED`
-metadata. Do not overwrite or relabel it. The new artifact is
+metadata. Do not overwrite or relabel it. The first MIT artifact was
 `standard-design-sanity-kit-0.1.0-alpha.4.tgz`, with a new manifest and checksums.
 Update working pins deliberately using the migration checklist above.
 
@@ -139,7 +162,7 @@ Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
 
 ```sh
-pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.4.tgz
+pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.5.tgz
 ```
 
 Keep that exact file accessible to CI and other developers and commit the
@@ -181,10 +204,10 @@ For each future publication:
    inspect all dist-tags and report unexpected assignments. Install the registry
    package in a clean consumer before handing it off.
 
-Consumers can install the published alpha.4 version:
+After alpha.5 is published, consumers can install its exact version:
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.4
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.5
 ```
 
 The checked-in CI workflow does not publish, manage npm credentials, or configure
@@ -193,8 +216,9 @@ and [organization-scoped package instructions](https://docs.npmjs.com/creating-a
 
 ## Upgrading from alpha.2
 
-1. Install the approved alpha.4 tarball and update the consumer lockfile. In a
-   Studio/frontend monorepo using the link fragments with TypeGen, install the
+1. Install the approved alpha.5 artifact when available and update the consumer
+   lockfile, following the [client compatibility checklist](#upgrading-from-alpha4).
+   In a Studio/frontend monorepo using the link fragments with TypeGen, install the
    same artifact as a direct Studio/codegen dev dependency as well as the
    frontend runtime dependency. Do not rely on package hoisting.
 2. Replace `sanity.preview.getContext(request)` with `sanity.getContext(request)`.
@@ -256,7 +280,7 @@ Node 24+ is required. This prerelease targets ESM, React 19.2.7+ and React Route
 | `/react-router/visual-editing`     | React, React DOM, React Router, `@sanity/visual-editing` and its peers |
 | `/validation/zod`                  | Zod                                                                    |
 
-The manifest is the authority for supported ranges. The unreleased source now
+The manifest is the authority for supported ranges. Alpha.5
 requires `@sanity/client ^7.27.0 || ^8.6.1`, excluding `8.6.0`, which upstream
 deprecated for an abort-listener memory leak. Published alpha.4 still declares
 `^7.27.0 || ^8.6.0`; changing this repository does not alter that release.

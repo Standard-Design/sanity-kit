@@ -31,29 +31,33 @@ explains where the package came from and what changed during extraction.
 
 ## Installation and release status
 
-[`@standard-design/sanity-kit@0.1.0-alpha.4`](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.4)
-is published on npm, with matching assets in the
-[GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.4).
-Pin the exact version when integrating:
+This source prepares `@standard-design/sanity-kit@0.1.0-alpha.5`; it is not yet
+published. Alpha.5 excludes deprecated client `8.6.0`, preserves client 7 support,
+and bundles the improved documentation. Runtime APIs and behavior are unchanged.
+See the [alpha.4 upgrade checklist](docs/prerelease.md#upgrading-from-alpha4).
+
+After the reviewed alpha.5 release is published, pin the exact version:
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.4
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.5
 ```
 
-This is an alpha, not a stable-release promise. It was published with `--tag alpha`,
-but npm also assigned `latest` on first publication and rejected its removal.
-Both tags point to alpha.4 as of October 12, 2026. Prefer an exact version over
-an unqualified install. See the [release status](docs/prerelease.md#release-status)
-for the verification record and tag caveat.
+The existing [alpha.4 npm release](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.4)
+and [GitHub assets](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.4)
+remain available. These are alpha releases, not stable-release promises. npm
+assigned both `alpha` and `latest` on first publication despite `--tag alpha`,
+and rejected removal of `latest`. Prefer an exact version over an unqualified
+install. See the [release status](docs/prerelease.md#release-status) for the
+verification record and tag caveat; a source version bump is not a publication.
 
 You can also install the reviewed compiled tarball from the release assets;
 see [artifact verification and handoff](docs/prerelease.md#verification-and-handoff).
 Direct Git dependencies are not supported: the installable package lives in the
 compiled distribution, not the repository root.
 
-These repository docs include post-release navigation and status corrections.
-They do not replace the documentation or checksums inside the released alpha.4
-tarball. No runtime API change accompanies this documentation pass.
+Alpha.5 includes the navigation and status corrections made after alpha.4.
+It does not replace the documentation or checksums inside the released alpha.4
+tarball.
 
 ### Migrating from the old scope
 
@@ -73,7 +77,8 @@ context naming and loader validation. Historical artifacts remain unchanged.
 ## Requirements
 
 - Node.js 24+ and ESM; CommonJS is not supported.
-- A supported `@sanity/client` peer, including for framework-independent use.
+- An `@sanity/client` peer satisfying `^7.27.0 || ^8.6.1`, including for
+  framework-independent use. Client `8.6.0` is excluded starting with alpha.5.
 - Only the optional peers needed by the entry points you import. React adapters
   require React/React DOM 19.2.7+ within the declared ranges; router adapters
   require React Router 8.4+ within the declared range.

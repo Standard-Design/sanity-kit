@@ -1,15 +1,19 @@
 # Changelog
 
-## Unreleased
+## 0.1.0-alpha.5
 
 - Raise the supported `@sanity/client` 8.x minimum to `8.6.1`, excluding `8.6.0`,
   which upstream deprecated for an abort-listener memory leak. Client 7 support
   remains `^7.27.0`; the development lockfile still resolves client `8.6.2`.
 - Verify that strict consumer installation rejects client `8.6.0`, and run the
   full packed-consumer checks against the new `8.6.1` minimum.
+- Include the reorganized README, table of contents, quick start, entry-point
+  map, and corrected release-status documentation in the compiled package.
 
-This peer-range change is not part of the published alpha.4 artifact. It requires
-a new package release; no runtime API changes are involved.
+Alpha.5 is prepared, not published. Runtime APIs and behavior are unchanged from
+alpha.4; only the client 8 peer minimum changes. Follow the
+[alpha.4 upgrade checklist](docs/prerelease.md#upgrading-from-alpha4).
+Previously released artifacts and checksums remain unchanged.
 
 ## 0.1.0-alpha.4
 
