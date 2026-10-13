@@ -97,7 +97,9 @@ checks the complete license and third-party notices, package identity, artifact
 contents, runtime imports, TypeScript declarations, hidden deep
 imports, ordinary browser bundles, and a separate lazy Visual Editing chunk.
 It exercises minimal core peers, current development peers, and declared minimum
-peer versions, plus Standard Stack's client 7/React 19.3 combination. Ordinary
+peer versions, the client 8 minimum (`8.6.1`), and Standard Stack's client 7/React
+19.3 combination. A separate negative install check ensures that a strict
+consumer rejects deprecated client `8.6.0`. Ordinary
 fixtures use npm; the Standard Stack fixture uses pnpm to test the intended
 consumer installation route. All install scripts are disabled. Ordinary
 declarations are checked with `skipLibCheck: false`. Visual Editing usage is
@@ -254,7 +256,13 @@ Node 24+ is required. This prerelease targets ESM, React 19.2.7+ and React Route
 | `/react-router/visual-editing`     | React, React DOM, React Router, `@sanity/visual-editing` and its peers |
 | `/validation/zod`                  | Zod                                                                    |
 
-The manifest is the authority for supported ranges. Client 7 and 8 are supported;
+The manifest is the authority for supported ranges. The unreleased source now
+requires `@sanity/client ^7.27.0 || ^8.6.1`, excluding `8.6.0`, which upstream
+deprecated for an abort-listener memory leak. Published alpha.4 still declares
+`^7.27.0 || ^8.6.0`; changing this repository does not alter that release.
+Applications can already select a supported patched client without a kit API change.
+
+Client 7 and 8 are supported;
 preview URL secret 3 and 4 are supported. The optional Visual Editing adapter
 requires `@sanity/visual-editing ^6.1.2`; consumers still using 4.x must upgrade.
 Its `styled-components` peer must also be satisfied by the consuming

@@ -86,6 +86,10 @@ assert.equal(distManifest.license, 'MIT')
 assert.equal(packedManifest.license, 'MIT')
 assert.equal(sourceManifest.name, '@standard-design/sanity-kit')
 assert.equal(packedManifest.name, sourceManifest.name)
+// Exclude deprecated client 8.6.0 in the actual consumer-facing manifest too.
+for (const manifest of [sourceManifest, distManifest, packedManifest]) {
+	assert.equal(manifest.peerDependencies['@sanity/client'], '^7.27.0 || ^8.6.1')
+}
 assert.equal(
 	packed.filename,
 	`standard-design-sanity-kit-${sourceManifest.version}.tgz`,
@@ -252,11 +256,52 @@ const matrices = [
 	{ name: 'current', peers: { ...current, ...types }, full: true },
 	{ name: 'minimum', peers: { ...minimum, ...types }, full: true },
 	{
+		name: 'minimum-client-8',
+		peers: { ...current, ...types, '@sanity/client': '8.6.1' },
+		full: true,
+	},
+	{
 		name: 'standard-stack',
 		peers: { ...current, ...types, '@sanity/client': '7.27.0' },
 		full: true,
 	},
 ]
+
+// A strict consumer must reject the deprecated release rather than silently
+// accepting it or satisfying the kit with a second nested client installation.
+const deprecatedClientConsumer = join(temporary, 'deprecated-client')
+await mkdir(deprecatedClientConsumer)
+await writeFile(
+	join(deprecatedClientConsumer, 'package.json'),
+	JSON.stringify({
+		name: 'sanity-kit-consumer-deprecated-client',
+		private: true,
+		type: 'module',
+		dependencies: {
+			'@standard-design/sanity-kit': `file:${tarball}`,
+			'@sanity/client': '8.6.0',
+		},
+	}),
+)
+const deprecatedClientInstall = spawnSync(
+	'npm',
+	[
+		'install',
+		'--ignore-scripts',
+		'--strict-peer-deps',
+		'--no-audit',
+		'--no-fund',
+	],
+	{ cwd: deprecatedClientConsumer, encoding: 'utf8' },
+)
+if (deprecatedClientInstall.error) throw deprecatedClientInstall.error
+assert.notEqual(deprecatedClientInstall.status, 0)
+assert.match(deprecatedClientInstall.stderr, /ERESOLVE/u)
+assert.match(
+	deprecatedClientInstall.stderr,
+	/peer @sanity\/client@"\^7\.27\.0 \|\| \^8\.6\.1"/u,
+)
+console.log('Deprecated client 8.6.0 rejected by strict consumer installation.')
 
 for (const matrix of matrices) {
 	const cwd = join(temporary, matrix.name)
@@ -308,6 +353,13 @@ for (const matrix of matrices) {
 		),
 	)
 	assert.deepEqual(installed, distManifest)
+	const installedClient = JSON.parse(
+		await readFile(
+			join(cwd, 'node_modules/@sanity/client/package.json'),
+			'utf8',
+		),
+	)
+	assert.equal(installedClient.version, matrix.peers['@sanity/client'])
 	await copyFile(
 		join(root, 'tests/package/runtime.mjs'),
 		join(cwd, 'runtime.mjs'),

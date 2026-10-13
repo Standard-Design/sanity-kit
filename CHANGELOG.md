@@ -1,5 +1,16 @@
 # Changelog
 
+## Unreleased
+
+- Raise the supported `@sanity/client` 8.x minimum to `8.6.1`, excluding `8.6.0`,
+  which upstream deprecated for an abort-listener memory leak. Client 7 support
+  remains `^7.27.0`; the development lockfile still resolves client `8.6.2`.
+- Verify that strict consumer installation rejects client `8.6.0`, and run the
+  full packed-consumer checks against the new `8.6.1` minimum.
+
+This peer-range change is not part of the published alpha.4 artifact. It requires
+a new package release; no runtime API changes are involved.
+
 ## 0.1.0-alpha.4
 
 - **Breaking (package identity):** rename `@standard/sanity-kit` to

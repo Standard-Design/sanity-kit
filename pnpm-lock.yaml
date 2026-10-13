@@ -19,7 +19,7 @@ importers:
         specifier: ^10.0.1
         version: 10.0.1(eslint@10.10.0(supports-color@7.2.0))
       '@sanity/client':
-        specifier: ^8.6.0
+        specifier: ^8.6.1
         version: 8.6.2(vitest@5.0.1)
       '@sanity/image-url':
         specifier: ^2.1.1
