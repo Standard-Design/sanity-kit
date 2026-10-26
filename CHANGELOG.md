@@ -10,7 +10,7 @@
 - Include the reorganized README, table of contents, quick start, entry-point
   map, and corrected release-status documentation in the compiled package.
 
-Alpha.5 is prepared, not published. Runtime APIs and behavior are unchanged from
+Alpha.5 is published on npm and GitHub. Runtime APIs and behavior are unchanged from
 alpha.4; only the client 8 peer minimum changes. Follow the
 [alpha.4 upgrade checklist](docs/prerelease.md#upgrading-from-alpha4).
 Previously released artifacts and checksums remain unchanged.

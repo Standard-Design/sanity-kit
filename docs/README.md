@@ -1,7 +1,7 @@
 # Documentation
 
 These guides explain `@standard-design/sanity-kit` version `0.1.0-alpha.5`,
-prepared but not yet published. Alpha.5 raises the client 8 minimum to `8.6.1`
+published on npm and GitHub. Alpha.5 raises the client 8 minimum to `8.6.1`
 and bundles the documentation improvements without changing runtime APIs or behavior.
 For a short introduction, start with the [README quick start](../README.md#quick-start)
 and [entry-point map](../README.md#package-entry-points-and-subsystem-guides). Read the
@@ -11,8 +11,9 @@ should follow the [client compatibility checklist](prerelease.md#upgrading-from-
 Consumers still on alpha.2 must also follow the
 [API upgrade checklist](prerelease.md#upgrading-from-alpha2).
 
-Alpha.5 includes the navigation and status corrections made after alpha.4; the
-published alpha.4 tarball and its bundled documentation remain unchanged. See
+Alpha.5 includes the navigation and status corrections made after alpha.4.
+The repository also corrects alpha.5's preparation-time publication wording;
+published tarballs and their bundled documentation remain unchanged. See
 [release status](prerelease.md#release-status) for the npm tag caveat.
 
 ## Choose a starting point

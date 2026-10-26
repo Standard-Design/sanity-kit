@@ -1,7 +1,7 @@
 # Prerelease integration
 
-Version `0.1.0-alpha.5` of `@standard-design/sanity-kit` is prepared, not yet
-published. It excludes deprecated client `8.6.0` and includes the improved
+Version `0.1.0-alpha.5` of `@standard-design/sanity-kit` is published on npm
+and GitHub. It excludes deprecated client `8.6.0` and includes the improved
 README and guides. Original code uses the [MIT license](../LICENSE);
 [third-party notices](../THIRD_PARTY_NOTICES.md) describe adapted code and
 Standard Design's MIT interpretation of conflicting Tinloof license declarations.
@@ -15,10 +15,14 @@ a source version bump does not itself tag, push, or publish a release.
 
 ## Release status
 
-Alpha.5 requires a reviewed release commit, passing CI, a clean-commit artifact,
-and separate publication approval. Its intended tarball is
-`standard-design-sanity-kit-0.1.0-alpha.5.tgz`. Do not infer availability from the
-source version or a successful publication dry-run.
+Alpha.5 is available on [npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.5)
+and as a [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.5),
+built from commit `9351bd44efd50fa69dcf379be9561e27be0d0e14`. Its tarball is
+`standard-design-sanity-kit-0.1.0-alpha.5.tgz`. The public npm download matched
+the reviewed artifact byte-for-byte. A clean registry installation with client
+`8.6.1` passed runtime and strict minimal-consumer TypeScript checks; main and
+release-tag CI passed. GitHub assets include the tarball, `manifest.json`, and
+`SHA256SUMS`.
 
 Alpha.4 is available on [npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.4)
 and as a [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.4),
@@ -28,13 +32,17 @@ runtime and strict minimal-consumer TypeScript checks. GitHub assets include the
 tarball, `manifest.json`, and `SHA256SUMS`.
 
 Publication explicitly used `--tag alpha`, but npm also assigned `latest` on
-first publication. An authenticated removal attempt returned HTTP 400. As of
-October 12, 2026, both tags point to alpha.4; `latest` is not a stability guarantee.
-Pin the exact approved version for reproducible integration. Check all registry
-tags again when alpha.5 is published; do not assume `latest` will move with `alpha`.
+first publication. An authenticated removal attempt returned HTTP 400. Alpha.5
+publication updated only `alpha`. As of October 25, 2026, `alpha` points to
+alpha.5 and `latest` remains on alpha.4; `latest` is not a stability guarantee.
+Pin the exact approved version for reproducible integration and inspect all tags
+after future publications rather than assuming they move together.
 
-Alpha.5 will include the navigation and status corrections made after alpha.4.
-The alpha.4 tarball, its bundled documentation, and its checksums are unchanged.
+Alpha.5 includes the navigation and status corrections made after alpha.4.
+These repository docs also correct alpha.5's preparation-time publication wording.
+Published tarballs, their bundled documentation, and their checksums are unchanged.
+The registry and GitHub release records establish publication; a source version
+bump or successful dry-run alone does not.
 
 ## Upgrading from alpha.4
 
@@ -42,7 +50,7 @@ The alpha.4 tarball, its bundled documentation, and its checksums are unchanged.
    `^7.27.0 || ^8.6.1`. Client 7 users in range need no client upgrade; client
    `8.6.0` users must choose `8.6.1` or a later supported 8.x release. Upstream
    deprecated `8.6.0` for an abort-listener memory leak.
-2. Once alpha.5 is published, update frontend and Studio/codegen package pins to
+2. Update frontend and Studio/codegen package pins to
    `@standard-design/sanity-kit@0.1.0-alpha.5` together, then regenerate the
    consumer lockfile. No import, decoder, stored-data, or cache migration is needed.
 3. Run application typechecks, TypeGen, and build/runtime checks. The package's
@@ -204,7 +212,7 @@ For each future publication:
    inspect all dist-tags and report unexpected assignments. Install the registry
    package in a clean consumer before handing it off.
 
-After alpha.5 is published, consumers can install its exact version:
+Consumers can install the published alpha.5 version:
 
 ```sh
 pnpm add @standard-design/sanity-kit@0.1.0-alpha.5
@@ -216,7 +224,7 @@ and [organization-scoped package instructions](https://docs.npmjs.com/creating-a
 
 ## Upgrading from alpha.2
 
-1. Install the approved alpha.5 artifact when available and update the consumer
+1. Install the published alpha.5 artifact and update the consumer
    lockfile, following the [client compatibility checklist](#upgrading-from-alpha4).
    In a Studio/frontend monorepo using the link fragments with TypeGen, install the
    same artifact as a direct Studio/codegen dev dependency as well as the

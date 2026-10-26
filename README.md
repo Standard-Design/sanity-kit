@@ -31,12 +31,14 @@ explains where the package came from and what changed during extraction.
 
 ## Installation and release status
 
-This source prepares `@standard-design/sanity-kit@0.1.0-alpha.5`; it is not yet
-published. Alpha.5 excludes deprecated client `8.6.0`, preserves client 7 support,
+[`@standard-design/sanity-kit@0.1.0-alpha.5`](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.5)
+is published on npm, with matching assets in the
+[GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.5).
+Alpha.5 excludes deprecated client `8.6.0`, preserves client 7 support,
 and bundles the improved documentation. Runtime APIs and behavior are unchanged.
 See the [alpha.4 upgrade checklist](docs/prerelease.md#upgrading-from-alpha4).
 
-After the reviewed alpha.5 release is published, pin the exact version:
+Pin the exact version when integrating:
 
 ```sh
 pnpm add @standard-design/sanity-kit@0.1.0-alpha.5
@@ -46,8 +48,9 @@ The existing [alpha.4 npm release](https://www.npmjs.com/package/@standard-desig
 and [GitHub assets](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.4)
 remain available. These are alpha releases, not stable-release promises. npm
 assigned both `alpha` and `latest` on first publication despite `--tag alpha`,
-and rejected removal of `latest`. Prefer an exact version over an unqualified
-install. See the [release status](docs/prerelease.md#release-status) for the
+and rejected removal of `latest`. As of October 25, 2026, `alpha` points to
+alpha.5 while `latest` remains on alpha.4. Prefer an exact version over an
+unqualified install. See the [release status](docs/prerelease.md#release-status) for the
 verification record and tag caveat; a source version bump is not a publication.
 
 You can also install the reviewed compiled tarball from the release assets;
@@ -56,8 +59,8 @@ Direct Git dependencies are not supported: the installable package lives in the
 compiled distribution, not the repository root.
 
 Alpha.5 includes the navigation and status corrections made after alpha.4.
-It does not replace the documentation or checksums inside the released alpha.4
-tarball.
+These repository docs also correct alpha.5's preparation-time publication wording.
+Published tarballs, their bundled documentation, and their checksums are unchanged.
 
 ### Migrating from the old scope
 
