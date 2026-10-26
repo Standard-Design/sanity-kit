@@ -1,0 +1,141 @@
+/**
+ * A1's only adapter to Presentation's unstable extension slots. No private imports.
+ * The proof stays out of the published package until live acceptance establishes
+ * the provider lifetime and header composition. See this fixture's README.
+ */
+import { Box, Button, Flex, Text, useClickOutsideEvent } from '@sanity/ui'
+import { Popover } from '@sanity/ui/popover'
+import { useEffect, useRef, type ComponentProps } from 'react'
+import { definePlugin } from 'sanity'
+import {
+	presentationTool,
+	usePresentationParams,
+	type PresentationPluginOptions,
+	type PreviewHeaderProps,
+} from 'sanity/presentation'
+import { BrowserStateProvider, useBrowserState } from './browser-state.js'
+import { previewPath, previewedDocument } from './model.js'
+import { ProofBrowser, useProofDocuments } from './proof-browser.js'
+
+export function ProofHeader(props: PreviewHeaderProps) {
+	const { pickerOpen, setPickerOpen } = useBrowserState()
+	const trigger = useRef<HTMLButtonElement>(null)
+	const panel = useRef<HTMLDivElement>(null)
+	const wasOpen = useRef(false)
+	const params = usePresentationParams()
+	const { documents } = useProofDocuments()
+	const current = previewedDocument(documents, params.preview)
+	const edited = documents.find((document) => document._id === params.id)
+	const open = pickerOpen && !props.navigatorEnabled
+	useEffect(() => {
+		if (props.navigatorEnabled) setPickerOpen(false)
+	}, [props.navigatorEnabled, setPickerOpen])
+	useEffect(() => {
+		if (open) panel.current?.querySelector<HTMLElement>('input')?.focus()
+		else if (wasOpen.current && !props.navigatorEnabled)
+			trigger.current?.focus()
+		wasOpen.current = open
+	}, [open, props.navigatorEnabled])
+	useClickOutsideEvent(open ? () => setPickerOpen(false) : false, () => [
+		trigger.current,
+		panel.current,
+	])
+	return (
+		<Flex direction="column" flex={1} style={{ minWidth: 0 }}>
+			<Flex align="center" gap={1} style={{ minWidth: 0 }}>
+				<Box flex={1} style={{ minWidth: 0 }}>
+					{props.renderDefault(props)}
+				</Box>
+				{!props.navigatorEnabled && (
+					<Popover
+						open={open}
+						portal
+						modal
+						placement="bottom-start"
+						constrainSize
+						content={
+							open ? (
+								<Box
+									ref={panel}
+									role="dialog"
+									aria-label="Choose page"
+									style={{
+										width: 'min(380px, 90vw)',
+										height: 'min(480px, 70vh)',
+									}}
+									onKeyDown={(event) => {
+										if (event.key === 'Escape') {
+											event.preventDefault()
+											event.stopPropagation()
+											setPickerOpen(false)
+										}
+									}}
+								>
+									<ProofBrowser />
+								</Box>
+							) : null
+						}
+					>
+						<Button
+							ref={trigger}
+							text="Choose page"
+							aria-label={`Choose page: ${current?.title ?? params.preview ?? 'Pages'}`}
+							aria-haspopup="dialog"
+							aria-expanded={open}
+							onClick={() => setPickerOpen((value) => !value)}
+						/>
+					</Popover>
+				)}
+			</Flex>
+			{edited && !previewPath(edited.pathname) && (
+				<Box padding={2}>
+					<Text size={1} role="status">
+						Preview unavailable for this document. The previous page remains in
+						the preview.
+					</Text>
+				</Box>
+			)}
+		</Flex>
+	)
+}
+
+/** The tool wrapper outlives navigator unmounts and is isolated per workspace/tool. */
+export const pagesProofTool = definePlugin<
+	Omit<PresentationPluginOptions, 'components'>
+>((options) => {
+	const name = options.name ?? 'pages-proof'
+	return {
+		name: 'sanity-kit-pages-proof',
+		plugins: [
+			presentationTool({
+				...options,
+				name,
+				components: {
+					unstable_navigator: {
+						component: ProofBrowser,
+						minWidth: 240,
+						maxWidth: 440,
+					},
+					unstable_header: { component: ProofHeader },
+				},
+			}),
+		],
+		tools: (tools, context) =>
+			tools.map((tool) => {
+				if (tool.name !== name) return tool
+				const NativeTool = tool.component
+				function ToolWithBrowserState(
+					props: ComponentProps<typeof NativeTool>,
+				) {
+					return (
+						<BrowserStateProvider
+							key={`${context.projectId}:${context.dataset}:${name}`}
+						>
+							<NativeTool {...props} />
+						</BrowserStateProvider>
+					)
+				}
+				return { ...tool, component: ToolWithBrowserState }
+			}),
+	}
+})

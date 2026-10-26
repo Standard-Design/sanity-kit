@@ -7,3 +7,6 @@ coverage/
 .prettier-cache
 *.tgz
 .DS_Store
+tests/fixtures/pages-studio/.sanity/
+tests/fixtures/pages-studio/dist/
+tests/fixtures/pages-studio/.env.local

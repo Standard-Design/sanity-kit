@@ -1,0 +1,12 @@
+{
+	"name": "sanity-kit-pages-proof",
+	"private": true,
+	"type": "module",
+	"dependencies": {
+		"@sanity/ui": "4.4.10",
+		"react": "19.3.0",
+		"react-dom": "19.3.0",
+		"sanity": "6.16.0",
+		"styled-components": "6.5.3"
+	}
+}

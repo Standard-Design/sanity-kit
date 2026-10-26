@@ -4,7 +4,13 @@ import tseslint from 'typescript-eslint'
 
 export default tseslint.config(
 	{
-		ignores: ['coverage/**', 'dist/**', 'node_modules/**'],
+		ignores: [
+			'coverage/**',
+			'dist/**',
+			'node_modules/**',
+			'tests/fixtures/pages-studio/dist/**',
+			'tests/fixtures/pages-studio/.sanity/**',
+		],
 	},
 	js.configs.recommended,
 	...tseslint.configs.recommendedTypeChecked,
