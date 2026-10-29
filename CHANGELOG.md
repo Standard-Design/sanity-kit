@@ -11,6 +11,10 @@
 - Add optional Studio peers and packed-consumer checks that keep Studio out of
   ordinary frontend installs and bundles. Test Sanity 6.17.0 and React 19.3.1;
   document the remaining development-only TypeScript peer warning.
+- Add private navigator data helpers: inferred folders, named index children,
+  separate collection overviews, complete ordinary-page batch reads, five-item
+  collection previews, and cursor-based collection search. Test them offline;
+  the visible browser still uses the proof list until the next integration slice.
 - Keep the full navigator, custom URL field, folder actions, and broader release
   acceptance as later work. No version bump or publication is included here.
 

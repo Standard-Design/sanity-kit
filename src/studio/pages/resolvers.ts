@@ -22,7 +22,7 @@ import {
 type NativeResolvers = NonNullable<PresentationPluginOptions['resolve']>
 
 /** Quoted access also handles field names that happen to be GROQ keywords. */
-function fieldExpression(path: string): string {
+export function fieldExpression(path: string): string {
 	assertFieldPath(path, 'Registered field')
 	return `@${path
 		.split('.')
@@ -31,8 +31,9 @@ function fieldExpression(path: string): string {
 }
 
 /**
- * Build the field selection used by the bounded browser query. Each type's
- * configured fields become the same title/pathname properties in browser records.
+ * Build the field selection shared by the proof browser and navigator query plans.
+ * Each type's configured fields become the same title/pathname properties in
+ * browser records.
  * This returns query text, not fetched data; document bodies are not selected.
  */
 export function pageProjection(registry: PagesRegistry): string {

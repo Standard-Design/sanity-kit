@@ -219,6 +219,32 @@ Verification for this foundation:
   These local test artifacts reuse the current version label and were not
   published, tagged, or uploaded as releases.
 
+## Navigator data foundation — October 29, 2026
+
+This slice adds private data helpers without changing the live browser. The
+sidebar and picker still use the bounded proof list. None of the observations
+above establish acceptance for the future tree, collection browser, or statuses.
+
+- `pnpm verify` passed: formatting, build, lint, typecheck, and all 555 tests in
+  23 files. The 40 new tests cover inferred ancestors, named index children,
+  collection grouping, missing/duplicate overviews, invalid paths, stable IDs,
+  query field mappings, five-item previews, cursor boundaries, literal search,
+  complete ordinary-page batch reads, errors, and aborts.
+- `pnpm test:package` passed the five frontend profiles, isolated Studio
+  consumer, declaration checks, and TypeGen workspace. The inventory is 77 files;
+  no new public export or dependency was added. The local tarball was not published.
+- Query tests execute GROQ against synthetic records, including a collection
+  larger than two batches and ordinary pages requiring three requests. They
+  verify query results, not Content Lake's authentication or perspective engine.
+- Effective-perspective records are assumed at the helper boundary. Raw version
+  IDs are rejected; original version metadata is retained without treating it as
+  publication status. Actual draft/release precedence and native status display
+  still require live integration checks.
+- No live Studio interactions, document writes, or new fixture records were
+  needed for this slice. Shared subscriptions, stale-request coordination across
+  browser instances, status filters, sorting controls, and the approved tree UI
+  remain later work.
+
 ## Test records created
 
 The explicit seed run created the following published fixture documents with

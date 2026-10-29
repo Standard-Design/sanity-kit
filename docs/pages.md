@@ -171,6 +171,106 @@ last update, and searches only that loaded list. It is not a complete collection
 browser, a shared query cache, or proof of correct draft/release reconciliation.
 Incremental loading and the final data layer remain future work.
 
+## Navigator data foundation
+
+The next navigator has a separate, tested data foundation in `navigation.ts`,
+`queries.ts`, and `snapshot.ts`. **It is not wired into the visible browser yet.**
+The current sidebar and picker still use the 50-document proof list described
+above. These helpers are private implementation details, not new consumer APIs.
+
+### Build folders from page URLs
+
+`buildNavigationTree()` takes the complete list of ordinary pages for one content
+perspective. It infers folders from the paths, without creating folder documents:
+
+- `/about/company/team` establishes the `about` and `company` folders. It does
+  not invent About or Company page documents.
+- If a real page exists at `/about`, it appears first inside the About folder,
+  with its real title. A page at `/about` with no descendants remains a regular
+  page at the root. The root itself does not become a Site root folder.
+- Collection items do not become ordinary page-tree entries. The collection
+  group holds its overview separately, so that document appears only once.
+  Ordinary pages beneath the overview URL are still retained in that group.
+- A missing overview leaves an empty overview slot, not an invented document or
+  a document-free route to select. Duplicate overviews stay visible as separate
+  candidates; the helper does not choose one. The existing native resolver also
+  refuses ambiguous URL matches.
+- Missing, invalid, and app-excluded paths go into an unfiled list. Valid paths
+  with repeated or trailing slashes also go there because they do not describe
+  ordinary named folders. Their stored URLs are never silently corrected; a valid
+  ungroupable path can still be previewed.
+
+Page keys use document IDs, so changing a title or URL does not change the page's
+identity. Folder keys use paths; collection keys use the configured collection
+name. The ordering is deterministic: an index first, then folder/collection
+groups by path, then pages by title with an ID tie-breaker. No Index badge or
+replacement “Index” title is stored in this model.
+
+These are navigation relationships derived from URLs, **not parent-child
+references saved in Sanity**. They do not make folder renames cascade and cannot
+preserve empty folders. The later URL-field and rename workflows still need their
+own storage and mutation rules.
+
+### Read pages and collections differently
+
+`createNavigationQueries()` builds query plans; a plan is query text plus its
+parameters, not a request. It reuses the registry's field mappings and projects
+only ID, type, title, pathname, update time, and original source ID. Bodies and
+page-builder content are not fetched.
+
+Ordinary pages are read in batches of 100, ordered by ID. `readPageSnapshot()`
+keeps requesting the next batch until it has the complete input for a tree.
+Requests are bounded, but the completed ordinary-page tree still occupies memory
+proportional to the number of ordinary pages. This is not a fully lazy folder tree.
+
+Collections use separate queries:
+
+- The tree preview requests only five most recently edited items and a total
+  count. The count includes all registered item types visible in the chosen
+  perspective, including incomplete items without usable paths. It excludes the
+  overview and is not a published-page count.
+- Browsing requests 50 items plus one look-ahead item. That extra item tells the
+  caller whether another batch exists; it is not displayed or skipped. The next
+  cursor records the last displayed item's update time and ID.
+- Results sort by update time, newest first, then ID. Both values belong in the
+  cursor so documents with the same timestamp are not lost between batches.
+- Collection search runs against all matching item types in the query, not just
+  the five recent rows. It matches a literal, case-insensitive title or stored-path
+  substring. Search text is a parameter, including punctuation and `*` characters.
+  This is not ranked Studio search; substring matching may need a different
+  indexed strategy for very large collections.
+
+This follows Sanity's [cursor pagination guidance](https://www.sanity.io/docs/developer-guides/paginating-with-groq).
+The helpers currently provide recent-first ordering only. Sorting controls,
+status filters, debouncing, and scroll-triggered requests are later integration work.
+
+### Keep one content perspective throughout a read
+
+The caller must bind its authenticated Studio client, dataset, and selected
+effective perspective to the request function. Content Lake resolves which draft,
+release version, or published document is visible. The helpers do not choose a
+version by comparing timestamps or by stripping ID prefixes. See Sanity's
+[perspective documentation](https://www.sanity.io/docs/content-lake/perspectives).
+
+The tree and snapshot reader reject duplicate effective IDs or raw draft/version
+IDs instead of guessing precedence. Original source IDs are retained as metadata,
+but do not by themselves tell us whether a document is an unpublished draft or
+has changes to an existing published document. Status indicators still need their
+own integration with Sanity's supported preview/status facilities.
+
+`readPageSnapshot()` receives an abort signal, passes it to every request, and
+checks it again after each response. A transport that ignores cancellation cannot
+return a late snapshot successfully. A failed later batch rejects the whole read
+rather than returning a partial tree as though it were complete.
+
+These batches are **not a transactionally consistent database snapshot**. Content
+can change between requests. The upcoming live-data integration must listen for
+changes, restart affected reads, discard old cursors when perspective/search
+changes, and prevent late results from replacing a newer view. It must also share
+the data between the sidebar and picker and preserve their UI state. Those
+subscription, cache, and live-update guarantees are not implemented by these pure
+helpers or established by their offline tests.
+
 ## How selection and preview navigation work
 
 ### Selecting a document in Pages
@@ -302,6 +402,9 @@ implementation paths are private. Nothing in this slice publishes a release.
 - `tests/fixtures/pages-studio/routes.ts`: the fixture's application-owned registry.
 - `src/studio/pages/model.ts` and `browser.tsx`: the bounded
   document query, preview-page identity, and browser selection behavior.
+- `src/studio/pages/navigation.ts`, `queries.ts`, and `snapshot.ts`: the next
+  navigator's tree model, bounded query plans, and ordinary-page snapshot reader.
+  These helpers are tested but not yet connected to the browser.
 - `src/studio/pages/plugin.tsx`, `header.tsx`, and `browser-state.tsx`:
   native tool integration and shared browser UI state.
 
