@@ -1,39 +1,14 @@
-import {
-	createContext,
-	useContext,
-	useState,
-	type PropsWithChildren,
-} from 'react'
-
-/** Only browser UI state belongs here. Presentation still owns URL/document selection. */
-export interface BrowserState {
-	query: string
-	scrollTop: number
-}
-
-const BrowserContext = createContext<{
-	state: BrowserState
-	setState: React.Dispatch<React.SetStateAction<BrowserState>>
-	pickerOpen: boolean
-	setPickerOpen: React.Dispatch<React.SetStateAction<boolean>>
-} | null>(null)
-
-/** Mounted around the native tool, not around its disposable navigator panel. */
+/** Test harness configuration; state and behavior live in the reusable plugin. */
+import type { PropsWithChildren } from 'react'
+import { BrowserStateProvider as Provider } from '../../../src/studio/pages/browser-state.js'
+import { createPagesRuntime } from '../../../src/studio/pages/runtime.js'
+import { proofRoutes } from './routes.js'
+const runtime = createPagesRuntime({
+	...proofRoutes,
+	name: 'pages-proof',
+	previewUrl: 'http://localhost:3334',
+	create: { schemaType: 'kitProofPage', templateId: 'kitProofPage' },
+})
 export function BrowserStateProvider({ children }: PropsWithChildren) {
-	const [state, setState] = useState<BrowserState>({ query: '', scrollTop: 0 })
-	const [pickerOpen, setPickerOpen] = useState(false)
-	return (
-		<BrowserContext.Provider
-			value={{ state, setState, pickerOpen, setPickerOpen }}
-		>
-			{children}
-		</BrowserContext.Provider>
-	)
-}
-
-export function useBrowserState() {
-	const context = useContext(BrowserContext)
-	if (!context)
-		throw new Error('Pages browser must be inside its tool provider.')
-	return context
+	return <Provider runtime={runtime}>{children}</Provider>
 }

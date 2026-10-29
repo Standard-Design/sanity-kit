@@ -37,10 +37,11 @@ can use the framework-independent helpers without adopting the router adapter.
 
 ## In-development Studio integration
 
-[Pages](pages.md) explains the internal routing foundation, how it works with
+[Pages](pages.md) explains the plugin foundation, how it works with
 native Presentation, and the approved navigator and URL-field designs. It is
-separate from the released subsystems above: there is no public Studio entry
-point yet. The guide distinguishes working proof code from planned features.
+separate from the released subsystems above: local builds now include `/studio`,
+but the current npm release does not. Consumers keep their own Studio installation.
+The guide distinguishes the working flat-list foundation from planned features.
 
 ## Shared terms
 

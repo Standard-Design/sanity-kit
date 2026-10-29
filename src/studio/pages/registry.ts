@@ -4,8 +4,9 @@
  * The app still owns its schemas and frontend routes; this module writes nothing.
  *
  * Start with docs/pages.md for the architecture and navigation flow. The exact
- * internal configuration is in tests/fixtures/pages-studio/ROUTING.md. These
- * helpers are unreleased; they are not the frontend's React Router registry.
+ * internal configuration is in tests/fixtures/pages-studio/ROUTING.md. Consumers
+ * pass these definitions to pagesTool(); these helpers remain private. This is
+ * not the frontend's React Router registry.
  */
 import { stegaClean } from '@sanity/client/stega'
 
@@ -127,8 +128,8 @@ function descendantOf(path: string, prefix: string): boolean {
 
 /**
  * Check the app's configuration once and copy it so later caller changes cannot
- * silently change routing. The fixture creates this in routes.ts and shares it
- * with its query model, browser, and native resolver setup.
+ * silently change routing. pagesTool() creates this once and shares it with the
+ * browser model and native resolver setup.
  *
  * This checks definitions, not stored documents. validatePagesSchema() separately
  * checks that the configured fields exist; neither check creates an overview or

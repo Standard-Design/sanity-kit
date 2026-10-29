@@ -15,6 +15,10 @@
 		"node": ">=24.0.0"
 	},
 	"exports": {
+		"./studio": {
+			"types": "./dist/studio/index.d.ts",
+			"import": "./dist/studio/index.js"
+		},
 		".": {
 			"types": "./dist/index.d.ts",
 			"import": "./dist/index.js"
@@ -79,6 +83,10 @@
 		"@sanity/asset-utils": "^2.3.0"
 	},
 	"peerDependencies": {
+		"sanity": "6.17.0",
+		"@sanity/ui": "^4.4.10",
+		"styled-components": "^6.5.3",
+		"react-focus-lock": "^2.13.7",
 		"@sanity/client": "^7.27.0 || ^8.6.1",
 		"@sanity/image-url": "^2.1.1",
 		"@sanity/preview-url-secret": "^3.0.0 || ^4.1.0",
@@ -90,6 +98,18 @@
 		"zod": "^4.6.5"
 	},
 	"peerDependenciesMeta": {
+		"sanity": {
+			"optional": true
+		},
+		"@sanity/ui": {
+			"optional": true
+		},
+		"styled-components": {
+			"optional": true
+		},
+		"react-focus-lock": {
+			"optional": true
+		},
 		"@sanity/image-url": {
 			"optional": true
 		},
@@ -136,11 +156,11 @@
 		"jsdom": "^29.1.1",
 		"prettier": "^3.6.2",
 		"publint": "^0.3.24",
-		"react": "^19.3.0",
-		"react-dom": "^19.3.0",
+		"react": "19.3.1",
+		"react-dom": "19.3.1",
 		"react-focus-lock": "2.13.7",
 		"react-router": "^8.4.0",
-		"sanity": "6.16.0",
+		"sanity": "6.17.0",
 		"styled-components": "6.5.3",
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.47.0",

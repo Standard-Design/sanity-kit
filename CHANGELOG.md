@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased — Pages plugin foundation
+
+- Add the opt-in `/studio` entry with `pagesTool()` for an app-owned Sanity
+  Studio. Reuse native Presentation, the editor, and document actions; do not
+  supply a standalone Studio application or generate schemas/frontend routes.
+- Share page/collection routing configuration across the bounded browser and
+  native resolvers. Preserve picker focus, search/scroll state, and independent
+  preview/document selection when moving the integration out of its fixture.
+- Add optional Studio peers and packed-consumer checks that keep Studio out of
+  ordinary frontend installs and bundles. Test Sanity 6.17.0 and React 19.3.1;
+  document the remaining development-only TypeScript peer warning.
+- Keep the full navigator, custom URL field, folder actions, and broader release
+  acceptance as later work. No version bump or publication is included here.
+
 ## 0.1.0-alpha.5
 
 - Raise the supported `@sanity/client` 8.x minimum to `8.6.1`, excluding `8.6.0`,

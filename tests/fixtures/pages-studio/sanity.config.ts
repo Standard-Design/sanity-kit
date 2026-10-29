@@ -1,8 +1,7 @@
 import { defineConfig } from 'sanity'
 import { structureTool } from 'sanity/structure'
-import { pagesProofTool } from './presentation-adapter.js'
-import { createPageResolvers } from '../../../src/studio/pages/resolvers.js'
-import { proofRegistry } from './routes.js'
+import { pagesTool } from '../../../src/studio/index.js'
+import { proofRoutes } from './routes.js'
 import { schemaTypes } from './schema.js'
 
 const projectId = process.env.SANITY_STUDIO_PROJECT_ID
@@ -20,12 +19,13 @@ export default defineConfig({
 	schema: { types: schemaTypes },
 	plugins: [
 		structureTool({ title: 'Fixture content' }),
-		pagesProofTool({
+		pagesTool({
+			...proofRoutes,
 			name: 'pages-proof',
 			title: 'Pages proof',
 			previewUrl:
 				process.env.SANITY_STUDIO_PREVIEW_ORIGIN ?? 'http://localhost:3334',
-			resolve: createPageResolvers(proofRegistry),
+			create: { schemaType: 'kitProofPage', templateId: 'kitProofPage' },
 		}),
 	],
 })

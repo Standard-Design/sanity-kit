@@ -1,7 +1,10 @@
 /** App-owned fixture registration. The eventual pagesTool accepts this metadata. */
-import { createPagesRegistry } from '../../../src/studio/pages/registry.js'
+import {
+	createPagesRegistry,
+	type PagesRouteConfig,
+} from '../../../src/studio/pages/registry.js'
 
-export const proofRegistry = createPagesRegistry({
+export const proofRoutes = {
 	pages: [
 		{ schemaType: 'kitProofPage', pathnameField: 'pathname.current' },
 		{ schemaType: 'kitProofLanding', pathnameField: 'route' },
@@ -19,4 +22,5 @@ export const proofRegistry = createPagesRegistry({
 	],
 	// This fixture owns its homepage. An app-owned homepage would use ['/'].
 	excludePaths: [],
-})
+} satisfies PagesRouteConfig
+export const proofRegistry = createPagesRegistry(proofRoutes)

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict'
 import { spawnSync } from 'node:child_process'
+import { existsSync } from 'node:fs'
 import { copyFile, mkdir, mkdtemp, readFile, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { dirname, join, resolve } from 'node:path'
@@ -135,10 +136,17 @@ assert.deepEqual(published.bundled, [])
 run('pnpm', ['exec', 'publint', tarball, '--strict'])
 run('pnpm', ['exec', 'attw', tarball, '--profile', 'esm-only'])
 const contents = new Set(packed.files.map(({ path }) => path))
-// Studio is still an internal implementation slice, not a published subpath.
-// Replace this guard with packed Studio consumer coverage when that API ships.
-assert.ok(!Object.keys(packedManifest.exports).includes('./studio'))
-assert.ok(![...contents].some((path) => path.startsWith('studio/')))
+// Studio is opt-in: its files ship, but frontend entry points must not load it.
+assert.ok(Object.keys(packedManifest.exports).includes('./studio'))
+assert.ok(contents.has('studio/index.js'))
+const studioPeers = [
+	'sanity',
+	'@sanity/ui',
+	'styled-components',
+	'react-focus-lock',
+]
+for (const name of studioPeers)
+	assert.equal(packedManifest.peerDependenciesMeta[name]?.optional, true)
 assert.equal(
 	contents.has('__stale-build-sentinel.js'),
 	false,
@@ -222,10 +230,9 @@ const installedVersion = async (name) =>
 	).version
 const current = Object.fromEntries(
 	await Promise.all(
-		Object.keys(sourceManifest.peerDependencies).map(async (name) => [
-			name,
-			await installedVersion(name),
-		]),
+		Object.keys(sourceManifest.peerDependencies)
+			.filter((name) => !studioPeers.includes(name))
+			.map(async (name) => [name, await installedVersion(name)]),
 	),
 )
 const types = Object.fromEntries(
@@ -358,6 +365,15 @@ for (const matrix of matrices) {
 		),
 	)
 	assert.deepEqual(installed, distManifest)
+	// Visual Editing already depends on Sanity UI/styled-components. Minimal
+	// consumers need none of these; full frontend consumers must still lack Sanity.
+	for (const name of matrix.full ? ['sanity'] : studioPeers) {
+		assert.equal(
+			existsSync(join(cwd, 'node_modules', name)),
+			false,
+			`Frontend consumer unexpectedly installed Studio peer ${name}`,
+		)
+	}
 	const installedClient = JSON.parse(
 		await readFile(
 			join(cwd, 'node_modules/@sanity/client/package.json'),
@@ -423,6 +439,87 @@ for (const matrix of matrices) {
 	await checkBrowserBundles(cwd, matrix.full)
 	console.log(`PASS ${matrix.name}: ${JSON.stringify(matrix.peers)}`)
 }
+
+// Install the packed Studio entry separately. This does not let source aliases
+// or the repository's node_modules hide missing exports or peer requirements.
+const studioConsumer = join(temporary, 'studio-consumer')
+await mkdir(studioConsumer)
+const studioVersions = Object.fromEntries(
+	await Promise.all(
+		studioPeers.map(async (name) => [name, await installedVersion(name)]),
+	),
+)
+await writeFile(
+	join(studioConsumer, 'package.json'),
+	JSON.stringify({
+		name: 'sanity-kit-studio-consumer',
+		private: true,
+		type: 'module',
+		dependencies: {
+			'@standard-design/sanity-kit': `file:${tarball}`,
+			...studioVersions,
+			'@sanity/client': current['@sanity/client'],
+			react: current.react,
+			'react-dom': current['react-dom'],
+			...types,
+		},
+	}),
+)
+run(
+	'npm',
+	[
+		'install',
+		'--ignore-scripts',
+		'--strict-peer-deps',
+		'--no-audit',
+		'--no-fund',
+	],
+	studioConsumer,
+)
+await copyFile(
+	join(root, 'tests/package/studio.tsx'),
+	join(studioConsumer, 'consumer.tsx'),
+)
+await writeFile(
+	join(studioConsumer, 'tsconfig.json'),
+	JSON.stringify({
+		compilerOptions: {
+			strict: true,
+			exactOptionalPropertyTypes: true,
+			noEmit: true,
+			target: 'ES2024',
+			module: 'NodeNext',
+			moduleResolution: 'NodeNext',
+			jsx: 'react-jsx',
+			skipLibCheck: true,
+		},
+		include: ['consumer.tsx'],
+	}),
+)
+run(
+	process.execPath,
+	[join(root, 'node_modules/typescript/bin/tsc'), '-p', 'tsconfig.json'],
+	studioConsumer,
+)
+const studioBundle = await build({
+	absWorkingDir: studioConsumer,
+	entryPoints: ['consumer.tsx'],
+	// Native Studio imports CSS. Give the in-memory build an output directory
+	// so styles are compiled rather than ignored or replaced by a test stub.
+	outdir: 'bundle',
+	bundle: true,
+	platform: 'browser',
+	format: 'esm',
+	write: false,
+	metafile: true,
+	logLevel: 'silent',
+})
+assert.ok(
+	Object.keys(studioBundle.metafile.inputs).some((path) =>
+		path.includes('sanity-kit/studio/pages/plugin.js'),
+	),
+)
+console.log(`PASS studio-consumer: ${JSON.stringify(studioVersions)}`)
 
 // Exercise Sanity's real static resolver from a sibling Studio workspace,
 // not a custom resolver or source-tree import that bypasses package exports.
@@ -525,6 +622,11 @@ async function checkBrowserBundles(cwd, full) {
 	}
 	const normal = await build({ ...options, entryPoints: ['browser.js'] })
 	for (const path of Object.keys(normal.metafile.inputs)) {
+		assert.doesNotMatch(
+			path,
+			/node_modules\/(sanity|@sanity\/ui|styled-components|react-focus-lock)\/|sanity-kit\/studio\//u,
+			'Studio code leaked into a frontend entry point.',
+		)
 		assert.doesNotMatch(
 			path,
 			/@sanity\/(visual-editing|preview-url-secret)|sanity-kit\/react-router\/server/u,

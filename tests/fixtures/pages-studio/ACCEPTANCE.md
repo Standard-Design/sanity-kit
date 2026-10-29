@@ -164,6 +164,61 @@ Verification after the focus fix:
   An initial offline attempt lacked registry metadata; retrying with registry
   access succeeded without bypassing the checks.
 
+## Reusable plugin foundation follow-up — October 29
+
+The fixture now registers `pagesTool()` from `src/studio/index.ts`. The browser,
+header, state provider, and query model moved out of the fixture; the fixture
+keeps its own schemas, route definitions, and preview app. Local distributions
+now expose `/studio`; nothing has been published and consumers still own their
+Studio application and installation.
+
+The baseline changed to Sanity 6.17.0 and React/React DOM 19.3.1. Sanity UI 4.4.10,
+styled-components 6.5.3, and react-focus-lock 2.13.7 remain the development pins.
+The CLI and Portable Text peer mismatches are resolved. One development warning
+remains for workflow-blueprint's TypeScript 6/7 peer against repository TypeScript
+5.9.3. The candidate's Sanity peer is exact; shared UI peers use caret ranges.
+An initial exact styled-components peer caused the strict frontend consumer to
+fail when Visual Editing resolved a newer compatible minor; the caret range
+fixes that without changing the frontend's dependency choices.
+
+New live observations (not a replay of every A1 check):
+
+- Studio loaded the extracted plugin without a configuration error and retained
+  the native header controls and narrow Presentation/Structure tabs.
+- With no search matches, Tab wrapped to Create page and Shift+Tab returned to
+  Search. The new plugin retains the A1 focus fix.
+- Selecting About with Enter closed Choose page, returned focus to its trigger,
+  and changed the preview URL and native Structure document to About. The native
+  editor showed About's title, pathname, and body fields.
+- Opening the shared footer through About's native reference link displayed the
+  shared document and its fields while the iframe heading, preview URL, and
+  Choose page label remained About. No field values were changed. This is a
+  native-reference smoke check, not a new iframe overlay-click test.
+
+The complete A1 record above applies to its original dependency baseline. This
+follow-up is a focused extraction smoke test; permissions, release perspectives,
+the final navigator UI, and the full compatibility matrix still need later work.
+No document fields were edited or new documents created in this follow-up.
+
+Verification for this foundation:
+
+- All 515 tests in 21 files passed, including 12 plugin configuration/composition
+  cases added to the existing routing and adapter tests. Coverage also passed.
+- Formatting, lint, typecheck, package build, and the real fixture Studio build
+  passed on Node 24. The dependency lockfile passed a frozen install.
+- All five existing packed frontend profiles passed, including the strict
+  Standard Stack installation. Minimal consumers installed none of the new
+  Studio peers; full profiles did not install Sanity. Ordinary browser bundles
+  contained no Studio implementation or Studio UI dependency code.
+- The new separate Studio consumer installed the tarball with strict peers,
+  compiled its `pagesTool()` usage with `skipLibCheck`, and bundled the plugin
+  with native Studio JavaScript and CSS. This is build/type evidence, not a full
+  installed-package live UI acceptance run.
+- TypeGen workspace checks passed. The packed inventory is now 71 files and
+  includes the opt-in Studio implementation; test fixtures are still excluded.
+  These local test artifacts reuse the current version label and were not
+  published, tagged, or uploaded as releases.
+
 ## Test records created
 
 The explicit seed run created the following published fixture documents with

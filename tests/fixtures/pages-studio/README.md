@@ -4,8 +4,9 @@ This is the native integration proof (A1), not the finished Pages plugin.
 It answers a narrow question: can the kit add a browser and a header picker
 without replacing Sanity's editor, preview, routing, or document actions?
 
-Nothing in this directory is published. The package still has no `/studio`
-export. The root package's new dependencies are development-only. The browser
+Nothing in this directory is published. The reusable plugin now lives under `src/studio/` and local builds expose
+`/studio`; the fixture itself is never packed. Consumers supply their own Studio
+installation. Studio-only runtime packages are optional peers. The browser
 is intentionally a flat list of at most 50 fixture documents, not the approved
 tree and collection interface.
 
@@ -13,7 +14,7 @@ The next slice now uses a shared internal route registry. See
 [the routing foundation](ROUTING.md) for its configuration, validation,
 resolver overrides, and remaining work. The A1 live integration checks are now
 complete; see the dated observations in [ACCEPTANCE.md](ACCEPTANCE.md). This does
-not mean the finished navigator or public Studio plugin is available.
+not mean the finished navigator or an npm release is available.
 
 Collection overviews will initially require a Sanity document, including an
 SEO-only document. Document-free overview entries are deferred; this does not
@@ -89,7 +90,7 @@ button; the seed script creates published fixture records explicitly.
 
 ## How the pieces fit together
 
-- `presentation-adapter.tsx` is the only file that installs the unstable header
+- `src/studio/pages/header.tsx` and `plugin.tsx` is the only file that installs the unstable header
   and navigator slots. Its header calls `renderDefault` with the original props.
   A bounded picker button sits beside the native controls rather than replacing
   them. A separate status line explains unavailable previews.
@@ -97,19 +98,19 @@ button; the seed script creates published fixture records explicitly.
   `react-focus-lock` keeps Tab navigation inside the picker, including when no
   pages match the search. The adapter focuses Search on opening and restores
   focus to Choose page on dismissal, unless the sidebar has replaced that button.
-- `browser-state.tsx` lives around the native **tool**, not its navigator. Sanity
+- `src/studio/pages/browser-state.tsx` lives around the native **tool**, not its navigator. Sanity
   unmounts the navigator when it closes; search and scroll therefore survive the
   move to the picker. Each mounted workspace/tool gets its own provider. There
   is no module-global document router or cross-workspace state cache.
-- `proof-browser.tsx` reads with Studio's authenticated client and perspective
+- `src/studio/pages/browser.tsx` reads with Studio's authenticated client and perspective
   stack. It uses query-visible change notifications, cancels obsolete requests,
   and tears down subscriptions on unmount. This deliberately small query layer
   will be replaced by the production tree/collection data layer.
 - `routes.ts` registers the fixture's page, alternate-path, and collection types.
   Internal helpers in `src/studio/pages/` generate native resolvers and the
-  browser projection from that same metadata. These helpers are excluded from
-  the distribution until the public plugin is ready.
-- `model.ts` applies that registry's route policy. The selected preview page is derived
+  browser projection from that same metadata. The compiled helpers are private implementation files beneath the new `/studio`
+  entry point, not separate public imports.
+- `src/studio/pages/model.ts` applies that registry's route policy. The selected preview page is derived
   from Presentation's preview URL, not its edited document ID. This distinction
   allows a shared footer to open in the editor without selecting a different page.
 - `schema.ts` owns the test schemas. Most routes use `pathname.current`; the
@@ -125,8 +126,7 @@ button; the seed script creates published fixture records explicitly.
 The fixture's homepage is deliberately CMS-owned. That does not establish a
 homepage policy for consumers: Standard Stack currently owns `/` in its app
 router, and its first rollout will register only `page`, with no collections.
-The public API must allow route exclusions/overrides and retain configurable
-native tool names. An explicit edit intent may validly pair one document with
+The plugin accepts route exclusions/overrides and configurable native tool names. An explicit edit intent may validly pair one document with
 another preview URL; do not force the editor to match the preview at all times.
 
 These adapters use public imports from `sanity`, `sanity/presentation`,
@@ -136,21 +136,18 @@ own picker for the input to focus.
 
 ## Compatibility and checks
 
-The proof pins Sanity **6.16.0**, Sanity UI **4.4.10**, and styled-components
-**6.5.3**. Sanity UI 4.2.3 was excluded after the registry reported a class-name
-collision with newer 4.x builds. This is one development baseline, not a public
-supported-version range. A2 must define and test the actual optional peers.
+The reusable plugin candidate pins Sanity **6.17.0** as an optional peer and uses
+caret ranges from Sanity UI **4.4.10**, styled-components **6.5.3**, and
+react-focus-lock **2.13.7**. The development installation pins those baselines.
+The fixture uses React/React DOM **19.3.1**. These versions address the earlier
+CLI and Portable Text peer mismatches. They define one tested baseline, not
+support for every Sanity version. The existing released package has no Studio
+plugin; no release is implied by this fixture.
 
-Current transitive development dependencies report peer warnings:
-
-- `@portabletext/editor@8.2.7` asks for React `^19.3.1`; the kit uses 19.3.0.
-- CLI build packages ask for Sanity `^6.17.0`; this proof pins 6.16.0.
-- `@sanity/workflow-blueprint@0.36.0` asks for TypeScript 6 or 7; the kit uses 5.9.3.
-
-Builds and the current tests pass, but these warnings are not evidence of
-compatibility. Resolve the Studio development/test matrix in A2 before choosing
-consumer-facing peers or releasing the plugin. They do not add peers to the
-published package in this slice.
+One development peer warning remains: `@sanity/workflow-blueprint@0.36.0`
+requests TypeScript 6 or 7, while this repository uses 5.9.3. Do not describe the
+whole development graph as warning-free. The packed consumer checks and Studio
+build are distinct from the later full compatibility matrix.
 
 Run checks from the repository root, with the public project variables set for
 the Studio build:
@@ -174,8 +171,8 @@ creation, reverse preview navigation, shared-content overlay editing, and
 sidebar/picker transitions with all native controls preserved. Do not count a
 successful build or mocked test as a substitute for an unchecked live item.
 
-The internal routing part of A2 can be checked independently; the optional
-`/studio` boundary and public plugin are still pending. A3/A4 implement path
+A2 now provides the reusable plugin and opt-in `/studio` boundary in local
+builds. It keeps the bounded flat list while the finished interface is pending. A3/A4 implement path
 hierarchy, collections, incremental queries,
 schema previews, status/permission states, template choices, and the approved
 interface. A5 adds the full compatibility/distribution checks and release

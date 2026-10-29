@@ -1,7 +1,7 @@
 /**
  * Translate the shared registry into native Presentation configuration. Location
  * links go from a document to its URL; main-document lookup goes from a URL to a
- * document. The fixture passes both to Presentation in sanity.config.ts.
+ * document. pagesTool() passes both to its native Presentation installation.
  *
  * Presentation owns when lookup runs and when the editor changes. A shared footer
  * can be edited while another document's page remains visible in the iframe.
@@ -31,7 +31,7 @@ function fieldExpression(path: string): string {
 }
 
 /**
- * Build the field selection used by the fixture's model.ts query. Each type's
+ * Build the field selection used by the bounded browser query. Each type's
  * configured fields become the same title/pathname properties in browser records.
  * This returns query text, not fetched data; document bodies are not selected.
  */

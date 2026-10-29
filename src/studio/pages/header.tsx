@@ -1,35 +1,30 @@
 /**
- * A1's only adapter to Presentation's unstable extension slots. No private imports.
- * The proof stays out of the published package until live acceptance establishes
- * the provider lifetime and header composition. See this fixture's README.
+ * The only header adapter to Presentation's unstable extension slots. No private imports.
+ * Native controls stay intact through renderDefault. Browser state comes from the
+ * tool-level provider, not from the disposable navigator. See docs/pages.md.
  */
 import { Box, Button, Flex, Text, useClickOutsideEvent } from '@sanity/ui'
 import { Popover } from '@sanity/ui/popover'
-import { useEffect, useRef, type ComponentProps } from 'react'
+import { useEffect, useRef } from 'react'
 import FocusLockModule from 'react-focus-lock'
-import { definePlugin } from 'sanity'
 import {
-	presentationTool,
 	usePresentationParams,
-	type PresentationPluginOptions,
 	type PreviewHeaderProps,
 } from 'sanity/presentation'
-import { BrowserStateProvider, useBrowserState } from './browser-state.js'
-import { proofDocumentPath, previewedDocument } from './model.js'
-import { validatePagesSchema } from '../../../src/studio/pages/registry.js'
-import { proofRegistry } from './routes.js'
-import { ProofBrowser, useProofDocuments } from './proof-browser.js'
+import { useBrowserState } from './browser-state.js'
+import { PagesBrowser, usePageDocuments } from './browser.js'
 
 // NodeNext sees the CommonJS namespace; Vite may unwrap its default export.
 const FocusLock = FocusLockModule.default ?? FocusLockModule
 
-export function ProofHeader(props: PreviewHeaderProps) {
-	const { pickerOpen, setPickerOpen } = useBrowserState()
+export function PagesHeader(props: PreviewHeaderProps) {
+	const { runtime, pickerOpen, setPickerOpen } = useBrowserState()
 	const trigger = useRef<HTMLButtonElement>(null)
 	const panel = useRef<HTMLDivElement>(null)
 	const wasOpen = useRef(false)
 	const params = usePresentationParams()
-	const { documents } = useProofDocuments()
+	const { documents } = usePageDocuments()
+	const { documentPath, previewedDocument } = runtime.model
 	const current = previewedDocument(documents, params.preview)
 	const edited = documents.find((document) => document._id === params.id)
 	const open = pickerOpen && !props.navigatorEnabled
@@ -87,7 +82,7 @@ export function ProofHeader(props: PreviewHeaderProps) {
 											}
 										}}
 									>
-										<ProofBrowser />
+										<PagesBrowser />
 									</Box>
 								</FocusLock>
 							) : null
@@ -104,7 +99,7 @@ export function ProofHeader(props: PreviewHeaderProps) {
 					</Popover>
 				)}
 			</Flex>
-			{edited && !proofDocumentPath(edited) && (
+			{edited && !documentPath(edited) && (
 				<Box padding={2}>
 					<Text size={1} role="status">
 						Preview unavailable for this document. The previous page remains in
@@ -115,46 +110,3 @@ export function ProofHeader(props: PreviewHeaderProps) {
 		</Flex>
 	)
 }
-
-/** The tool wrapper outlives navigator unmounts and is isolated per workspace/tool. */
-export const pagesProofTool = definePlugin<
-	Omit<PresentationPluginOptions, 'components'>
->((options) => {
-	const name = options.name ?? 'pages-proof'
-	return {
-		name: 'sanity-kit-pages-proof',
-		plugins: [
-			presentationTool({
-				...options,
-				name,
-				components: {
-					unstable_navigator: {
-						component: ProofBrowser,
-						minWidth: 240,
-						maxWidth: 440,
-					},
-					unstable_header: { component: ProofHeader },
-				},
-			}),
-		],
-		tools: (tools, context) => {
-			validatePagesSchema(proofRegistry, context.schema)
-			return tools.map((tool) => {
-				if (tool.name !== name) return tool
-				const NativeTool = tool.component
-				function ToolWithBrowserState(
-					props: ComponentProps<typeof NativeTool>,
-				) {
-					return (
-						<BrowserStateProvider
-							key={`${context.projectId}:${context.dataset}:${name}`}
-						>
-							<NativeTool {...props} />
-						</BrowserStateProvider>
-					)
-				}
-				return { ...tool, component: ToolWithBrowserState }
-			})
-		},
-	}
-})

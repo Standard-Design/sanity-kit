@@ -36,8 +36,8 @@ vi.mock('sanity/router', () => ({
 }))
 
 import { BrowserStateProvider } from '../fixtures/pages-studio/browser-state.js'
-import { ProofBrowser } from '../fixtures/pages-studio/proof-browser.js'
-import { ProofHeader } from '../fixtures/pages-studio/presentation-adapter.js'
+import { PagesBrowser as ProofBrowser } from '../../src/studio/pages/browser.js'
+import { PagesHeader as ProofHeader } from '../../src/studio/pages/header.js'
 
 const theme = buildTheme()
 

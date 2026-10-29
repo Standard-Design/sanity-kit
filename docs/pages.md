@@ -1,14 +1,105 @@
 # Pages Studio integration — in development
 
-Pages is the planned page browser inside Sanity Studio. It helps editors find a
+Pages is a page-browser plugin for an application's existing Sanity Studio. It helps editors find a
 page, preview it, and open its document without leaving Sanity's native
 Presentation tool.
 
 **This is not part of the released package.** The repository currently contains
-an integration proof and internal routing helpers. There is no public
-`@standard-design/sanity-kit/studio` import or `pagesTool()` factory yet. The
-approved navigator and URL-field designs below are plans, not working package
-features.
+a reusable `pagesTool()` foundation under `@standard-design/sanity-kit/studio`.
+Local builds include that entry point; the existing npm release does not. Its
+browser is still a bounded flat list. The approved navigator and URL-field
+designs below are plans, not working package features.
+
+## Add the plugin to your Studio
+
+The kit does **not** vend a Studio application. Your project installs and runs
+Sanity, owns `sanity.config.ts`, defines schemas and templates, and deploys the
+Studio. The kit adds a plugin to that installation. The Studio in this repository
+is only a development fixture, not an application to copy into a consumer.
+
+This example targets a local build of the unreleased foundation:
+
+```ts
+import { defineConfig } from 'sanity'
+import { pagesTool } from '@standard-design/sanity-kit/studio'
+import { schemaTypes } from './schema'
+
+export default defineConfig({
+	projectId: 'yourProjectId',
+	dataset: 'yourDataset',
+	schema: { types: schemaTypes },
+	plugins: [
+		pagesTool({
+			name: 'pages',
+			title: 'Pages',
+			previewUrl: 'http://localhost:3000',
+			pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
+			collections: [
+				{
+					name: 'journal',
+					title: 'Journal',
+					overview: { schemaType: 'page', pathname: '/journal' },
+					routePrefix: '/journal',
+					items: [{ schemaType: 'post', pathnameField: 'pathname.current' }],
+				},
+			],
+			// Optional: use this only if the app, not a CMS document, owns the homepage.
+			excludePaths: ['/'],
+			// Optional shortcut to an existing, parameter-free native template.
+			create: { schemaType: 'page', templateId: 'page' },
+		}),
+	],
+})
+```
+
+`name` defaults to `pages` and must be unique among your Studio's tools. `title`
+defaults to `Pages`. Register `pagesTool()` **instead of** another
+`presentationTool()` with the same name: Pages installs that native tool itself.
+Other tools, such as Structure, remain independent.
+
+`previewUrl`, `allowOrigins`, `devMode`, and `icon` are native Presentation
+options. Your app still configures preview authentication and frontend overlays.
+`resolve` accepts native resolver overrides: locations merge by type (a callback
+replaces all locations), while `mainDocuments` replaces the generated list.
+Overrides do not change the browser's registered URL rules. The plugin rejects
+`components` and deprecated `locate`: it owns the header/navigator slots and
+uses `resolve` for native lookups. The header always retains `renderDefault`.
+
+The optional `create` shortcut sends a native create intent with the configured
+type, template, and tool name. It supplies no document ID or URL and does not
+publish anything. The app must define that template for that type; native Sanity
+still owns template resolution and authorization. Parameterized templates and
+the full permission-aware template chooser are later work. Omit `create` to
+use Studio's global creation menu only.
+
+## Dependencies and package isolation
+
+The initial candidate is deliberately restricted to one Studio baseline:
+Sanity **6.17.0**, Sanity UI **4.4.10**, styled-components **6.5.3**, and
+react-focus-lock **2.13.7**, with React/React DOM **19.3.1** in the Studio tests.
+Sanity itself is an exact peer version. The other three Studio peers use caret
+ranges from those baselines, so the plugin does not unnecessarily pin shared
+Visual Editing UI dependencies to one patch/minor version.
+Sanity's header/navigator extension slots are unstable; a broad version range
+would promise compatibility we have not checked. This baseline may need widening
+before adoption by an existing Studio.
+
+Sanity, Sanity UI, styled-components, and react-focus-lock are optional peers.
+The consuming Studio supplies them; the kit does not bundle another Sanity
+runtime. They are optional for the package as a whole, but required when using
+`/studio`. Frontend consumers do not need them. React remains a shared peer,
+with existing frontend compatibility unchanged.
+
+Packed-consumer checks install Studio separately from the frontend profiles.
+Minimal-consumer checks reject all Studio peer installation. Full frontend
+profiles may already need Sanity UI/styled-components through Visual Editing,
+but must not install Sanity or include Studio code in ordinary browser bundles.
+Studio declarations are checked with `skipLibCheck`, as
+in the fixture; this does not claim all upstream declarations pass strict library
+checking. The repository still has one development-only peer warning:
+`@sanity/workflow-blueprint` requests TypeScript 6 or 7, while this repository uses
+5.9.3. That is not a reason to require TypeScript in every consuming application;
+the later compatibility matrix must resolve or explicitly bound it before release.
 
 ## What each part owns
 
@@ -59,18 +150,18 @@ website. The Pages registry connects Studio documents to website URLs. Neither
 generates the application's React Router route table.
 
 See the [routing configuration guide](../tests/fixtures/pages-studio/ROUTING.md)
-for a complete internal example, supported field paths, validation rules, and
-resolver overrides. These are development interfaces, not consumer imports.
+for supported field paths, validation rules, and resolver internals. Consumers
+pass configuration to `pagesTool()` rather than importing those internal helpers.
 
 ## How a document becomes a browser entry
 
-The fixture's `routes.ts` creates the shared registry. Its `model.ts` uses
+`pagesTool()` creates the shared registry once. Its browser model uses
 `pageProjection()` to build a small GROQ projection: document ID, document type,
 title, and pathname. A projection selects and names fields; it does not fetch
 anything by itself. Different schema fields become the same `title` and
 `pathname` properties in the result.
 
-`useProofDocuments()` fetches those records using Studio's selected perspective
+`usePageDocuments()` fetches those records using Studio's selected perspective
 (the content view, such as drafts or a release). It listens for changes to the
 registered types and refetches after changes become query-visible. It cancels
 obsolete requests and cleans up the listener when the component unmounts.
@@ -127,7 +218,7 @@ inside it. Sanity UI supplies the popover and pointer-blocking layer;
 `react-focus-lock` supplies keyboard focus containment. Opening the picker
 focuses Search. Escape or page selection closes it and returns focus to Choose
 page. When the sidebar replaces the picker, the header does not try to focus
-the now-removed button. These behaviors belong to the internal adapter, not to
+the now-removed button. These behaviors belong to the plugin's header adapter, not to
 the route registry or frontend router.
 
 ## Collection overviews and document-free routes
@@ -200,17 +291,18 @@ prefixes must not become editor-renamable through this workflow.
 ## Where to read the implementation and evidence
 
 The source paths and fixture links below refer to a repository checkout at the
-same revision. The compiled package includes this guide, but not the internal
-Studio source or test fixtures. Including the guide does not expose a Studio API.
+same revision. Local package builds include the compiled plugin and this guide,
+but not the test fixture. Only `/studio` is a supported Studio import; compiled
+implementation paths are private. Nothing in this slice publishes a release.
 
 - `src/studio/pages/registry.ts`: configuration and pathname checks; no Studio
   runtime import and no database writes.
 - `src/studio/pages/resolvers.ts`: query projection and native Presentation
   resolver definitions. It returns configuration, not an editor or a router.
 - `tests/fixtures/pages-studio/routes.ts`: the fixture's application-owned registry.
-- `tests/fixtures/pages-studio/model.ts` and `proof-browser.tsx`: the bounded
+- `src/studio/pages/model.ts` and `browser.tsx`: the bounded
   document query, preview-page identity, and browser selection behavior.
-- `tests/fixtures/pages-studio/presentation-adapter.tsx` and `browser-state.tsx`:
+- `src/studio/pages/plugin.tsx`, `header.tsx`, and `browser-state.tsx`:
   native tool integration and shared browser UI state.
 
 The [fixture README](../tests/fixtures/pages-studio/README.md) explains how to run
@@ -229,7 +321,7 @@ the picker closed while Team remained the previewed and selected document.
 The A1 integration-proof gate is complete. The broader compatibility and
 permissions matrix is later work, not part of this integration-proof result.
 
-The distribution build excludes `src/studio/`, and package checks guard that
-boundary. The fixture's development dependencies are not a supported Studio peer
-matrix. Keep this guide, source comments, configuration examples, and acceptance
+The distribution now has a separate `/studio` entry. The A1 observations above
+were collected before extraction into the reusable plugin; new checks are dated
+separately in the acceptance record. Keep this guide, source comments, configuration examples, and acceptance
 record up to date as each implementation slice replaces a planned behavior.

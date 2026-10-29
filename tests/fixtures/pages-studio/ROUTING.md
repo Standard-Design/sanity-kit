@@ -5,14 +5,11 @@ architecture, selection and preview flows, and approved interface direction.
 This guide describes the current internal configuration in more detail. It does
 not describe the planned custom URL field or folder-renaming implementation.
 
-This is the first part of A2: a shared, validated description of the app's page
-routes. It is internal development code, not a released API. There is still no
-`@standard-design/sanity-kit/studio` import and no public `pagesTool()` factory.
-
-The helpers live under `src/studio/pages/`, but the distribution build excludes
-that directory until the plugin is ready. Package tests enforce this boundary.
-The ordinary typecheck and tests still check the new source. Existing web and
-server imports do not gain Studio dependencies.
+The shared registry is private implementation beneath the new `pagesTool()`
+foundation. Local builds expose `@standard-design/sanity-kit/studio`; the current
+npm release does not. Consumers call that factory, not these helper files.
+The distribution includes compiled Studio modules behind that entry point.
+Package tests check that frontend imports do not pull in the Studio runtime.
 
 ## What the registry describes
 
@@ -38,9 +35,10 @@ const registry = createPagesRegistry({
 })
 ```
 
-These are proposed internal names, not instructions to import implementation
-files into an application. The finished plugin will accept configuration through
-its public entry point after the remaining implementation and acceptance gates.
+This example explains the internal registry. For consumer usage, pass the same
+routing fields to `pagesTool()` along with native `previewUrl` configuration;
+see the complete example in the [Pages guide](../../../docs/pages.md). Do not
+import private compiled files.
 
 - `pages` lists ordinary routed document types. At least one is required.
 - `pathnameField` points to a string containing the **complete path**, such as
@@ -175,11 +173,11 @@ contract before adopting an application that needs derived/locale-dependent URLs
 
 ## What this slice does not finish
 
-The public plugin factory and optional Studio peers, native header-slot
-composition rules, templates/icons, the finished tree and collection UI, query
-subscriptions and incremental loading, schema previews, and complete live
-acceptance remain subsequent work. No dependency version range is being promised
-by this internal routing slice. The known development peer warnings remain in
+The factory, optional Studio peers, and ownership of native header/navigator
+slots now live in the reusable plugin. A single explicit native create shortcut
+is available; the full template chooser, finished tree/collection UI, incremental
+loading, schema previews, and broader live acceptance remain subsequent work.
+See the narrow candidate baseline and remaining development warning in
 [README.md](README.md#compatibility-and-checks).
 
 The helpers use the native resolver contracts described in Sanity's

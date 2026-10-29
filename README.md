@@ -13,8 +13,9 @@ and detailed subsystem guides. The [extraction record](docs/extraction-provenanc
 explains where the package came from and what changed during extraction.
 
 For the unreleased Studio work, see [Pages architecture and design](docs/pages.md).
-That guide covers the internal routing proof and approved UI direction, not
-features available in the current npm release.
+That guide covers the reusable plugin foundation and approved UI direction, not
+features available in the current npm release. Consumers own their Studio;
+the kit supplies a plugin, not a Studio application.
 
 ## Table of contents
 
