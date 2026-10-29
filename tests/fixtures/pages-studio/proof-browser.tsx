@@ -8,7 +8,7 @@ import {
 import { useRouter } from 'sanity/router'
 import { useBrowserState } from './browser-state.js'
 import {
-	previewPath,
+	proofDocumentPath,
 	previewedDocument,
 	proofQuery,
 	proofTypes,
@@ -144,10 +144,10 @@ export function ProofBrowser() {
 							key={document._id}
 							mode="bleed"
 							selected={current?._id === document._id}
-							text={`${document.title ?? 'Untitled'} · ${previewPath(document.pathname) ?? 'Preview unavailable'}`}
+							text={`${document.title ?? 'Untitled'} · ${proofDocumentPath(document) ?? 'Preview unavailable'}`}
 							onClick={() => {
 								// An absent path changes only the editor; the current preview is preserved.
-								navigate(previewPath(document.pathname), {
+								navigate(proofDocumentPath(document), {
 									id: document._id,
 									type: document._type,
 								})

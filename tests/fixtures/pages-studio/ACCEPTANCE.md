@@ -54,6 +54,45 @@ The A1 exit gate is **not yet complete**. Finish the pending iframe-link,
 overlay, and transition checks before proceeding to the
 finished browser interface. The eventual A5 checklist will be broader.
 
+## Routing-foundation follow-up
+
+On October 26 the fixture switched from hand-written route mappings to the
+internal shared registry described in [ROUTING.md](ROUTING.md). No additional
+dataset writes were made for this slice. The existing live observations above
+remain evidence for the original proof, not automatic re-verification of every
+interaction after this change.
+
+- The real Studio loaded the registry and compiled-schema checks without an
+  error, and its browser identified the current collection item.
+- Read-only Content Lake queries using the final generated resolvers returned
+  the alternate-path and Post 2 fixtures' IDs and types under the drafts
+  perspective. The Studio eventually showed the alternate page in both its
+  preview and native editor after navigation through the native URL field.
+- Local tests execute the generated GROQ against synthetic documents, including
+  alternate fields, incomplete records, excluded paths, collection boundaries,
+  duplicate URLs, and keyword-like field names. This is not a replacement for
+  live iframe-link, overlay, perspective, or permission acceptance.
+- `pnpm verify`: passed with 500 tests in 20 files (80 new tests in this slice).
+- `pnpm studio:build`: passed with the test project's public configuration.
+- `pnpm test:package`: passed all existing consumer profiles and the TypeGen
+  workspace. The 52-file package inventory excludes the unreleased Studio
+  source and has no `/studio` export. This is not a Studio-plugin release test.
+
+## Documentation follow-up — October 28
+
+Added the [Pages subsystem guide](../../../docs/pages.md), linked it from the
+READMEs and routing guide, and expanded routing source comments. The guide
+explains the current architecture and records the approved navigator, folder
+picker, and rename-modal designs as future work. No routing behavior changed in
+this documentation follow-up, and no additional live checks or dataset writes
+were performed.
+
+- Focused registry, resolver, and proof-model tests: 98 passed in three files.
+- Formatting and local documentation-link checks: passed.
+- Package verification: passed all five consumer profiles and the TypeGen
+  workspace. The inventory is now 53 files because it includes `docs/pages.md`;
+  it still excludes Studio source and has no `/studio` export.
+
 ## Test records created
 
 The explicit seed run created the following published fixture documents with

@@ -73,6 +73,7 @@ for (const file of [
 	'docs/image.md',
 	'docs/image-react.md',
 	'docs/link.md',
+	'docs/pages.md',
 	'docs/react-router.md',
 	'docs/server.md',
 	'docs/visual-editing.md',

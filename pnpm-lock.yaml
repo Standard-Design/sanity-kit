@@ -60,6 +60,9 @@ importers:
       groq:
         specifier: ^5.1.0
         version: 5.31.2
+      groq-js:
+        specifier: 2.0.1
+        version: 2.0.1
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1(@noble/hashes@2.4.0)

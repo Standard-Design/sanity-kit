@@ -12,6 +12,10 @@ Start with the [quick start](#quick-start) for the setup sequence. Use the
 and detailed subsystem guides. The [extraction record](docs/extraction-provenance.md)
 explains where the package came from and what changed during extraction.
 
+For the unreleased Studio work, see [Pages architecture and design](docs/pages.md).
+That guide covers the internal routing proof and approved UI direction, not
+features available in the current npm release.
+
 ## Table of contents
 
 - [Installation and release status](#installation-and-release-status)

@@ -135,6 +135,10 @@ assert.deepEqual(published.bundled, [])
 run('pnpm', ['exec', 'publint', tarball, '--strict'])
 run('pnpm', ['exec', 'attw', tarball, '--profile', 'esm-only'])
 const contents = new Set(packed.files.map(({ path }) => path))
+// Studio is still an internal implementation slice, not a published subpath.
+// Replace this guard with packed Studio consumer coverage when that API ships.
+assert.ok(!Object.keys(packedManifest.exports).includes('./studio'))
+assert.ok(![...contents].some((path) => path.startsWith('studio/')))
 assert.equal(
 	contents.has('__stale-build-sentinel.js'),
 	false,
@@ -148,7 +152,7 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
+			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|pages|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
@@ -178,6 +182,7 @@ for (const required of [
 	'docs/image.md',
 	'docs/image-react.md',
 	'docs/link.md',
+	'docs/pages.md',
 	'docs/react-router.md',
 	'docs/server.md',
 	'docs/visual-editing.md',

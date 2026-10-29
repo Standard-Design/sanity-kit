@@ -45,4 +45,15 @@ describe('Pages integration proof routing', () => {
 		expect(previewedDocument([shared], '/about')).toBeUndefined()
 		expect(previewedDocument([page, shared])).toBeUndefined()
 	})
+	it('does not highlight an arbitrary document when paths collide', () => {
+		const page = {
+			_id: 'a',
+			_type: 'kitProofPage',
+			title: 'A',
+			pathname: '/about',
+		}
+		expect(
+			previewedDocument([page, { ...page, _id: 'b' }], '/about'),
+		).toBeUndefined()
+	})
 })

@@ -14,7 +14,9 @@ import {
 	type PreviewHeaderProps,
 } from 'sanity/presentation'
 import { BrowserStateProvider, useBrowserState } from './browser-state.js'
-import { previewPath, previewedDocument } from './model.js'
+import { proofDocumentPath, previewedDocument } from './model.js'
+import { validatePagesSchema } from '../../../src/studio/pages/registry.js'
+import { proofRegistry } from './routes.js'
 import { ProofBrowser, useProofDocuments } from './proof-browser.js'
 
 export function ProofHeader(props: PreviewHeaderProps) {
@@ -87,7 +89,7 @@ export function ProofHeader(props: PreviewHeaderProps) {
 					</Popover>
 				)}
 			</Flex>
-			{edited && !previewPath(edited.pathname) && (
+			{edited && !proofDocumentPath(edited) && (
 				<Box padding={2}>
 					<Text size={1} role="status">
 						Preview unavailable for this document. The previous page remains in
@@ -120,8 +122,9 @@ export const pagesProofTool = definePlugin<
 				},
 			}),
 		],
-		tools: (tools, context) =>
-			tools.map((tool) => {
+		tools: (tools, context) => {
+			validatePagesSchema(proofRegistry, context.schema)
+			return tools.map((tool) => {
 				if (tool.name !== name) return tool
 				const NativeTool = tool.component
 				function ToolWithBrowserState(
@@ -136,6 +139,7 @@ export const pagesProofTool = definePlugin<
 					)
 				}
 				return { ...tool, component: ToolWithBrowserState }
-			}),
+			})
+		},
 	}
 })

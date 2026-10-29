@@ -1,6 +1,6 @@
 # Pages: native Studio integration proof
 
-This is the first implementation slice (A1), not the finished Pages plugin.
+This is the native integration proof (A1), not the finished Pages plugin.
 It answers a narrow question: can the kit add a browser and a header picker
 without replacing Sanity's editor, preview, routing, or document actions?
 
@@ -9,7 +9,23 @@ export. The root package's new dependencies are development-only. The browser
 is intentionally a flat list of at most 50 fixture documents, not the approved
 tree and collection interface.
 
+The next slice now uses a shared internal route registry. See
+[the routing foundation](ROUTING.md) for its configuration, validation,
+resolver overrides, and remaining work. This starts A2 without claiming that
+the outstanding A1 live checks are complete.
+
+Collection overviews will initially require a Sanity document, including an
+SEO-only document. Document-free overview entries are deferred; this does not
+prevent navigating to an app-owned route in Presentation and editing its
+Sanity-backed content through overlays. See
+[collection overviews and app-owned routes](ROUTING.md#collection-overviews-and-app-owned-routes).
+
 ## Run the proof
+
+For a plain-language explanation of the architecture, the responsibilities of
+each part, and the approved interface direction, start with the
+[Pages subsystem guide](../../../docs/pages.md). This README covers running the
+fixture; [ROUTING.md](ROUTING.md) covers its internal configuration contract.
 
 Use Node 24 and install the repository dependencies with `pnpm install`.
 Set the public configuration for an authorized test project in your shell:
@@ -84,7 +100,11 @@ button; the seed script creates published fixture records explicitly.
   stack. It uses query-visible change notifications, cancels obsolete requests,
   and tears down subscriptions on unmount. This deliberately small query layer
   will be replaced by the production tree/collection data layer.
-- `model.ts` rejects invalid preview paths. The selected preview page is derived
+- `routes.ts` registers the fixture's page, alternate-path, and collection types.
+  Internal helpers in `src/studio/pages/` generate native resolvers and the
+  browser projection from that same metadata. These helpers are excluded from
+  the distribution until the public plugin is ready.
+- `model.ts` applies that registry's route policy. The selected preview page is derived
   from Presentation's preview URL, not its edited document ID. This distinction
   allows a shared footer to open in the editor without selecting a different page.
 - `schema.ts` owns the test schemas. Most routes use `pathname.current`; the
@@ -94,7 +114,7 @@ button; the seed script creates published fixture records explicitly.
   Visual Editing supplies overlays. The frontend owns its history adapter,
   perspective-aware reads, and refresh behavior. Same-URL navigation echoes are
   ignored so a Studio/iframe round trip does not cause a refresh loop.
-- `sanity.config.ts` supplies native document locations and reverse URL lookup.
+- `sanity.config.ts` installs generated native document locations and reverse URL lookup.
   The `pages-proof` tool name is fixture-specific, not a proposed public default.
 
 The fixture's homepage is deliberately CMS-owned. That does not establish a
@@ -147,8 +167,9 @@ creation, reverse preview navigation, shared-content overlay editing, and
 sidebar/picker transitions with all native controls preserved. Do not count a
 successful build or mocked test as a substitute for an unchecked live item.
 
-After that gate, A2 introduces the optional `/studio` boundary and public
-configuration. A3/A4 implement path hierarchy, collections, incremental queries,
+The internal routing part of A2 can be checked independently; the optional
+`/studio` boundary and public plugin are still pending. A3/A4 implement path
+hierarchy, collections, incremental queries,
 schema previews, status/permission states, template choices, and the approved
 interface. A5 adds the full compatibility/distribution checks and release
 documentation. No version bump, commit, publication, or deployment is implied

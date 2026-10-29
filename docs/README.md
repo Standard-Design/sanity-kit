@@ -35,6 +35,13 @@ can use the framework-independent helpers without adopting the router adapter.
 | [Zod validation](validation-zod.md)      | Connect schemas to the common decoder contract                        |
 | [Sitemaps](sitemaps.md)                  | Produce validated, published-only XML responses                       |
 
+## In-development Studio integration
+
+[Pages](pages.md) explains the internal routing foundation, how it works with
+native Presentation, and the approved navigator and URL-field designs. It is
+separate from the released subsystems above: there is no public Studio entry
+point yet. The guide distinguishes working proof code from planned features.
+
 ## Shared terms
 
 - **Factory:** a function that accepts configuration and returns ready-to-use

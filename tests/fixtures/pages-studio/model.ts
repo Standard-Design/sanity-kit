@@ -2,7 +2,15 @@
  * Small, deliberately fixture-specific data contract for the A1 integration proof.
  * This is not the public Pages registry or the eventual collection query layer.
  */
-export const proofTypes = ['kitProofPage', 'kitProofPost', 'kitProofLanding']
+import { defineQuery } from 'groq'
+import {
+	pagePathname,
+	registeredPathname,
+} from '../../../src/studio/pages/registry.js'
+import { pageProjection } from '../../../src/studio/pages/resolvers.js'
+import { proofRegistry } from './routes.js'
+
+export const proofTypes = proofRegistry.types.map((type) => type.schemaType)
 
 export interface ProofDocument {
 	_id: string
@@ -11,38 +19,19 @@ export interface ProofDocument {
 	pathname: string | null
 }
 
-export const proofQuery = /* groq */ `
+// Dynamic registry projection is runtime configuration, not a TypeGen static query.
+export const proofQuery = defineQuery(/* groq */ `
   *[_type in $types] | order(_updatedAt desc, _id asc)[0...50] {
-    _id, _type, title,
-    "pathname": select(_type == "kitProofLanding" => route, pathname.current)
+    ${pageProjection(proofRegistry)}
   }
-`
+`)
 
 /** Never send an external, malformed, or normalized-to-another-page URL to the iframe. */
-export function previewPath(value: unknown): string | undefined {
-	if (
-		typeof value !== 'string' ||
-		!value.startsWith('/') ||
-		value.startsWith('//')
-	)
-		return undefined
-	if (
-		/[\\\s?#]/u.test(value) ||
-		[...value].some((character) => character.charCodeAt(0) < 32)
-	)
-		return undefined
-	try {
-		const parsed = new URL(value, 'https://fixture.invalid')
-		if (
-			parsed.pathname !== value ||
-			parsed.origin !== 'https://fixture.invalid'
-		)
-			return undefined
-		decodeURIComponent(value)
-		return value
-	} catch {
-		return undefined
-	}
+export const previewPath = pagePathname
+
+/** Keep list entries with missing/excluded URLs, but do not navigate to those URLs. */
+export function proofDocumentPath(document: ProofDocument): string | undefined {
+	return registeredPathname(proofRegistry, document._type, document.pathname)
 }
 
 /** Selection follows the iframe URL, not the currently edited (possibly shared) document. */
@@ -53,9 +42,10 @@ export function previewedDocument(
 	if (!preview) return undefined
 	try {
 		const pathname = new URL(preview, 'https://fixture.invalid').pathname
-		return documents.find(
-			(document) => previewPath(document.pathname) === pathname,
+		const matches = documents.filter(
+			(document) => proofDocumentPath(document) === pathname,
 		)
+		return matches.length === 1 ? matches[0] : undefined
 	} catch {
 		return undefined
 	}
