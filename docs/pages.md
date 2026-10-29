@@ -122,6 +122,14 @@ the native tool so closing the sidebar does not discard that state. Presentation
 not this provider, owns the URL and selected document. The proof keeps this state
 in memory; it does not save it to Sanity or promise persistence across reloads.
 
+The header picker is a modal dialog: while it is open, Tab and Shift+Tab stay
+inside it. Sanity UI supplies the popover and pointer-blocking layer;
+`react-focus-lock` supplies keyboard focus containment. Opening the picker
+focuses Search. Escape or page selection closes it and returns focus to Choose
+page. When the sidebar replaces the picker, the header does not try to focus
+the now-removed button. These behaviors belong to the internal adapter, not to
+the route registry or frontend router.
+
 ## Collection overviews and document-free routes
 
 A collection groups item types, such as posts, and identifies an ordinary page
@@ -209,9 +217,17 @@ The [fixture README](../tests/fixtures/pages-studio/README.md) explains how to r
 the proof. The [routing guide](../tests/fixtures/pages-studio/ROUTING.md) describes
 configuration details. The [acceptance record](../tests/fixtures/pages-studio/ACCEPTANCE.md)
 separates automated tests, observed native behavior, and pending live checks.
-In particular, iframe-link navigation, an actual shared-content overlay click,
-and remaining transitions still need live acceptance; this guide does not mark
-them complete.
+Iframe-link navigation and shared-content overlay navigation passed on October
+29 with user-performed clicks and observed preview/editor updates. Opening the
+shared footer's body field preserved the Team preview and page selection. A
+user-performed click on blank preview space also dismissed Choose page without
+changing the preview or edited document. Cross-layout scroll transfer and native
+pane resizing also passed. Keyboard checks found and fixed a focus escape when
+the picker had no results; Tab wrapping now passes with and without results.
+Outside-click dismissal also passed a user-performed recheck after the focus fix:
+the picker closed while Team remained the previewed and selected document.
+The A1 integration-proof gate is complete. The broader compatibility and
+permissions matrix is later work, not part of this integration-proof result.
 
 The distribution build excludes `src/studio/`, and package checks guard that
 boundary. The fixture's development dependencies are not a supported Studio peer

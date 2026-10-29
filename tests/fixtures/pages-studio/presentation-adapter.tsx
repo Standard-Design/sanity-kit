@@ -6,6 +6,7 @@
 import { Box, Button, Flex, Text, useClickOutsideEvent } from '@sanity/ui'
 import { Popover } from '@sanity/ui/popover'
 import { useEffect, useRef, type ComponentProps } from 'react'
+import FocusLockModule from 'react-focus-lock'
 import { definePlugin } from 'sanity'
 import {
 	presentationTool,
@@ -18,6 +19,9 @@ import { proofDocumentPath, previewedDocument } from './model.js'
 import { validatePagesSchema } from '../../../src/studio/pages/registry.js'
 import { proofRegistry } from './routes.js'
 import { ProofBrowser, useProofDocuments } from './proof-browser.js'
+
+// NodeNext sees the CommonJS namespace; Vite may unwrap its default export.
+const FocusLock = FocusLockModule.default ?? FocusLockModule
 
 export function ProofHeader(props: PreviewHeaderProps) {
 	const { pickerOpen, setPickerOpen } = useBrowserState()
@@ -33,8 +37,7 @@ export function ProofHeader(props: PreviewHeaderProps) {
 		if (props.navigatorEnabled) setPickerOpen(false)
 	}, [props.navigatorEnabled, setPickerOpen])
 	useEffect(() => {
-		if (open) panel.current?.querySelector<HTMLElement>('input')?.focus()
-		else if (wasOpen.current && !props.navigatorEnabled)
+		if (!open && wasOpen.current && !props.navigatorEnabled)
 			trigger.current?.focus()
 		wasOpen.current = open
 	}, [open, props.navigatorEnabled])
@@ -57,24 +60,36 @@ export function ProofHeader(props: PreviewHeaderProps) {
 						constrainSize
 						content={
 							open ? (
-								<Box
-									ref={panel}
-									role="dialog"
-									aria-label="Choose page"
-									style={{
-										width: 'min(380px, 90vw)',
-										height: 'min(480px, 70vh)',
-									}}
-									onKeyDown={(event) => {
-										if (event.key === 'Escape') {
-											event.preventDefault()
-											event.stopPropagation()
-											setPickerOpen(false)
-										}
-									}}
+								// Popover's modal layer blocks pointers, not keyboard focus.
+								// Use the same public focus library as native Studio search.
+								// The effect above owns return focus so reopening the sidebar
+								// never targets a picker trigger that has just disappeared.
+								<FocusLock
+									returnFocus={false}
+									onActivation={() =>
+										panel.current?.querySelector<HTMLElement>('input')?.focus()
+									}
 								>
-									<ProofBrowser />
-								</Box>
+									<Box
+										ref={panel}
+										role="dialog"
+										aria-modal="true"
+										aria-label="Choose page"
+										style={{
+											width: 'min(380px, 90vw)',
+											height: 'min(480px, 70vh)',
+										}}
+										onKeyDown={(event) => {
+											if (event.key === 'Escape') {
+												event.preventDefault()
+												event.stopPropagation()
+												setPickerOpen(false)
+											}
+										}}
+									>
+										<ProofBrowser />
+									</Box>
+								</FocusLock>
 							) : null
 						}
 					>

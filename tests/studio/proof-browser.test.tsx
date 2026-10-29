@@ -68,6 +68,25 @@ describe('Pages Presentation adapter lifecycle', () => {
 	let root: Root
 	beforeEach(() => {
 		vi.clearAllMocks()
+		// JSDOM has no layout. Give the real Popover a visible anchor and viewport
+		// so Floating UI does not hide it before we exercise the real focus lock.
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
+			x: 20,
+			y: 20,
+			top: 20,
+			left: 20,
+			right: 220,
+			bottom: 60,
+			width: 200,
+			height: 40,
+			toJSON: () => ({}),
+		})
+		vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(
+			1024,
+		)
+		vi.spyOn(document.documentElement, 'clientHeight', 'get').mockReturnValue(
+			768,
+		)
 		Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 		vi.stubGlobal('matchMedia', () => ({
 			matches: false,
@@ -109,6 +128,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 	afterEach(() => {
 		act(() => root.unmount())
 		container.remove()
+		vi.restoreAllMocks()
 		vi.unstubAllGlobals()
 	})
 	async function render() {
@@ -184,6 +204,30 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(document.querySelector('[role="dialog"]')).toBeNull()
 		expect(document.querySelector('[aria-haspopup="dialog"]')).toBeNull()
 	})
+
+	it.each(['loaded', 'empty', 'loading'] as const)(
+		'keeps focus inside the modal picker with %s results',
+		async (state) => {
+			if (state === 'empty') native.fetch.mockResolvedValue([])
+			if (state === 'loading')
+				native.fetch.mockReturnValue(new Promise(() => {}))
+			await render()
+			await click('Toggle native sidebar')
+			await click('Choose page')
+			const dialog = document.querySelector('[role="dialog"]')!
+			expect(document.activeElement).toBe(dialog.querySelector('input'))
+			// JSDOM does not perform browser Tab navigation. Trying to focus a
+			// background control verifies containment; live checks cover Tab wrap.
+			act(() => {
+				button('Native refresh').focus()
+			})
+			await vi.waitFor(() =>
+				expect(dialog.contains(document.activeElement)).toBe(true),
+			)
+			expect(dialog.getAttribute('aria-modal')).toBe('true')
+			expect(native.navigate).not.toHaveBeenCalled()
+		},
+	)
 
 	it('opens pathless drafts in the native editor without inventing a preview route', async () => {
 		await render()

@@ -13,9 +13,10 @@ It is not a claim that the finished Pages plugin is available.
 - Local preview: `http://localhost:3334`. The existing app read token was used
   only in the server process; it was not printed, copied into source, or bundled.
 - Sanity 6.16.0, Sanity UI 4.4.10, React 19.3.0, Node 24.21.0.
-- Live checks: October 25–26, 2026. Browser automation stalled while
-  attempting an alternative for iframe interactions; the remaining checks are
-  explicitly pending below.
+- Live checks: October 25–26 and October 29, 2026. The October 29 follow-up
+  rechecked picker and narrow-layout interactions. Iframe click/keyboard
+  automation remains blocked; Austin performed the iframe clicks, and the
+  resulting preview, picker, and selected-document state was inspected separately.
 
 ## Automated evidence
 
@@ -32,27 +33,29 @@ It is not a claim that the finished Pages plugin is available.
 
 ## Live checklist
 
-| Check                                                         | Observed result                                                                                                                                                                                                                                                                |
-| ------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| Authenticated Studio and native Presentation shell            | Passed. Native navigator, iframe, editor, document fields/actions, and header controls rendered.                                                                                                                                                                               |
-| Sidebar selection                                             | Passed. About and nested Team opened in the native editor.                                                                                                                                                                                                                     |
-| Picker and sidebar use the same browser state                 | Passed for search. A sidebar search for About remained in the picker after closing the sidebar. Scroll still needs a live check.                                                                                                                                               |
-| Picker selection                                              | Passed. Team selected, picker dismissed, sidebar stayed closed, focus returned to the trigger.                                                                                                                                                                                 |
-| Preview navigation initiated by the browser                   | Passed after adding the frontend history adapter: Team appeared in the iframe at `/about/team`.                                                                                                                                                                                |
-| Header placement                                              | Initial layout crowded controls; corrected layout visibly retained navigator toggle, Edit, refresh, address, open-preview, viewport, sharing, and picker controls.                                                                                                             |
-| Live query updates                                            | Seeded documents appeared without manually reloading the list. Listener visibility was changed to `query` to avoid fetching before a change became query-visible.                                                                                                              |
-| Reverse navigation from an iframe link                        | Pending. The browser tool found the iframe link but could not activate it; do not count routing configuration alone as a pass.                                                                                                                                                 |
-| Shared-content overlay click preserves preview page           | Pending. Shared-content metadata and reference are present, but an actual overlay click has not been verified.                                                                                                                                                                 |
-| Shared-content reference preserves preview page               | Passed on October 26 through the native reference link. The shared footer opened in the editor while the iframe and picker still identified Team. This does not substitute for an overlay-click check.                                                                         |
-| Native creation with no pathname                              | Passed on October 26. A native-generated draft ID saved a title without a pathname. The prior Team preview remained visible, the header explained the unavailable preview, and the draft appeared in the picker.                                                               |
-| Escape, outside click, reopening sidebar, keyboard navigation | Escape closed the picker and returned focus to its trigger in the live Studio. Reopening the native sidebar dismissed the picker and hid its trigger. Outside click over the iframe and complete keyboard navigation remain pending.                                           |
-| Narrow layout and resizing                                    | Native narrow tabs and wide panels rendered. Full interactive acceptance remains pending.                                                                                                                                                                                      |
-| Perspectives, publication, permissions, history               | Pending live. No permission-denied or release-perspective claims yet.                                                                                                                                                                                                          |
-| Alternate `route` field                                       | Passed through the native URL field on October 26. `/alternate` rendered and, after the asynchronous lookup completed, Sanity selected the `kitProofLanding` document. An immediate snapshot before resolution still showed the previous editor; this was not the final state. |
+| Check                                                         | Observed result                                                                                                                                                                                                                                                                                                                                                              |
+| ------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Authenticated Studio and native Presentation shell            | Passed. Native navigator, iframe, editor, document fields/actions, and header controls rendered.                                                                                                                                                                                                                                                                             |
+| Sidebar selection                                             | Passed. About and nested Team opened in the native editor.                                                                                                                                                                                                                                                                                                                   |
+| Picker and sidebar use the same browser state                 | Passed October 29. Search survived switching layouts. Picker scroll at 287px survived a roundtrip through a taller sidebar whose list needed no scrolling.                                                                                                                                                                                                                   |
+| Picker selection                                              | Passed. Team selected, picker dismissed, sidebar stayed closed, focus returned to the trigger.                                                                                                                                                                                                                                                                               |
+| Preview navigation initiated by the browser                   | Passed after adding the frontend history adapter: Team appeared in the iframe at `/about/team`.                                                                                                                                                                                                                                                                              |
+| Header placement                                              | Initial layout crowded controls; corrected layout visibly retained navigator toggle, Edit, refresh, address, open-preview, viewport, sharing, and picker controls.                                                                                                                                                                                                           |
+| Live query updates                                            | Seeded documents appeared without manually reloading the list. Listener visibility was changed to `query` to avoid fetching before a change became query-visible.                                                                                                                                                                                                            |
+| Reverse navigation from an iframe link                        | Passed October 29 with a user-performed iframe link click. From About, Austin clicked Team in the preview; the iframe URL/heading, Choose page label, and native editor all changed to Team.                                                                                                                                                                                 |
+| Shared-content overlay click preserves preview page           | Passed October 29 with a user-performed footer overlay click. The native editor opened the shared footer's body field; the preview URL/heading and Choose page label remained Team.                                                                                                                                                                                          |
+| Shared-content reference preserves preview page               | Passed on October 26 through the native reference link. The shared footer opened in the editor while the iframe and picker still identified Team. This does not substitute for an overlay-click check.                                                                                                                                                                       |
+| Native creation with no pathname                              | Passed on October 26. A native-generated draft ID saved a title without a pathname. The prior Team preview remained visible, the header explained the unavailable preview, and the draft appeared in the picker.                                                                                                                                                             |
+| Escape, outside click, reopening sidebar, keyboard navigation | October 29: selection, Escape/focus return, and Studio-shell dismissal passed. Tab initially escaped an empty-results picker; after adding focus containment, forward/reverse Tab wrapping passed with matching and empty results. Iframe dismissal passed again after the fix with a user-performed blank-preview click; Team remained the previewed and selected document. |
+| Narrow layout and resizing                                    | Passed for the proof on October 29. Native narrow-layout tabs were exercised. Dragging the navigator from about 291px to 420px and down to its 240px minimum preserved the Team preview/editor and native controls. This is not a full responsive/accessibility audit.                                                                                                       |
+| Perspectives, publication, permissions, history               | Pending live. No permission-denied or release-perspective claims yet.                                                                                                                                                                                                                                                                                                        |
+| Alternate `route` field                                       | Passed through the native URL field on October 26. `/alternate` rendered and, after the asynchronous lookup completed, Sanity selected the `kitProofLanding` document. An immediate snapshot before resolution still showed the previous editor; this was not the final state.                                                                                               |
 
-The A1 exit gate is **not yet complete**. Finish the pending iframe-link,
-overlay, and transition checks before proceeding to the
-finished browser interface. The eventual A5 checklist will be broader.
+The A1 exit gate is **complete as of October 29**. Selection, native creation,
+reverse navigation, shared-content overlays, cross-layout scroll, resizing,
+keyboard wrapping, and post-fix outside-click dismissal have passed. This clears
+the integration proof for the next implementation slice, not for release. The
+eventual A5 compatibility, permission, and accessibility checklist will be broader.
 
 ## Routing-foundation follow-up
 
@@ -92,6 +95,74 @@ were performed.
 - Package verification: passed all five consumer profiles and the TypeGen
   workspace. The inventory is now 53 files because it includes `docs/pages.md`;
   it still excludes Studio source and has no `/studio` export.
+
+## Live follow-up — October 29
+
+The Studio and loopback preview were restarted against the same authorized test
+dataset, using the existing server-side read token. No document fields were
+edited, created, or published during this pass.
+
+- Search for About survived closing the navigator and opening Choose page.
+- Typing a specific page title, pressing Tab, then Enter selected About. The
+  preview URL and heading became About, the picker closed and returned focus,
+  and the native Structure tab showed About's title, pathname, and body.
+- Escape closed the picker and returned focus. A list scrolled to 287px restored
+  that position after reopening. This tests picker reopening, not cross-layout
+  scroll transfer.
+- Clicking outside in Studio dismissed the picker. The modal picker consumed
+  the first click on the navigator toggle as dismissal; the next click opened
+  the navigator. This detail must inform the final header/picker interaction.
+- Native accessibility clicks, screenshot-coordinate clicks, and a frame-scoped
+  locator could all identify the iframe's About link but could not activate it.
+  Frame-scoped keyboard activation also failed before delivering input. These
+  tool failures are not evidence that website navigation or overlays fail.
+- Austin then clicked Team in the preview's link list while About was selected.
+  The iframe moved to `/about/team`, the picker identified Team, and the native
+  Structure tab showed Team's document and fields. This passes reverse
+  navigation through a real user-performed iframe link click.
+- Austin clicked the shared footer's edit overlay on Team. The Studio route
+  opened `kitProofShared/XCVfQiHlQYx1rGNar3CpZy/body`; the native editor showed
+  the shared footer's fields while the iframe remained `/about/team` and Choose
+  page still identified Team. No values were changed.
+- The picker was reopened with Team in both the preview and editor. Austin
+  clicked a blank area of the website preview; Choose page collapsed, its dialog
+  disappeared, and both the preview URL and native edited document stayed Team.
+  This passes iframe outside-click dismissal for the current modal picker.
+- Dragged the native navigator from about 291px to 420px and down to its 240px
+  minimum. Team remained the previewed and edited page; native controls remained
+  available, although the address control became compact at the wider setting.
+- Picker scroll at 287px survived closing it, opening the taller sidebar (where
+  the list fit without scrolling), then reopening the picker. A clamped sidebar
+  scroll position did not overwrite the saved picker position.
+- Keyboard checks found a real defect: Tab could leave the modal picker when
+  search had no results. Sanity UI's modal layer blocks pointer interaction,
+  not keyboard focus. The adapter now uses the public `react-focus-lock` library,
+  also used by native Studio search; it is a direct development dependency only.
+- After the fix, Tab from an empty search result wrapped to Create page, and
+  Shift+Tab wrapped back to Search. With one matching page, Tab from that last
+  row wrapped to Create page and Shift+Tab returned to the row. Enter selected
+  Team and returned focus to Choose page. Escape also closed and returned focus.
+- Three regression cases exercise focus containment with loaded, empty, and
+  loading results. They use the real focus library and popover. JSDOM supplies
+  visible anchor/viewport geometry because its default zero-sized layout would
+  make Floating UI hide the popover; live checks separately verify real Tab keys.
+- After the focus fix, the picker was reopened and its expanded state confirmed.
+  Austin clicked blank preview space. The dialog disappeared, Choose page's
+  expanded state became false, and both the Team preview and selected Team
+  document ID remained unchanged in the Studio URL. This completes the A1 gate.
+
+Verification after the focus fix:
+
+- All 503 tests in 20 files passed, including the three new focus-containment
+  cases. Formatting, lint, typecheck, package build, and Studio build passed.
+  The checks were run directly with Node 24 after the sandboxed `pnpm` script
+  launcher stalled; no passing `pnpm verify` invocation is claimed for this pass.
+- Package checks passed all five consumer profiles and the TypeGen workspace.
+  The 53-file inventory still excludes Studio implementation and has no
+  `/studio` export. No package was published or deployed.
+- Frozen dependency installation completed with normal supply-chain checks.
+  An initial offline attempt lacked registry metadata; retrying with registry
+  access succeeded without bypassing the checks.
 
 ## Test records created
 

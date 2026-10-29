@@ -11,8 +11,9 @@ tree and collection interface.
 
 The next slice now uses a shared internal route registry. See
 [the routing foundation](ROUTING.md) for its configuration, validation,
-resolver overrides, and remaining work. This starts A2 without claiming that
-the outstanding A1 live checks are complete.
+resolver overrides, and remaining work. The A1 live integration checks are now
+complete; see the dated observations in [ACCEPTANCE.md](ACCEPTANCE.md). This does
+not mean the finished navigator or public Studio plugin is available.
 
 Collection overviews will initially require a Sanity document, including an
 SEO-only document. Document-free overview entries are deferred; this does not
@@ -92,6 +93,10 @@ button; the seed script creates published fixture records explicitly.
   and navigator slots. Its header calls `renderDefault` with the original props.
   A bounded picker button sits beside the native controls rather than replacing
   them. A separate status line explains unavailable previews.
+  Sanity UI's modal popover blocks pointer interaction with the background;
+  `react-focus-lock` keeps Tab navigation inside the picker, including when no
+  pages match the search. The adapter focuses Search on opening and restores
+  focus to Choose page on dismissal, unless the sidebar has replaced that button.
 - `browser-state.tsx` lives around the native **tool**, not its navigator. Sanity
   unmounts the navigator when it closes; search and scroll therefore survive the
   move to the picker. Each mounted workspace/tool gets its own provider. There
@@ -125,7 +130,7 @@ native tool names. An explicit edit intent may validly pair one document with
 another preview URL; do not force the editor to match the preview at all times.
 
 These adapters use public imports from `sanity`, `sanity/presentation`,
-`sanity/router`, and `@sanity/ui`. No private bundles, internal contexts, or
+`sanity/router`, `@sanity/ui`, and `react-focus-lock`. No private bundles, internal contexts, or
 Studio DOM selectors are used. The only DOM lookup in the header searches its
 own picker for the input to focus.
 
@@ -156,7 +161,9 @@ pnpm studio:build
 pnpm test:package
 ```
 
-The focused React tests use real Sanity UI primitives and mock Sanity's hooks.
+The focused React tests use real Sanity UI primitives and focus locking, and mock
+Sanity's hooks. Their JSDOM environment supplies visible anchor/viewport geometry
+because it has no layout engine; real Tab navigation is checked in Studio.
 They prove the adapter's lifecycle, not the native editor or iframe connection.
 Keep those results separate from the live checklist in [ACCEPTANCE.md](ACCEPTANCE.md).
 
