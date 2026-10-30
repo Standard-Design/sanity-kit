@@ -2,7 +2,7 @@
  * Query plans for the navigator data layer. These functions perform no IO:
  * callers supply Studio's authenticated client, effective perspective, and abort
  * signal. data-session.ts runs these for the tree and collection browsers; the
- * transitional header identity helper still uses model.ts in the same session.
+ * header identity lookups use model.ts in the same session.
  */
 import { defineQuery } from 'groq'
 import type { PageDocument } from './model.js'

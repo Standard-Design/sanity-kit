@@ -172,12 +172,36 @@ resources in Studio's selected perspective (the content view, such as drafts or
 a release). The session owns requests and one change listener. These resource
 results serve different purposes; they are not three copies of the same query.
 
-The header's transitional `usePageDocuments()` identity helper still reads the
-latest 50 registered documents. This no longer limits browsing or searching, but
-a page outside that helper's window uses its preview URL instead of its title in
-the picker trigger's visible title and accessible label. The header's missing-preview notice also
-depends on that window; the browser row always shows an unavailable path. Replacing
-that helper with targeted identity reads is still required before release.
+### Header identity
+
+The header answers two separate questions with `usePageIdentity()`:
+
+- Which registered page matches the preview URL? Its title labels the picker.
+- Which registered document is open in the editor? If it has no usable page URL,
+  the header explains that the previous page remains in the preview.
+
+These are targeted reads, not searches through the newest documents or the
+currently loaded browser rows. An older page or collection item works without
+loading more rows first. The preview lookup ignores query parameters and hashes,
+and uses the same registered-type and pathname rules as the generated native
+main-document resolver. It requests at most two matches: one identifies the page;
+two mean the URL is ambiguous. No match, an ambiguous match, or an initial pending
+read leaves the preview URL as the picker label instead of guessing a title.
+
+The edited-document lookup uses its ID and registered type. Draft and release
+version IDs are reduced to the underlying document ID; Studio's selected
+perspective determines which version is returned. Shared content types that are
+not registered as pages are not queried and do not show a missing-preview notice.
+Editing a shared footer therefore does not change the previewed page's title.
+
+Both reads use the existing session's listener, cancellation, refresh, and
+perspective isolation. A new URL or edited ID selects a separate resource
+immediately, so the old title or notice does not flash while the new read loads.
+When an identity resource loses its last reader, its result is cleared. Equivalent
+preview URLs that differ only by query parameters or hashes share one resource.
+Small resource descriptors remain in the tool's store, not document bodies.
+Custom native resolver overrides still own their routing policy; these labels
+describe the kit's registry, not arbitrary application-specific resolver results.
 
 ## Browsing pages and collections
 
@@ -288,7 +312,7 @@ pending. No dead rename/create-folder buttons imply those writes already work.
 
 The tool-level provider creates one `dataStore`. For each Studio client and
 perspective stack, that store keeps a separate session. A session contains
-resources: independently loaded results such as the proof list, complete ordinary
+resources: independently loaded results such as header identity, complete ordinary
 pages, a collection's recent items, or a collection search. Two readers of the
 same resource share its data and request. All active resources in a session share
 one listener for the registered document types.
@@ -633,7 +657,7 @@ implementation paths are private. Nothing in this slice publishes a release.
 - `src/studio/pages/resolvers.ts`: query projection and native Presentation
   resolver definitions. It returns configuration, not an editor or a router.
 - `tests/fixtures/pages-studio/routes.ts`: the fixture's application-owned registry.
-- `src/studio/pages/model.ts`: transitional header identity query and preview-path matching.
+- `src/studio/pages/model.ts`: targeted header identity queries and preview-path matching.
 - `src/studio/pages/browser.tsx`, `tree-browser.tsx`, and `collection-browser.tsx`:
   shared shell, inferred folder rendering, and incremental collection mode.
   `page-row.tsx` opens documents through native Presentation; `document-status.tsx`

@@ -59,8 +59,8 @@ describe('Pages plugin foundation', () => {
 		expect(first.name).toBe('pages')
 		expect(first.title).toBe('Pages')
 		expect(first.registry.types[0]?.pathnameField).toBe('path')
-		expect(second.model.query).toContain('@["other"]')
-		expect(first.model.query).not.toContain('@["other"]')
+		expect(second.model.previewQuery('/')?.query).toContain('@["other"]')
+		expect(first.model.previewQuery('/')?.query).not.toContain('@["other"]')
 		expect(first.create).toBeUndefined()
 	})
 	it.each([

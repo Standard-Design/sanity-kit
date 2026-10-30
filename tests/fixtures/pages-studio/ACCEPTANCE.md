@@ -438,6 +438,34 @@ tooltip refinements:
   advanced filtering, and broader release acceptance remain outside this slice.
   No dataset documents were changed during final verification.
 
+## Targeted header identity — October 30, 2026
+
+This supersedes the targeted-header-identity limitation in the earlier navigator
+notes. The header now reads the preview URL and edited registered document
+separately; neither read depends on the newest 50 documents or loaded rows.
+
+- `pnpm verify` passed formatting, package/declaration build, lint, typecheck,
+  and 617 tests across 26 files. The browser suite has 28 tests.
+- `pnpm test:coverage` passed all 617 tests, with 98.13% reported line coverage.
+- `pnpm studio:build` passed. The packed-consumer matrix was not repeated for
+  this private implementation change; the previous slice's result is recorded
+  above, not claimed as a fresh run.
+- Query tests use more than 50 documents and cover configured title/path fields,
+  duplicate URLs, collection ownership, excluded paths, and edited draft/release
+  IDs. Session and browser tests cover cancellation, late responses, navigation,
+  clearing unused results, and switching perspectives without stale labels.
+- Live Studio: selecting the existing incomplete draft left Home in the preview.
+  With the navigator closed, the picker still read “Pages proof: Home” and the
+  missing-preview notice appeared. Selecting Home cleared the notice. Opening
+  Home's shared-footer reference left the Home preview and picker title intact,
+  without a false missing-preview notice for the shared document.
+- No document fields were changed. No documents were created, published, renamed,
+  or deleted. The greater-than-50 check and release-ID normalization are automated
+  evidence, not a live large-dataset or release-perspective acceptance run.
+
+The custom URL field, folder actions, advanced filtering, scale checks, and broader
+permissions/release-perspective acceptance remain later work.
+
 ## Test records created
 
 The explicit seed run created the following published fixture documents with

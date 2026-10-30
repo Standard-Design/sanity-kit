@@ -13,19 +13,26 @@ export function usePagesDataSession() {
 	return dataStore.session(client, perspectiveStack)
 }
 
-/** Transitional bounded header identity adapter; browsing uses the other resources. */
-export function usePageDocuments() {
+/** Read only the preview URL and edited ID, independently of browsing/pagination. */
+export function usePageIdentity(preview?: string, id?: string, type?: string) {
+	const { runtime } = useBrowserState()
 	const session = usePagesDataSession()
-	const result = useSyncExternalStore(
-		session.proof.subscribe,
-		session.proof.getSnapshot,
-		session.proof.getSnapshot,
+	const previewResource = session.identity(runtime.model.previewQuery(preview))
+	const documentResource = session.identity(
+		runtime.model.documentQuery(id, type),
+	)
+	const previewResult = useSyncExternalStore(
+		previewResource.subscribe,
+		previewResource.getSnapshot,
+		previewResource.getSnapshot,
+	)
+	const documentResult = useSyncExternalStore(
+		documentResource.subscribe,
+		documentResource.getSnapshot,
+		documentResource.getSnapshot,
 	)
 	return {
-		documents: result.data,
-		loading: result.loading,
-		error: result.error || result.disconnected,
-		refreshing: result.refreshing,
-		retry: session.retry,
+		current: runtime.model.previewedDocument(previewResult.data, preview),
+		edited: documentResult.data[0],
 	}
 }

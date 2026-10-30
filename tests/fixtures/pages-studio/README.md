@@ -112,8 +112,9 @@ button; the seed script creates published fixture records explicitly.
   a session from `data-store.ts`, instead of each opening a separate listener.
   `data-session.ts` cancels obsolete reads, retains rows during refreshes, handles
   reconnection, and releases data when the last reader leaves. It also provides
-  lazy tree and collection resources for the current browser. Only the header's
-  transitional identity helper still uses the bounded proof query.
+  lazy tree and collection resources for the current browser. The header uses
+  separate targeted reads for the preview URL and edited document ID, without
+  depending on the newest documents or currently loaded browser rows.
   See [Shared live-data loading](../../../docs/pages.md#shared-live-data-loading)
   for the lifecycle, retry behavior, and periodic query cost.
 - `routes.ts` registers the fixture's page, alternate-path, and collection types.
@@ -184,7 +185,7 @@ successful build or mocked test as a substitute for an unchecked live item.
 A2 now provides the reusable plugin and opt-in `/studio` boundary in local
 builds. A3/A4 now include the first path hierarchy, collection search/incremental
 loading, and native version indicators. Folder actions, query-side sort/status
-filters, long-list virtualization, targeted header identity, schema previews,
+filters, long-list virtualization, schema previews,
 permission-aware template choices, and the URL field remain pending.
 A5 adds the full compatibility/distribution checks and release
 documentation. No version bump, commit, publication, or deployment is implied

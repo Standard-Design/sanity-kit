@@ -31,7 +31,7 @@ export function fieldExpression(path: string): string {
 }
 
 /**
- * Build the field selection shared by the proof browser and navigator query plans.
+ * Build the field selection shared by header identity and navigator query plans.
  * Each type's configured fields become the same title/pathname properties in
  * browser records.
  * This returns query text, not fetched data; document bodies are not selected.
@@ -40,6 +40,22 @@ export function pageProjection(registry: PagesRegistry): string {
 	const select = (field: 'pathnameField' | 'titleField') =>
 		`select(${registry.types.map((type) => `_type == ${JSON.stringify(type.schemaType)} => ${fieldExpression(type[field])}`).join(', ')})`
 	return `_id, _type, "title": ${select('titleField')}, "pathname": ${select('pathnameField')}`
+}
+
+/** The header and native editor must agree about which types can own a URL. */
+export function pagePathFilter(registry: PagesRegistry, path: string) {
+	const types = registry.types.filter(
+		(type) => registeredPathname(registry, type.schemaType, path) !== undefined,
+	)
+	if (!types.length) return undefined
+	const params: Record<string, string> = { path }
+	const filter = types
+		.map((type, index) => {
+			params[`type${index}`] = type.schemaType
+			return `(_type == $type${index} && ${fieldExpression(type.pathnameField)} == $path)`
+		})
+		.join(' || ')
+	return { filter, params }
 }
 
 /**
@@ -99,18 +115,9 @@ export function pageMainDocuments(registry: PagesRegistry): DocumentResolver[] {
 		{
 			route: '/*',
 			resolve: ({ path }) => {
-				const types = registry.types.filter(
-					(type) =>
-						registeredPathname(registry, type.schemaType, path) !== undefined,
-				)
-				if (!types.length) return undefined
-				const params: Record<string, string> = { path }
-				const predicate = types
-					.map((type, index) => {
-						params[`type${index}`] = type.schemaType
-						return `(_type == $type${index} && ${fieldExpression(type.pathnameField)} == $path)`
-					})
-					.join(' || ')
+				const plan = pagePathFilter(registry, path)
+				if (!plan) return undefined
+				const { filter: predicate, params } = plan
 				return {
 					filter: `(${predicate}) && count(*[${predicate}][0...2]) == 1`,
 					params,

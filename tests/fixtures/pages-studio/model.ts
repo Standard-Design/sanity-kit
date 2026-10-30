@@ -5,7 +5,6 @@ import { proofRegistry } from './routes.js'
 export type { PageDocument as ProofDocument } from '../../../src/studio/pages/model.js'
 export const {
 	types: proofTypes,
-	query: proofQuery,
 	documentPath: proofDocumentPath,
 	previewedDocument,
 } = createBrowserModel(proofRegistry)

@@ -3,7 +3,7 @@
  * Each request is bounded, but the completed tree needs ALL ordinary pages in
  * memory. Posts are intentionally absent: their own browser loads them on demand.
  * data-session.ts owns subscriptions and restarts this read after changes. The
- * tree browser uses this resource; the bounded header identity helper does not.
+ * tree browser uses this resource; targeted header identity reads do not.
  */
 import {
 	type createNavigationQueries,

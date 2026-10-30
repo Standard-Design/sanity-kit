@@ -24,14 +24,17 @@
   native version indicators, five recent collection items, and debounced
   collection search with incremental loading. Preserve browser mode, expansion,
   search, and scroll across sidebar/picker mounts. Add the explicit Studio icons
-  peer. Folder writes, sort/status filters, virtualization, and targeted header
-  identity reads remain later work.
+  peer. Folder writes, sort/status filters, and virtualization remain later work.
 - Match native Structure row/header styling and Studio tooltips. Add a compact,
   content-height picker with dialog-first keyboard focus and a page-title trigger.
   Support explicit plural collection labels with `itemsTitle`, distinguish recent
   items from the total in the browse row, and separate missing preview URLs from
   valid ungrouped paths. Document the planned URL-field cleanup separately from
   the read-only navigator; no dataset cleanup is included.
+- Replace the header's latest-50 lookup with separate targeted reads for the
+  previewed page and edited document. Share the generated resolver's path policy,
+  detect ambiguous URLs, and clear obsolete identity results on navigation.
+  Older pages and pathless documents no longer depend on a recent-document window.
 
 ## 0.1.0-alpha.5
 

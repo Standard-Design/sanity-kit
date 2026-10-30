@@ -16,7 +16,7 @@ import {
 } from 'sanity/presentation'
 import { useBrowserState } from './browser-state.js'
 import { PagesBrowser } from './browser.js'
-import { usePageDocuments } from './use-page-data.js'
+import { usePageIdentity } from './use-page-data.js'
 import { TooltipButton } from './tooltip.js'
 
 // NodeNext sees the CommonJS namespace; Vite may unwrap its default export.
@@ -29,11 +29,13 @@ export function PagesHeader(props: PreviewHeaderProps) {
 	const panel = useRef<HTMLDivElement>(null)
 	const wasOpen = useRef(false)
 	const params = usePresentationParams()
-	const { documents } = usePageDocuments()
-	const { documentPath, previewedDocument } = runtime.model
-	const current = previewedDocument(documents, params.preview)
+	const { current, edited } = usePageIdentity(
+		params.preview,
+		params.id,
+		params.type,
+	)
+	const { documentPath } = runtime.model
 	const pageTitle = current?.title || params.preview || 'Choose page'
-	const edited = documents.find((document) => document._id === params.id)
 	const open = pickerOpen && !props.navigatorEnabled
 	useEffect(() => {
 		if (props.navigatorEnabled) setPickerOpen(false)

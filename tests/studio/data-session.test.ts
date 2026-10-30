@@ -57,6 +57,7 @@ function harness(initial = [doc(0)]) {
 	const releases: (() => void)[] = []
 	return {
 		session,
+		identity: session.identity(runtime.model.previewQuery('/page-0')),
 		fetch,
 		listen,
 		unsubscribe,
@@ -92,65 +93,100 @@ describe('Shared Pages data sessions', () => {
 	const settle = () => vi.advanceTimersByTimeAsync(0)
 	const changed = () => vi.advanceTimersByTimeAsync(CHANGE_DELAY_MS)
 
+	it('isolates identity targets, aborts abandoned reads, and clears old identity results', async () => {
+		const h = setup([doc(0), doc(1)])
+		const pending = Promise.withResolvers<unknown>()
+		h.fetch.mockReturnValueOnce(pending.promise)
+		const first = h.identity
+		const second = h.session.identity(runtime.model.previewQuery('/page-1'))
+		expect(second).toBe(
+			h.session.identity(runtime.model.previewQuery('/page-1?query=1')),
+		)
+		const release = h.subscribe(first)
+		await settle()
+		h.subscribe(second)
+		release()
+		expect(h.fetch.mock.calls[0]![1].aborted).toBe(true)
+		await settle()
+		pending.resolve([{ ...doc(0), pathname: '/page-0' }])
+		await settle()
+		expect(first.getSnapshot().data).toEqual([])
+		expect(second.getSnapshot().data).toMatchObject([{ _id: 'id-0001' }])
+		expect(h.listen).toHaveBeenCalledTimes(1)
+		const releaseAgain = h.subscribe(first)
+		await settle()
+		expect(first.getSnapshot().data).toMatchObject([{ _id: 'id-0000' }])
+		releaseAgain()
+		expect(first.getSnapshot().data).toEqual([])
+	})
+	it('shares an empty identity without querying when no registered target exists', async () => {
+		const h = setup()
+		const empty = h.session.identity(undefined)
+		h.subscribe(empty)
+		await settle()
+		expect(empty.getSnapshot()).toMatchObject({ data: [], loading: false })
+		expect(h.fetch).not.toHaveBeenCalled()
+	})
+
 	it('is lazy and shares one request/listener across simultaneous readers', async () => {
 		const h = setup()
 		expect(h.fetch).not.toHaveBeenCalled()
 		expect(h.listen).not.toHaveBeenCalled()
-		h.subscribe(h.session.proof)
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
+		h.subscribe(h.identity)
 		await settle()
 		expect(h.fetch).toHaveBeenCalledTimes(1)
 		expect(h.listen).toHaveBeenCalledTimes(1)
-		expect(h.session.proof.getSnapshot()).toMatchObject({
+		expect(h.identity.getSnapshot()).toMatchObject({
 			loading: false,
 			data: [{ _id: 'id-0000' }],
 		})
-		expect(h.session.proof.getSnapshot()).toBe(h.session.proof.getSnapshot())
+		expect(h.identity.getSnapshot()).toBe(h.identity.getSnapshot())
 	})
 	it('does not reconnect or refetch when the sidebar leaves and returns while the header remains', async () => {
 		const h = setup()
-		h.subscribe(h.session.proof)
-		const sidebar = h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
+		const sidebar = h.subscribe(h.identity)
 		await settle()
 		sidebar()
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		await settle()
 		expect(h.fetch).toHaveBeenCalledTimes(1)
 		expect(h.unsubscribe).not.toHaveBeenCalled()
 	})
 	it('clears cached data and resources when the last reader leaves, then can restart', async () => {
 		const h = setup()
-		const release = h.subscribe(h.session.proof)
+		const release = h.subscribe(h.identity)
 		await settle()
 		release()
 		expect(h.unsubscribe).toHaveBeenCalledTimes(1)
-		expect(h.session.proof.getSnapshot()).toMatchObject({
+		expect(h.identity.getSnapshot()).toMatchObject({
 			data: [],
 			loading: true,
 		})
 		expect(vi.getTimerCount()).toBe(0)
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		await settle()
 		expect(h.listen).toHaveBeenCalledTimes(2)
 		expect(h.fetch).toHaveBeenCalledTimes(2)
 	})
 	it('coalesces mutation bursts and preserves rows during the replacement read', async () => {
 		const h = setup()
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		await settle()
 		const next = Promise.withResolvers<unknown>()
 		h.fetch.mockReturnValueOnce(next.promise)
 		for (let i = 0; i < 10; i++) h.observers[0]!.next({ type: 'mutation' })
 		await changed()
 		expect(h.fetch).toHaveBeenCalledTimes(2)
-		expect(h.session.proof.getSnapshot()).toMatchObject({
+		expect(h.identity.getSnapshot()).toMatchObject({
 			loading: false,
 			refreshing: true,
 			data: [{ _id: 'id-0000' }],
 		})
 		next.resolve([{ ...doc(1), pathname: '/page-1' }])
 		await settle()
-		expect(h.session.proof.getSnapshot()).toMatchObject({
+		expect(h.identity.getSnapshot()).toMatchObject({
 			refreshing: false,
 			data: [{ _id: 'id-0001' }],
 		})
@@ -159,28 +195,28 @@ describe('Shared Pages data sessions', () => {
 		const h = setup()
 		const old = Promise.withResolvers<unknown>()
 		h.fetch.mockReturnValueOnce(old.promise)
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		await settle()
 		h.observers[0]!.next({ type: 'mutation' })
 		expect(h.fetch.mock.calls[0]![1].aborted).toBe(true)
-		h.setData([doc(2)])
+		h.setData([{ ...doc(2), path: '/page-0' }])
 		await changed()
 		old.resolve([{ ...doc(9), pathname: '/wrong' }])
 		await settle()
-		expect(h.session.proof.getSnapshot().data[0]?._id).toBe('id-0002')
+		expect(h.identity.getSnapshot().data[0]?._id).toBe('id-0002')
 	})
 	it('ignores callbacks and late reads from a stopped session', async () => {
 		const h = setup()
 		const pending = Promise.withResolvers<unknown>()
 		h.fetch.mockReturnValueOnce(pending.promise)
-		const release = h.subscribe(h.session.proof)
+		const release = h.subscribe(h.identity)
 		await settle()
 		release()
 		h.observers[0]!.next({ type: 'welcome' })
 		h.observers[0]!.error()
 		pending.resolve([doc(8)])
 		await settle()
-		expect(h.session.proof.getSnapshot()).toMatchObject({
+		expect(h.identity.getSnapshot()).toMatchObject({
 			data: [],
 			disconnected: false,
 		})
@@ -188,47 +224,47 @@ describe('Shared Pages data sessions', () => {
 	})
 	it('rechecks on welcome and marks reconnects until a new welcome arrives', async () => {
 		const h = setup()
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		await settle()
 		h.observers[0]!.next({ type: 'reconnect' })
-		expect(h.session.proof.getSnapshot().disconnected).toBe(true)
-		h.setData([doc(3)])
+		expect(h.identity.getSnapshot().disconnected).toBe(true)
+		h.setData([{ ...doc(3), path: '/page-0' }])
 		h.observers[0]!.next({ type: 'welcome' })
 		await settle()
-		expect(h.session.proof.getSnapshot()).toMatchObject({
+		expect(h.identity.getSnapshot()).toMatchObject({
 			disconnected: false,
 			data: [{ _id: 'id-0003' }],
 		})
 	})
 	it('offers retry after a terminal listener error without hiding that failure behind a successful fetch', async () => {
 		const h = setup()
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		await settle()
 		h.observers[0]!.error()
 		h.session.retry()
 		await settle()
 		expect(h.listen).toHaveBeenCalledTimes(2)
-		expect(h.session.proof.getSnapshot().disconnected).toBe(true)
+		expect(h.identity.getSnapshot().disconnected).toBe(true)
 		h.observers[1]!.next({ type: 'welcome' })
 		await settle()
-		expect(h.session.proof.getSnapshot().disconnected).toBe(false)
+		expect(h.identity.getSnapshot().disconnected).toBe(false)
 		h.observers[0]!.error()
-		expect(h.session.proof.getSnapshot().disconnected).toBe(false)
+		expect(h.identity.getSnapshot().disconnected).toBe(false)
 	})
 	it('retains last-good data on read errors and can recover without another listener', async () => {
 		const h = setup()
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		await settle()
 		h.fetch.mockRejectedValueOnce(new Error('offline'))
 		h.session.retry()
 		await settle()
-		expect(h.session.proof.getSnapshot()).toMatchObject({
+		expect(h.identity.getSnapshot()).toMatchObject({
 			error: true,
 			data: [{ _id: 'id-0000' }],
 		})
 		h.session.retry()
 		await settle()
-		expect(h.session.proof.getSnapshot().error).toBe(false)
+		expect(h.identity.getSnapshot().error).toBe(false)
 		expect(h.listen).toHaveBeenCalledTimes(1)
 	})
 	it('handles synchronously throwing listeners and fetch adapters', async () => {
@@ -239,9 +275,9 @@ describe('Shared Pages data sessions', () => {
 		h.fetch.mockImplementationOnce(() => {
 			throw new Error('fetch')
 		})
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		await settle()
-		expect(h.session.proof.getSnapshot()).toMatchObject({
+		expect(h.identity.getSnapshot()).toMatchObject({
 			error: true,
 			disconnected: true,
 			loading: false,
@@ -249,11 +285,11 @@ describe('Shared Pages data sessions', () => {
 	})
 	it('repairs missed notifications with a periodic read, but never cancels a slow read for a poll', async () => {
 		const h = setup()
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		await settle()
-		h.setData([doc(4)])
+		h.setData([{ ...doc(4), path: '/page-0' }])
 		await vi.advanceTimersByTimeAsync(RECONCILE_MS)
-		expect(h.session.proof.getSnapshot().data[0]?._id).toBe('id-0004')
+		expect(h.identity.getSnapshot().data[0]?._id).toBe('id-0004')
 		const pending = Promise.withResolvers<unknown>()
 		h.fetch.mockReturnValueOnce(pending.promise)
 		h.session.retry()
@@ -265,7 +301,7 @@ describe('Shared Pages data sessions', () => {
 	})
 	it('does not poll a known-disconnected listener', async () => {
 		const h = setup()
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		await settle()
 		h.observers[0]!.error()
 		await vi.advanceTimersByTimeAsync(RECONCILE_MS * 2)
@@ -362,7 +398,7 @@ describe('Shared Pages data sessions', () => {
 	})
 	it('isolates search results, normalizes equivalent searches, and drops inactive old result arrays', async () => {
 		const h = setup(Array.from({ length: 60 }, (_, i) => doc(i, 'post')))
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		const first = h.session.collection('journal', 'page 59')
 		expect(first).toBe(h.session.collection('journal', ' PAGE 59 '))
 		const release = h.subscribe(first)
@@ -378,7 +414,7 @@ describe('Shared Pages data sessions', () => {
 	})
 	it('preserves the connection warning when inactive search caches are cleared', async () => {
 		const h = setup([doc(0, 'post')])
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		const first = h.session.collection('journal')
 		const release = h.subscribe(first)
 		await settle()
@@ -393,7 +429,7 @@ describe('Shared Pages data sessions', () => {
 
 	it('does not fetch inactive resources on changes; reopening refreshes them', async () => {
 		const h = setup()
-		h.subscribe(h.session.proof)
+		h.subscribe(h.identity)
 		const release = h.subscribe(h.session.pages)
 		await settle()
 		release()

@@ -4,7 +4,7 @@
  * keeps the session alive. See docs/pages.md: “Shared live-data loading”.
  */
 import type { PagesRuntime } from './runtime.js'
-import type { PagesDataSource } from './data-source.js'
+import type { PagesDataSource, PageQueryPlan } from './data-source.js'
 import type { PageDocument } from './model.js'
 import { buildNavigationTree } from './navigation.js'
 import {
@@ -51,6 +51,7 @@ class DataResource<T> implements ResourceControl {
 		) => Promise<T>,
 		private owner: { retain(): void; release(): void },
 		private canAppend: (data: T) => boolean = () => false,
+		private clearWhenUnused = false,
 	) {
 		this.snapshot = this.empty()
 	}
@@ -76,7 +77,10 @@ class DataResource<T> implements ResourceControl {
 		if (this.dirty && !this.controller) this.refresh()
 		return () => {
 			if (!this.listeners.delete(notify)) return
-			if (!this.active()) this.invalidate()
+			if (!this.active()) {
+				if (this.clearWhenUnused) this.reset()
+				else this.invalidate()
+			}
 			this.owner.release()
 		}
 	}
@@ -180,7 +184,9 @@ export interface PagesDataResource<T> {
 
 /** Named internal boundary keeps resource implementation details out of consumers. */
 export interface PagesDataSession {
-	proof: PagesDataResource<PageDocument[]>
+	identity: (
+		plan: PageQueryPlan | undefined,
+	) => PagesDataResource<PageDocument[]>
 	pages: PagesDataResource<{
 		documents: NavigationDocument[]
 		tree: ReturnType<typeof buildNavigationTree>
@@ -285,18 +291,20 @@ export function createPagesDataSession(
 		initial: T,
 		load: (signal: AbortSignal, previous: T, append: boolean) => Promise<T>,
 		canAppend?: (data: T) => boolean,
+		clearWhenUnused = false,
 	) {
-		const result = new DataResource(initial, load, owner, canAppend)
+		const result = new DataResource(
+			initial,
+			load,
+			owner,
+			canAppend,
+			clearWhenUnused,
+		)
 		result.connection(disconnected)
 		resources.add(result)
 		return result
 	}
-	const proof = resource<PageDocument[]>([], (signal) =>
-		source.fetch(
-			{ query: runtime.model.query, params: { types: runtime.model.types } },
-			signal,
-		),
-	)
+	const identities = new Map<string, DataResource<PageDocument[]>>()
 	const pages = resource<{
 		documents: NavigationDocument[]
 		tree: ReturnType<typeof buildNavigationTree>
@@ -314,7 +322,23 @@ export function createPagesDataSession(
 	>()
 	const collections = new Map<string, DataResource<CollectionData>>()
 	return {
-		proof,
+		identity(plan) {
+			const key = JSON.stringify(plan ?? null)
+			if (!identities.has(key))
+				identities.set(
+					key,
+					resource<PageDocument[]>(
+						[],
+						(signal) =>
+							plan ? source.fetch(plan, signal) : Promise.resolve([]),
+						undefined,
+						true,
+					),
+				)
+			// Keep resource identity stable across renders. Disused results are cleared
+			// on unsubscribe, so returning to a URL cannot flash an old title or notice.
+			return identities.get(key)!
+		},
 		pages,
 		recent(name: string) {
 			const plan = queries.recent(name)

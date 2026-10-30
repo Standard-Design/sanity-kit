@@ -151,9 +151,17 @@ describe('Pages Presentation adapter lifecycle', () => {
 				pathname: null,
 			},
 		]
-		native.fetch.mockImplementation((query: string) =>
+		native.fetch.mockImplementation((query: string, params) =>
 			Promise.resolve(
-				query.includes('"total":') ? { total: 0, documents: [] } : pages,
+				query.includes('"total":')
+					? { total: 0, documents: [] }
+					: params.id
+						? pages.filter(
+								(page) => page._id === params.id && page._type === params.type,
+							)
+						: params.path
+							? pages.filter((page) => page.pathname === params.path)
+							: pages,
 			),
 		)
 		container = document.createElement('div')
@@ -225,6 +233,55 @@ describe('Pages Presentation adapter lifecycle', () => {
 			return (await result.get()) as unknown
 		})
 	}
+
+	it('finds a preview title outside the loaded collection batch, independently of the edited document', async () => {
+		collectionFixture(70)
+		native.params.preview = '/journal/post-69'
+		await render()
+		await click('Toggle navigator')
+		expect(button('Choose page: Post 69')).toBeTruthy()
+		expect(container.textContent).not.toContain(
+			'Preview unavailable for this document',
+		)
+		expect(native.navigate).not.toHaveBeenCalled()
+	})
+	it('loads the edited page separately and clears its missing-URL notice on navigation', async () => {
+		native.params = {
+			preview: '/about',
+			id: 'unfinished',
+			type: 'kitProofPage',
+		}
+		await render()
+		await click('Toggle navigator')
+		expect(button('Choose page: About')).toBeTruthy()
+		expect(container.textContent).toContain(
+			'Preview unavailable for this document',
+		)
+		native.fetch.mockReturnValue(new Promise(() => {}))
+		native.params = { preview: '/about/team', id: 'team', type: 'kitProofPage' }
+		await render()
+		expect(button('Choose page: /about/team')).toBeTruthy()
+		expect(container.textContent).not.toContain(
+			'Preview unavailable for this document',
+		)
+	})
+	it('does not retain a title or missing-URL notice from the previous perspective', async () => {
+		native.params = {
+			preview: '/about',
+			id: 'unfinished',
+			type: 'kitProofPage',
+		}
+		await render()
+		await click('Toggle navigator')
+		expect(button('Choose page: About')).toBeTruthy()
+		native.fetch.mockReturnValue(new Promise(() => {}))
+		native.perspective = ['published']
+		await render()
+		expect(button('Choose page: /about')).toBeTruthy()
+		expect(container.textContent).not.toContain(
+			'Preview unavailable for this document',
+		)
+	})
 
 	it('shows folders separately from named index pages without Index badges', async () => {
 		await render()
