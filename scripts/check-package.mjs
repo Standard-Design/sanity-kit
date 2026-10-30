@@ -140,6 +140,7 @@ const contents = new Set(packed.files.map(({ path }) => path))
 assert.ok(Object.keys(packedManifest.exports).includes('./studio'))
 assert.ok(contents.has('studio/index.js'))
 const studioPeers = [
+	'@sanity/icons',
 	'sanity',
 	'@sanity/ui',
 	'styled-components',

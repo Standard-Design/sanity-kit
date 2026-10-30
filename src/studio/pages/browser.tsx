@@ -1,52 +1,94 @@
-/**
- * The first reusable browser is deliberately small: the latest 50 registered
- * documents, searched locally. It is not the approved tree/collection UI yet.
- * See docs/pages.md for the query limits and which parts Presentation owns.
- */
-import { Box, Button, Card, Flex, Stack, Text, TextInput } from '@sanity/ui'
-import { useLayoutEffect, useRef } from 'react'
-import {
-	usePresentationNavigate,
-	usePresentationParams,
-} from 'sanity/presentation'
+/** Shared navigator/picker shell. URL and document selection stay in Presentation. */
+import { Box, Flex, Stack, Text } from '@sanity/ui'
+import { Menu, MenuButton, MenuItem } from '@sanity/ui/menu'
+import { AddIcon } from '@sanity/icons/Add'
+import { EllipsisHorizontalIcon } from '@sanity/icons/EllipsisHorizontal'
+import { useLayoutEffect, useRef, useSyncExternalStore } from 'react'
+import { usePresentationParams } from 'sanity/presentation'
 import { useRouter } from 'sanity/router'
 import { useBrowserState } from './browser-state.js'
-import { usePageDocuments } from './use-page-data.js'
+import { usePagesDataSession } from './use-page-data.js'
+import { TreeRows, groupKeys } from './tree-browser.js'
+import { PageRow } from './page-row.js'
+import { CollectionBrowser } from './collection-browser.js'
+import { DataWarning } from './data-warning.js'
+import { BrowserHeader } from './browser-header.js'
+import { TooltipButton } from './tooltip.js'
 
-/** The sidebar and popover mount this same component with the same tool state. */
-export function PagesBrowser() {
+export function PagesBrowser({ fitContent = false }: { fitContent?: boolean }) {
+	const { state } = useBrowserState()
+	return state.collection ? (
+		<CollectionBrowser
+			key={state.collection}
+			name={state.collection}
+			fitContent={fitContent}
+		/>
+	) : (
+		<PageTreeBrowser fitContent={fitContent} />
+	)
+}
+
+function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 	const { runtime, state, setState, setPickerOpen } = useBrowserState()
-	const { documents, loading, error, retry } = usePageDocuments()
-	const params = usePresentationParams()
-	const navigate = usePresentationNavigate()
+	const session = usePagesDataSession()
+	const result = useSyncExternalStore(
+		session.pages.subscribe,
+		session.pages.getSnapshot,
+		session.pages.getSnapshot,
+	)
+	const { documents, tree } = result.data
+	const error = result.error || result.disconnected
+	const { preview } = usePresentationParams()
+	const current = runtime.model.previewedDocument(documents, preview)
 	const router = useRouter()
 	const scrollRef = useRef<HTMLDivElement>(null)
 	const initialScroll = useRef(state.scrollTop)
-	const { documentPath, previewedDocument } = runtime.model
-	const current = previewedDocument(documents, params.preview)
 	useLayoutEffect(() => {
-		// The list may be shorter in a tall sidebar than in a small picker. Keep
-		// the saved offset until the rows arrive; the browser clamps it as needed.
 		if (scrollRef.current) scrollRef.current.scrollTop = initialScroll.current
-	}, [loading])
+	}, [result.loading])
+	const search = state.query.trim().toLowerCase()
 	const filtered = documents.filter((document) =>
 		`${document.title ?? ''} ${document.pathname ?? ''}`
 			.toLowerCase()
-			.includes(state.query.toLowerCase()),
+			.includes(search),
 	)
+	// Valid but unusual paths must not be described as missing URLs.
+	const unfiledGroups = [
+		{
+			title: 'Pages without URLs',
+			pages: tree.unfiled.filter((page) => !page.pathname),
+		},
+		{
+			title: 'Ungrouped pages',
+			pages: tree.unfiled.filter((page) => page.pathname),
+		},
+	]
 	return (
-		<Flex direction="column" style={{ height: '100%', minHeight: 0 }}>
-			<Box padding={3}>
-				<Stack gap={3}>
-					<Flex align="center" justify="space-between">
-						<Text weight="semibold">{runtime.title}</Text>
+		<Flex
+			direction="column"
+			style={{ height: fitContent ? 'auto' : '100%', minHeight: 0 }}
+		>
+			<BrowserHeader
+				title={runtime.title}
+				searchLabel="Search pages"
+				query={state.query}
+				onQueryChange={(query) => {
+					initialScroll.current = 0
+					if (scrollRef.current) scrollRef.current.scrollTop = 0
+					setState((value) => ({ ...value, query, scrollTop: 0 }))
+				}}
+				actions={
+					<>
 						{runtime.create && (
-							<Button
-								text="Create page"
+							<TooltipButton
+								icon={AddIcon}
+								aria-label="Create page"
 								mode="bleed"
+								fontSize={1}
+								padding={2}
+								tooltip="Create page"
 								onClick={() => {
 									setPickerOpen(false)
-									// Native Presentation generates the ID and opens its ordinary editor.
 									router.navigateIntent('create', {
 										type: runtime.create!.schemaType,
 										template: runtime.create!.templateId,
@@ -55,66 +97,118 @@ export function PagesBrowser() {
 								}}
 							/>
 						)}
-					</Flex>
-					<TextInput
-						aria-label="Search pages"
-						placeholder="Search list"
-						value={state.query}
-						onChange={(event) => {
-							const query = event.currentTarget.value
-							if (scrollRef.current) scrollRef.current.scrollTop = 0
-							setState((value) => ({ ...value, query, scrollTop: 0 }))
-						}}
-					/>
+						<MenuButton
+							id="pages-options"
+							button={
+								<TooltipButton
+									icon={EllipsisHorizontalIcon}
+									aria-label="Pages options"
+									mode="bleed"
+									fontSize={1}
+									padding={2}
+									tooltip="Pages options"
+								/>
+							}
+							menu={
+								<Menu>
+									<MenuItem
+										text="Expand all"
+										onClick={() =>
+											setState((value) => ({ ...value, collapsed: [] }))
+										}
+									/>
+									<MenuItem
+										text="Collapse all"
+										onClick={() =>
+											setState((value) => ({
+												...value,
+												collapsed: groupKeys(tree.roots),
+											}))
+										}
+									/>
+								</Menu>
+							}
+							// Keep the nested menu inside the modal picker's focus boundary.
+							popover={{ portal: false }}
+						/>
+					</>
+				}
+			>
+				{search && (
 					<Text size={1} muted>
-						First 50 documents. Search covers this list only; full browsing is
-						in development.
+						Search covers pages and overviews. Browse a collection to search its
+						items.
 					</Text>
-				</Stack>
-			</Box>
+				)}
+			</BrowserHeader>
 			<Box
 				ref={scrollRef}
 				flex={1}
 				overflow="auto"
-				padding={2}
+				paddingX={3}
+				paddingBottom={3}
+				data-pages-scroll="pages"
 				onScroll={(event) => {
 					const scrollTop = event.currentTarget.scrollTop
 					setState((value) => ({ ...value, scrollTop }))
 				}}
 			>
-				{loading && <Text role="status">Loading pages…</Text>}
-				{error && (
-					<Card padding={3} tone="critical">
-						<Text role="alert">
-							Pages may be out of date. Check connection and dataset access.
-						</Text>
-						<Box marginTop={3}>
-							<Button text="Retry loading pages" onClick={retry} />
+				{result.loading && (
+					<Text size={1} role="status">
+						Loading pages…
+					</Text>
+				)}
+				{error && <DataWarning retry={session.retry} />}
+				{!result.loading &&
+					!error &&
+					(search
+						? filtered.length === 0
+						: tree.roots.length === 0 && tree.unfiled.length === 0) && (
+						<Box paddingY={2}>
+							<Text size={1}>No pages found.</Text>
 						</Box>
-					</Card>
-				)}
-				{!loading && !error && filtered.length === 0 && (
-					<Text>No pages found.</Text>
-				)}
-				<Stack gap={2}>
-					{filtered.map((document) => (
-						<Button
-							key={document._id}
-							mode="bleed"
+					)}
+				{search ? (
+					<Stack gap={1}>
+						{filtered.map((document) => (
+							<PageRow
+								key={document._id}
+								document={document}
+								disabled={error}
+								selected={current?._id === document._id}
+							/>
+						))}
+					</Stack>
+				) : (
+					<>
+						<TreeRows
+							nodes={tree.roots}
+							documents={documents}
 							disabled={error}
-							selected={current?._id === document._id}
-							text={`${document.title ?? 'Untitled'} · ${documentPath(document) ?? 'Preview unavailable'}`}
-							onClick={() => {
-								// An absent path changes only the editor; the current preview is preserved.
-								navigate(documentPath(document), {
-									id: document._id,
-									type: document._type,
-								})
-								setPickerOpen(false)
-							}}
 						/>
-					))}
-				</Stack>
+						{unfiledGroups
+							.filter((group) => group.pages.length > 0)
+							.map((group) => (
+								<Box key={group.title} marginTop={3}>
+									<Stack gap={1}>
+										<Box padding={2}>
+											<Text size={1} muted>
+												{group.title}
+											</Text>
+										</Box>
+										{group.pages.map((page) => (
+											<PageRow
+												key={page.key}
+												document={page.document}
+												disabled={error}
+												selected={current?._id === page.document._id}
+											/>
+										))}
+									</Stack>
+								</Box>
+							))}
+					</>
+				)}
 			</Box>
 		</Flex>
 	)

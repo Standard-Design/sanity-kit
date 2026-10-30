@@ -22,6 +22,16 @@ const journal: PageCollectionDefinition = {
 const config: PagesRouteConfig = { pages: [page], collections: [journal] }
 
 describe('Pages route registration', () => {
+	it('preserves explicit plural item labels without guessing from schema names', () => {
+		const registry = createPagesRegistry({
+			...config,
+			collections: [{ ...journal, itemsTitle: 'People' }],
+		})
+		expect(registry.collections[0]?.itemsTitle).toBe('People')
+		expect(
+			createPagesRegistry(config).collections[0]?.itemsTitle,
+		).toBeUndefined()
+	})
 	it('copies and freezes configuration without freezing caller-owned objects', () => {
 		const input = {
 			pages: [{ ...page }],
@@ -63,6 +73,17 @@ describe('Pages route registration', () => {
 			'Duplicate collection name',
 		],
 		[{ ...config, collections: [{ ...journal, title: ' ' }] }, 'needs a title'],
+		[
+			{ ...config, collections: [{ ...journal, itemsTitle: ' ' }] },
+			'non-empty itemsTitle',
+		],
+		[
+			{
+				...config,
+				collections: [{ ...journal, itemsTitle: 42 as unknown as string }],
+			},
+			'non-empty itemsTitle',
+		],
 		[
 			{ ...config, collections: [{ ...journal, name: '' }] },
 			'stable identifier',

@@ -12,6 +12,10 @@ import { createPagesDataStore } from './data-store.js'
 export interface BrowserState {
 	query: string
 	scrollTop: number
+	collapsed: string[]
+	collection?: string | undefined
+	collectionQueries: Record<string, string>
+	collectionScroll: Record<string, number>
 }
 
 const BrowserContext = createContext<{
@@ -28,7 +32,13 @@ export function BrowserStateProvider({
 	children,
 	runtime,
 }: PropsWithChildren<{ runtime: PagesRuntime }>) {
-	const [state, setState] = useState<BrowserState>({ query: '', scrollTop: 0 })
+	const [state, setState] = useState<BrowserState>({
+		query: '',
+		scrollTop: 0,
+		collapsed: [],
+		collectionQueries: {},
+		collectionScroll: {},
+	})
 	const [pickerOpen, setPickerOpen] = useState(false)
 	const dataStore = useMemo(() => createPagesDataStore(runtime), [runtime])
 	return (

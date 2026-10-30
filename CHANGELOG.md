@@ -5,7 +5,7 @@
 - Add the opt-in `/studio` entry with `pagesTool()` for an app-owned Sanity
   Studio. Reuse native Presentation, the editor, and document actions; do not
   supply a standalone Studio application or generate schemas/frontend routes.
-- Share page/collection routing configuration across the bounded browser and
+- Share page/collection routing configuration across the browser and
   native resolvers. Preserve picker focus, search/scroll state, and independent
   preview/document selection when moving the integration out of its fixture.
 - Add optional Studio peers and packed-consumer checks that keep Studio out of
@@ -13,15 +13,25 @@
   document the remaining development-only TypeScript peer warning.
 - Add private navigator data helpers: inferred folders, named index children,
   separate collection overviews, complete ordinary-page batch reads, five-item
-  collection previews, and cursor-based collection search. Test them offline;
-  the visible browser still uses the proof list until the next integration slice.
-- Share proof-list requests and listeners between the sidebar and picker. Add
+  collection previews, and cursor-based collection search, with offline tests.
+- Share requests and listeners between the sidebar and picker. Add
   perspective-isolated sessions, cancellation, reconnect/retry handling, periodic
   reconciliation, and lazy tree/collection resources. Preserve last-good rows
-  during refresh and reread loaded collection depth after changes. The approved
-  navigator UI and native status integration remain pending.
-- Keep the full navigator, custom URL field, folder actions, and broader release
+  during refresh and reread loaded collection depth after changes.
+- Keep the custom URL field, folder actions, and broader release
   acceptance as later work. No version bump or publication is included here.
+- Connect the first navigator UI: inferred folders, actual-title index children,
+  native version indicators, five recent collection items, and debounced
+  collection search with incremental loading. Preserve browser mode, expansion,
+  search, and scroll across sidebar/picker mounts. Add the explicit Studio icons
+  peer. Folder writes, sort/status filters, virtualization, and targeted header
+  identity reads remain later work.
+- Match native Structure row/header styling and Studio tooltips. Add a compact,
+  content-height picker with dialog-first keyboard focus and a page-title trigger.
+  Support explicit plural collection labels with `itemsTitle`, distinguish recent
+  items from the total in the browse row, and separate missing preview URLs from
+  valid ungrouped paths. Document the planned URL-field cleanup separately from
+  the read-only navigator; no dataset cleanup is included.
 
 ## 0.1.0-alpha.5
 

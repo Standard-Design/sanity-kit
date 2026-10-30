@@ -275,6 +275,169 @@ resources are implemented behind that UI and tested independently.
   final navigator acceptance remain later work. No new overlay-click claim is
   made by these checks.
 
+## Navigator browsing UI — October 29, 2026
+
+This slice replaces the visible flat proof list with the first approved folder
+tree and collection browser. It does not add folder writes, advanced filters,
+or claim that the full Pages feature is ready to release.
+
+- `pnpm verify` passed: formatting, build/declarations, lint, typecheck, and
+  589 tests in 25 files. Coverage and `pnpm studio:build` also passed.
+- The five additional UI tests cover named index rows without badges, expansion
+  surviving picker/sidebar changes, finding collapsed descendants through search,
+  the nested options menu staying inside the picker, collection search beyond
+  the five recent items, incremental loading, and retained collection mode.
+  Synthetic collection tests use 70 documents and execute the generated GROQ.
+- Packed-consumer checks passed all five frontend profiles, strict Studio
+  installation, declarations, and TypeGen. The local 95-file tarball includes the
+  new private UI modules and explicit optional Studio icons peer; it was not
+  published. No Studio code was introduced into ordinary frontend bundles.
+- Live Studio showed left-hand folder chevrons, the original indentation, named
+  About/Journal index pages without Index badges, page-only path subtitles, and
+  native published/draft indicators. Existing Company and incomplete-page drafts
+  showed draft availability. This does not establish release/variant acceptance.
+- Collapse all left About's preview and editor unchanged. The options menu first
+  exposed a nested-portal focus problem; keeping it inside the picker fixed it.
+  Enter, arrow navigation, and Enter again successfully expanded all folders,
+  with focus returning to Pages options.
+- Journal showed five recent items and eight total. Browse all showed all eight;
+  searching `post-2` found an item outside the recent five. Escape returned focus
+  to Choose page. Reopening the navigator retained Journal mode and that search.
+- Selecting Post 2 with Enter updated its native document URL and preview URL.
+  The native Structure pane showed Post 2's title and `/journal/post-2` pathname.
+  About was restored afterward. No fields were edited or content created,
+  published, renamed, or deleted. Development rebuilds reset in-memory UI state;
+  reload persistence is not promised.
+
+Remaining: targeted header identity reads (the header alone still uses its
+bounded helper), sort/status filters, long-list virtualization and scale checks,
+schema preview overrides, contextual creation, folder actions, URL field,
+permissions/release perspectives, and broader keyboard/screen-reader acceptance.
+Large-list auto-loading is automated-test evidence, not a live 70-document run.
+No iframe overlay-click or outside-click regression check was repeated here.
+
+### Typography follow-up
+
+Compared live Fixture content category rows and document previews with Pages.
+Both native title styles use Inter, 13px/19px, weight 500; native subtitles use
+13px/19px, weight 400. Pages had weight-400 titles and 10px subtitles. The update
+matches native text sizes and weights and inherits the surrounding card palette.
+Live computed styles for unselected About and the about folder matched native
+Structure: title `rgb(228, 229, 233)` and subtitle `rgb(151, 156, 176)` in the
+current dark theme. Those values are observations, not hard-coded colors.
+The subsequent spacing/state follow-up replaces bleed buttons with selectable
+Sanity UI Cards, so text now inherits the card's current interaction state
+directly; the temporary parent-color adapter is no longer needed.
+
+### Row spacing and interaction states
+
+Native Structure document previews measure 49px high with 8px padding. Compact
+category rows measure 33px high with 4px top/bottom/left and 8px right padding.
+The final folder reference is the first-pane “Proof page” / “Proof post” row,
+not a document preview without a subtitle. Folders therefore use the compact
+33px height and padding above; a temporary 49px folder version was superseded.
+Longer path subtitles
+can still wrap; nesting, icons, navigation, and content are unchanged.
+Both use the public Sanity UI Card selectable palette rather than the action
+button palette. The underlying native styles supply hover, selected, pressed,
+and disabled colors; no observed RGB values are copied into package code.
+Live measurements confirmed both heights, padding, and the native 3px corner
+radius. Selected About matched Structure's selected document background
+(`rgb(120, 152, 255)`) and foreground (`rgb(13, 14, 18)`) in the current dark
+theme. Hover behavior was checked against the shared Card implementation, not
+by synthesizing pointer hover in the live browser.
+
+### Folder and section labels
+
+Folder labels now uppercase only their first letter for display; stored paths
+and expansion keys are unchanged. Collection labels, “Other pages”, and browser
+helper text use size-1 muted text, matching page subtitles. The collection count
+is a separate, right-aligned number beside the collection item label, with no “total”
+suffix. Its accessible label identifies the collection and item count, and it
+remains hidden while loading or when the data is unavailable.
+Journal sets `itemsTitle: 'Posts'` rather than the former generic “Recent items”.
+The label has a size-3 (12px) top margin to separate it from the overview above.
+
+### Navigator header and search
+
+Compared against the second Structure pane after opening “Proof post”. Both
+headers use a 13px/19px semibold title and the same theme-derived foreground
+(`rgb(189, 191, 203)` in the tested dark theme). The `+` and horizontal `…`
+controls measure 25px square; search measures 25px high with 13px text and
+`3px 8px 3px 29px` input padding. The combined title/search area measures 86px.
+These were checked in the live navigator. The shared header also serves
+collection mode, with a compact Back button beside the title. Search clearing
+uses the existing state setters, preserving page/collection search scope and
+resetting scroll. No native create action was invoked during visual checks.
+
+### Collection browse row
+
+“Browse all Journal posts” replaces the centered action button with a left-aligned
+selectable Card and a right chevron. Its horizontal padding matches page rows,
+and the same native Card supplies hover, pressed, and keyboard-focus colors.
+The collection view no longer displays the loaded-count / Last edited summary.
+Query ordering and pagination are unchanged; entering the collection still
+leaves the preview and edited document alone.
+
+### Content-fit picker and initial focus
+
+The fixed 480px/70vh picker height is removed. Its flex layout fits the current
+content and passes native Popover available-space constraints down to the list,
+with an additional `100dvh - 32px` cap. The sidebar remains full-height.
+At a 983px-high viewport, the live picker measured about 752px with About
+collapsed, 907px with About expanded, and 147px for an empty search result.
+It opened with focus on the dialog, not Search. First Tab entered Search;
+Tab from the empty result's Clear button wrapped to Create page within the
+dialog. Automated loaded/empty/loading cases cover initial focus, first Tab,
+and containment when a background control tries to take focus.
+Escape returned focus to Choose page in the live Studio; reopening focused the
+dialog again without changing the preview or edited document.
+
+### Page-title picker trigger
+
+The closed-sidebar header places the navigator toggle first, then the page
+picker, then the remaining native Presentation controls. The picker uses the
+native outlined (`ghost`) button with Documents and ChevronDown icons, at the
+same 33px height as the preview toolbar controls. It follows the previewed page
+rather than the edited shared document. Long labels use a responsive ellipsis;
+the full name remains available in the accessible label and hover tooltip.
+
+Live selection of Alternate mapping updated the trigger and preview. Its title
+needed 197px but displayed in 138px with an ellipsis, on a dark neutral background.
+Opening the picker and Escape dismissal still worked. Automated coverage checks
+control order, a single navigator toggle, changing preview identity while shared
+content remains selected, and full accessible fallback paths. All 21 focused UI
+tests and the type/lint checks passed.
+
+### URL section labels and native-style tooltips
+
+The incomplete draft now appears under “Pages without URLs”. Valid paths that
+cannot form normal folder segments have a separate “Ungrouped pages” section;
+the UI does not describe those URLs as missing or change their stored paths.
+Controls and version indicators use the public Sanity UI tooltip with native
+Studio typography, padding, arrowless appearance, and 400ms delay. Browser title
+attributes are removed. A live keyboard-focus check showed “Pages options” in
+the styled tooltip while focus stayed within the picker. Automated checks cover
+focus-triggered tooltips, both URL sections, and navigation to an unusual URL.
+
+## Final navigator-slice verification — October 30, 2026
+
+After the typography, row spacing, collection wording, picker sizing/focus, and
+tooltip refinements:
+
+- `pnpm verify` passed: formatting, package/declaration build, lint, typecheck,
+  and 600 tests across 25 files. The focused browser suite now has 25 tests.
+- `pnpm test:coverage` passed all 600 tests. The reported line coverage was
+  98.1%; this is automated coverage, not a claim of live release/variant testing.
+- `pnpm studio:build` passed against the pinned integration-proof Studio.
+- `pnpm test:package` passed all five frontend consumer profiles, the isolated
+  Studio consumer, declaration checks, and the TypeGen workspace. The local
+  tarball contained 99 files. No package was published; optional Studio peers
+  remained isolated from ordinary frontend installs and bundles.
+- The URL field, separator cleanup, folder writes, targeted header identity,
+  advanced filtering, and broader release acceptance remain outside this slice.
+  No dataset documents were changed during final verification.
+
 ## Test records created
 
 The explicit seed run created the following published fixture documents with

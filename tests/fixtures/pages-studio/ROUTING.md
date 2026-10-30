@@ -26,6 +26,7 @@ const registry = createPagesRegistry({
 		{
 			name: 'journal',
 			title: 'Journal',
+			itemsTitle: 'Posts',
 			overview: { schemaType: 'page', pathname: '/journal' },
 			routePrefix: '/journal',
 			items: [{ schemaType: 'post', pathnameField: 'pathname.current' }],
@@ -47,6 +48,10 @@ import private compiled files.
   list's title; it does not replace Sanity's schema preview configuration.
 - `collections` defaults to an empty list. Each has a stable `name`, visible
   `title`, an existing ordinary page as its `overview`, and registered item types.
+- `itemsTitle` is the optional plural label above the collection's recent items,
+  for example `Posts` under `Journal`. It defaults to the collection title.
+  Supply the wording explicitly for irregular plurals, translations, or mixed
+  document types; the kit does not guess a plural from a schema identifier.
 - `routePrefix` limits item URLs to descendants, such as `/journal/first-post`.
   It is not automatically added to a slug or written into documents. The prefix
   itself belongs to the overview, not an item.

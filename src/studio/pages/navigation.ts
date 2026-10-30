@@ -1,7 +1,7 @@
 /**
  * Turn lightweight page records into navigation groups, without changing content.
  * This is the data model for the approved navigator, not a second document router.
- * It is tested independently before the browser starts rendering it. See
+ * It is tested independently of the browser that renders it. See
  * docs/pages.md: “Navigator data foundation” for the rollout boundary.
  */
 import type { PageDocument } from './model.js'

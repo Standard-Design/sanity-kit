@@ -1,7 +1,7 @@
 /**
- * The foundation browser reads a bounded list. Its query and URL decisions come
+ * The transitional header identity helper reads a bounded list. Its URL decisions come
  * from the same registry as Presentation's resolvers; no fixture types are known
- * here. Incremental collections and schema previews belong to the next slice.
+ * here. The tree and collection browser now use the full/paginated query resources.
  */
 import { registeredPathname, type PagesRegistry } from './registry.js'
 import { pageProjection } from './resolvers.js'

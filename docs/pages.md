@@ -7,8 +7,9 @@ Presentation tool.
 **This is not part of the released package.** The repository currently contains
 a reusable `pagesTool()` foundation under `@standard-design/sanity-kit/studio`.
 Local builds include that entry point; the existing npm release does not. Its
-browser is still a bounded flat list. The approved navigator and URL-field
-designs below are plans, not working package features.
+browser now includes the first folder tree and collection browsing slice. Folder
+actions, the URL field, advanced filtering, and broader release acceptance are
+still pending; this is not the finished Pages feature set.
 
 ## Add the plugin to your Studio
 
@@ -38,6 +39,7 @@ export default defineConfig({
 				{
 					name: 'journal',
 					title: 'Journal',
+					itemsTitle: 'Posts',
 					overview: { schemaType: 'page', pathname: '/journal' },
 					routePrefix: '/journal',
 					items: [{ schemaType: 'post', pathnameField: 'pathname.current' }],
@@ -76,15 +78,16 @@ use Studio's global creation menu only.
 
 The initial candidate is deliberately restricted to one Studio baseline:
 Sanity **6.17.0**, Sanity UI **4.4.10**, styled-components **6.5.3**, and
-react-focus-lock **2.13.7**, with React/React DOM **19.3.1** in the Studio tests.
-Sanity itself is an exact peer version. The other three Studio peers use caret
+react-focus-lock **2.13.7**, and Sanity icons **5.2.2**, with React/React DOM
+**19.3.1** in the Studio tests.
+Sanity itself is an exact peer version. The other Studio peers use caret
 ranges from those baselines, so the plugin does not unnecessarily pin shared
 Visual Editing UI dependencies to one patch/minor version.
 Sanity's header/navigator extension slots are unstable; a broad version range
 would promise compatibility we have not checked. This baseline may need widening
 before adoption by an existing Studio.
 
-Sanity, Sanity UI, styled-components, and react-focus-lock are optional peers.
+Sanity, Sanity UI, styled-components, react-focus-lock, and `@sanity/icons` are optional peers.
 The consuming Studio supplies them; the kit does not bundle another Sanity
 runtime. They are optional for the package as a whole, but required when using
 `/studio`. Frontend consumers do not need them. React remains a shared peer,
@@ -113,7 +116,7 @@ a second website router.
 | ---------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Application                  | Define schemas, website routes, content queries, page components, and SEO. Decide which document fields contain URLs.                                          |
 | Pages route registry         | Describe which document types have page URLs, where those URLs are stored, and which types belong to collections. Check that this configuration is consistent. |
-| Pages browser                | List documents and ask Presentation to open a document and, when available, its preview URL. The current proof is a flat list, not the approved tree.          |
+| Pages browser                | Group ordinary pages into folders, browse collection items, and ask Presentation to open a document and its available preview URL.                             |
 | Presentation resolvers       | Tell Sanity where a document appears on the website and which document belongs to a preview URL.                                                               |
 | Native Presentation          | Own the preview iframe, selected document, document editor, document actions, and navigation lifecycle.                                                        |
 | Frontend preview integration | Authenticate preview requests, fetch the selected content perspective, preserve edit metadata, and enable overlays in the website.                             |
@@ -164,16 +167,122 @@ title, and pathname. A projection selects and names fields; it does not fetch
 anything by itself. Different schema fields become the same `title` and
 `pathname` properties in the result.
 
-`usePageDocuments()` reads a shared session using Studio's selected perspective
-(the content view, such as drafts or a release). The session, described below,
-owns requests and the listener. The header and navigator no longer fetch and
-subscribe separately.
+The browser reads the shared session's ordinary-page, recent-item, and collection
+resources in Studio's selected perspective (the content view, such as drafts or
+a release). The session owns requests and one change listener. These resource
+results serve different purposes; they are not three copies of the same query.
 
-This is deliberately a small proof: it fetches at most 50 documents, ordered by
-last update, and searches only that loaded list. It is not a complete collection
-browser or a full release-perspective acceptance result. Shared loading now works
-for that list; the tree and incremental collection resources are implemented and
-tested separately, but still need their visible navigator UI.
+The header's transitional `usePageDocuments()` identity helper still reads the
+latest 50 registered documents. This no longer limits browsing or searching, but
+a page outside that helper's window uses its preview URL instead of its title in
+the picker trigger's visible title and accessible label. The header's missing-preview notice also
+depends on that window; the browser row always shows an unavailable path. Replacing
+that helper with targeted identity reads is still required before release.
+
+## Browsing pages and collections
+
+The sidebar and header picker render the same browser. Ordinary pages come from
+the complete page snapshot, not just the latest 50 records. A folder button
+expands its children without changing the preview or edited document. Chevrons
+sit on the left; child groups have a left rule and the original sketch's
+indentation. Folders have names only. Page rows have their actual title and URL
+subtitle, including index pages; there is no Index badge or Site root folder.
+Folder labels capitalize their first letter for display only; stored paths and
+expansion keys keep their original spelling and case.
+Expanded folders and collections add 12px before the next sibling, using the
+same spacing token as the gap above collection labels such as Posts. Collapsed
+groups and the last group in a list do not add this extra gap.
+Row typography follows native Structure previews: size-1 medium titles and
+size-1 regular muted subtitles (13px/19px on the tested theme). Folder names use
+the same title style. Rows use Sanity UI's selectable `Card`, the same underlying
+component as Structure previews, rendered as real buttons. It supplies hover,
+selected, disabled, and keyboard-focus styling and the matching text colors;
+we do not copy fixed light/dark colors. Document rows have 8px padding and a
+49px minimum height. Folder rows match Structure's compact first-pane rows
+(such as “Proof page”): 4px top/bottom/left and 8px right padding, with a 33px
+minimum height. Long paths
+can still wrap and make a row taller. The approved nesting and row actions stay
+the same. The focus-ring adapter uses the same beta Card prop as Structure and
+is covered by the live Studio checks.
+The Pages options menu expands or collapses all groups. These controls change
+only local navigation state, never document URLs.
+
+`browser-header.tsx` shares the header and search layout between the page tree,
+collection view, and picker. It matches Structure's document-list panel: a
+size-1 semibold title using the native title color, compact icon buttons, and a
+size-1 borderless search input with a clear button. The header uses 12px outer
+spacing and 8px title padding. The list aligns with the search field below it.
+Collection Back sits beside its title instead of taking up a separate row.
+The `+` still opens the configured native create intent; the horizontal `…`
+still contains Expand/Collapse all. We use public Sanity UI primitives rather
+than importing Structure's pane header, which requires a different pane router.
+Matching the appearance does not add Structure's sort/filter menu or change our
+search scopes. Keyboard focus and the picker's menu boundary remain intact.
+
+`tooltip.tsx` gives Pages controls and status indicators the same tooltip style
+as native Studio: size-1 text, compact padding, no arrow, and a 400ms opening
+delay. It uses the public Sanity UI tooltip, so theme colors, positioning, and
+keyboard-focus behavior stay native. We do not import Studio's private wrapper.
+Browser `title` attributes are removed to avoid a second, mismatched tooltip.
+Open picker/menu triggers suppress their tooltip, and full page titles remain
+available in accessible names as well as the styled tooltip.
+
+Page search matches titles and stored paths across all ordinary pages and
+overviews, including collapsed folders. Results appear as a flat list. Clearing
+search restores the previous expansion state. Collection items are not included
+in this search; the search hint explains that boundary.
+
+Each expanded collection shows its document-backed overview, any ordinary
+nested pages, five recently edited items, and a total for the active perspective.
+The label adds “Recent” to the collection's `itemsTitle`, such as **Recent posts**
+under **Journal**.
+Consumers supply the plural wording explicitly, including irregular words,
+translated labels, or an umbrella name for a collection with multiple types.
+When omitted, it falls back to the collection title; schema names are not
+automatically pluralized. The label has 12px of space above it to separate it
+from the overview. Section labels and helper text use the same size as page subtitles.
+**Browse all posts** uses the configured plural item label, lowercased for the
+sentence. Its right side shows the full collection count followed by a chevron,
+so the total cannot be mistaken for the number of recent items shown above.
+The accessible button name explicitly calls it a total. The count is hidden while
+loading or when unavailable. This left-aligned selectable row uses the same
+native hover, pressed, and focus colors as page rows. Without `itemsTitle`, the
+wording falls back to the collection title. It opens that collection inside the browser without
+changing either native pane. Missing or ambiguous overview documents are shown
+explicitly instead of inventing a page.
+
+Collection search waits 200 ms after typing, then queries matching titles and
+paths in Content Lake. It does not filter only the five recent items. Old search
+rows are hidden while the new search waits. Results are ordered by last edit,
+with document ID as the tie-breaker. Approaching the bottom requests another
+50-item batch; a Load more button provides a keyboard-accessible alternative.
+There is no loaded-count or sort-summary label below collection search; the
+results follow the search field directly. This does not change the query order
+or incremental loading behavior.
+Search text, collection mode, folder expansion, and separate scroll offsets
+survive moving between the sidebar and picker. Back to pages restores page search.
+
+### Native document status
+
+`document-status.tsx` asks Sanity's `useDocumentVersions()` for actual version
+records and passes them to `DocumentVersionsStatusIndicator`. Sanity decides
+which icons apply to its selected perspective. The kit does not guess that a
+record is published merely because an effective-perspective query returned a
+plain ID. A text description reports available published, draft, and release
+versions; it describes availability, not whether every version is visible in
+the active perspective. Loading and failure show an unknown status, not a green dot.
+
+These APIs are exported from `sanity`, but the hook is beta and the indicator is
+marked internal upstream. They are isolated in one adapter and covered by the
+exact Studio version pin. There are no private bundle imports. Visible row status
+uses Sanity's own preview/version subscriptions in addition to the kit's shared
+navigation listener. Native schema preview customization is not yet used for row
+titles: those still follow the registered `titleField` mapping.
+
+This is the first browsing UI slice, not the full release gate. Sort choices,
+query-side status filters, virtualization of long lists, contextual creation,
+folder/index actions, the custom URL field, and reviewed folder rename are still
+pending. No dead rename/create-folder buttons imply those writes already work.
 
 ## Shared live-data loading
 
@@ -237,23 +346,20 @@ Inactive old search result arrays are discarded when another search is selected;
 small resource descriptors remain until the tool's store is discarded.
 
 Resources do no work until subscribed. When an inactive resource is reopened, it
-is refreshed. Closing the sidebar leaves the shared proof resource alive through
-the header, so reopening the picker does not create another listener or initial
-request. When the last reader leaves a session, all its requests are aborted,
+is refreshed. Closing the sidebar leaves the header's identity resource alive,
+so reopening the picker uses the same listener. Tree and collection resources
+retain their rows but refresh when mounted again. When the last reader leaves a session, all its requests are aborted,
 timers and listener are stopped, and cached result data is cleared.
 
-The collection resources are not yet connected to scroll controls or a search
-field. Debouncing typed collection search, status filters, sort choices, list
-virtualization, native status previews, and the approved tree rendering are still
-next-slice work. The current browser's local search has not silently become a
-full-dataset search.
+Collection resources now drive the collection browser's search and incremental
+scroll loading. Page search remains local to the complete ordinary-page snapshot;
+collection search runs in the query. Status filters and additional sort choices
+must also run in the query when added, not just filter already-loaded rows.
 
 ## Navigator data foundation
 
-The next navigator has a separate, tested data foundation in `navigation.ts`,
-`queries.ts`, and `snapshot.ts`. **It is not wired into the visible browser yet.**
-The current sidebar and picker still use the 50-document proof list described
-above. These helpers are private implementation details, not new consumer APIs.
+The navigator uses the separately tested helpers in `navigation.ts`, `queries.ts`,
+and `snapshot.ts`. These are private implementation details, not new consumer APIs.
 
 ### Build folders from page URLs
 
@@ -276,6 +382,9 @@ perspective. It infers folders from the paths, without creating folder documents
   with repeated or trailing slashes also go there because they do not describe
   ordinary named folders. Their stored URLs are never silently corrected; a valid
   ungroupable path can still be previewed.
+  In the UI, entries without a usable preview path appear under **Pages without
+  URLs**. Valid but ungroupable paths appear separately under **Ungrouped pages**;
+  they are not mislabeled as missing URLs. Empty sections are hidden.
 
 Page keys use document IDs, so changing a title or URL does not change the page's
 identity. Folder keys use paths; collection keys use the configured collection
@@ -386,13 +495,33 @@ remain free to open shared content.
 
 The sidebar and header picker share search and scroll state. Their provider wraps
 the native tool so closing the sidebar does not discard that state. Presentation,
-not this provider, owns the URL and selected document. The proof keeps this state
+not this provider, owns the URL and selected document. The browser keeps this state
 in memory; it does not save it to Sanity or promise persistence across reloads.
+
+With the sidebar closed, the picker trigger sits on the left, immediately after
+the navigator toggle. It uses Sanity UI's outlined `ghost` button, a Documents
+icon, and a down chevron. Its title follows the previewed page, not the document
+being edited (which may be shared content). Long titles are visually clipped with
+an ellipsis, up to roughly 22 character widths and less on narrow screens. The
+full title remains in the accessible label and native hover tooltip. The adapter
+relocates only the public navigator toggle; `renderDefault` still owns the other
+native preview controls. With the sidebar open, the default header is unchanged.
 
 The header picker is a modal dialog: while it is open, Tab and Shift+Tab stay
 inside it. Sanity UI supplies the popover and pointer-blocking layer;
 `react-focus-lock` supplies keyboard focus containment. Opening the picker
-focuses Search. Escape or page selection closes it and returns focus to Choose
+focuses the dialog itself, without highlighting Search. The first forward Tab
+moves to Search; subsequent Tab/Shift+Tab navigation stays inside the picker,
+including its header actions. The dialog is not an extra stop in that tab cycle.
+The picker is 320px wide (or 90% of the viewport on small screens) and grows to
+fit its contents instead of reserving a fixed-height box. The empty-page notice
+uses the same 8px vertical inset as page rows, inside the list's existing 12px
+bottom padding (default theme). This keeps the empty state compact without
+crowding the message against the picker edge.
+It is capped by the viewport (with padding) and Sanity's available popover space;
+when necessary, the list scrolls while its header stays visible. Search results
+and collapsed folders can make it shorter again. The sidebar still fills its pane.
+Escape or page selection closes it and returns focus to Choose
 page. When the sidebar replaces the picker, the header does not try to focus
 the now-removed button. These behaviors belong to the plugin's header adapter, not to
 the route registry or frontend router.
@@ -451,6 +580,34 @@ app-configured prefix as locked, with a single editable slug segment. This needs
 a storage/resolution contract beyond the current full-path-only registry. No
 custom field or folder-creation persistence exists in this slice.
 
+### URL cleanup — agreed October 29, not implemented yet
+
+The planned URL field will clean up separator mistakes when an editor finishes
+editing: collapse repeated slashes and remove trailing slashes, while preserving
+the site root `/`. For example, `/about//team/` becomes `/about/team`. Show the
+resulting value in the field and check for a conflicting page URL before applying
+the change. This does not allow nested slugs in collection fields: those still
+accept a single segment beneath their locked prefix.
+
+Cleanup belongs in the authoring field, not the navigator. The navigator must
+not silently rewrite stored paths or preview a different URL. Field validation
+must also identify malformed values from imports or API writes, which can bypass
+the input component; Studio validation does not prevent those writes at the
+dataset level. Keep affected documents accessible so an editor can correct them.
+
+The current project content is test content. Its separator mistakes can be
+corrected during that implementation without redirect work, but URL collisions
+still need checking. This is not permission to silently migrate future consumer
+datasets. No dataset cleanup has been performed as part of this documentation.
+
+“Ungrouped pages” is a transitional fallback, not an intended destination for
+normal authoring. Keep it until the field, validation, and test-content audit
+are complete. Once malformed separator paths are classified as invalid by the
+shared URL rules, route them to an actionable invalid/missing-URL section instead
+of retaining a separate group for otherwise valid URLs. Update the section label
+and tests in that slice; do not hide malformed documents. Empty sections already
+disappear automatically.
+
 ### Rename a folder
 
 Open **Rename folder** from the navigator's folder actions, then review the
@@ -476,15 +633,18 @@ implementation paths are private. Nothing in this slice publishes a release.
 - `src/studio/pages/resolvers.ts`: query projection and native Presentation
   resolver definitions. It returns configuration, not an editor or a router.
 - `tests/fixtures/pages-studio/routes.ts`: the fixture's application-owned registry.
-- `src/studio/pages/model.ts` and `browser.tsx`: the bounded
-  document query, preview-page identity, and browser selection behavior.
-- `src/studio/pages/navigation.ts`, `queries.ts`, and `snapshot.ts`: the next
+- `src/studio/pages/model.ts`: transitional header identity query and preview-path matching.
+- `src/studio/pages/browser.tsx`, `tree-browser.tsx`, and `collection-browser.tsx`:
+  shared shell, inferred folder rendering, and incremental collection mode.
+  `page-row.tsx` opens documents through native Presentation; `document-status.tsx`
+  isolates native version/status APIs. `data-warning.tsx` provides the shared retry message.
+- `src/studio/pages/navigation.ts`, `queries.ts`, and `snapshot.ts`: the
   navigator's tree model, bounded query plans, and ordinary-page snapshot reader.
-  The shared session can load these resources; the tree UI is not connected yet.
+  The shared session loads these resources for the browser.
 - `src/studio/pages/data-store.ts`, `data-session.ts`, and `data-source.ts`:
   tool-scoped sessions, shared read lifetimes, and the authenticated transport.
-  `use-page-data.ts` connects the current browser and header to the shared proof
-  resource through React's external-store subscription API.
+  `use-page-data.ts` selects the session inside native Presentation. Components
+  subscribe to its resources through React's external-store subscription API.
 - `src/studio/pages/plugin.tsx`, `header.tsx`, and `browser-state.tsx`:
   native tool integration and shared browser UI state.
 

@@ -13,6 +13,7 @@ export const proofRoutes = {
 		{
 			name: 'journal',
 			title: 'Journal',
+			itemsTitle: 'Posts',
 			overview: { schemaType: 'kitProofPage', pathname: '/journal' },
 			routePrefix: '/journal',
 			items: [

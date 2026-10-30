@@ -22,6 +22,8 @@ export interface PageCollectionDefinition {
 	/** Stable configuration identity, independent of the visible title. */
 	readonly name: string
 	readonly title: string
+	/** Plural item label, e.g. “Posts” or “People”; defaults to the collection title. */
+	readonly itemsTitle?: string
 	/** An existing ordinary page is the collection's overview, not a second item. */
 	readonly overview: { readonly schemaType: string; readonly pathname: string }
 	/** Item URLs must be descendants of this path. It is never prepended for you. */
@@ -193,6 +195,14 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 			throw new Error(`Duplicate collection name "${collection.name}".`)
 		if (typeof collection.title !== 'string' || !collection.title.trim())
 			throw new Error(`Collection "${collection.name}" needs a title.`)
+		if (
+			collection.itemsTitle !== undefined &&
+			(typeof collection.itemsTitle !== 'string' ||
+				!collection.itemsTitle.trim())
+		)
+			throw new Error(
+				`Collection "${collection.name}" needs a non-empty itemsTitle.`,
+			)
 		const overview = collection.overview
 		if (
 			!overview ||
@@ -247,6 +257,9 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 			Object.freeze({
 				name: collection.name,
 				title: collection.title,
+				...(collection.itemsTitle === undefined
+					? {}
+					: { itemsTitle: collection.itemsTitle }),
 				overview: Object.freeze({ schemaType: overview.schemaType, pathname }),
 				routePrefix,
 				items,

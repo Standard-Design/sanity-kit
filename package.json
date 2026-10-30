@@ -83,6 +83,7 @@
 		"@sanity/asset-utils": "^2.3.0"
 	},
 	"peerDependencies": {
+		"@sanity/icons": "^5.2.2",
 		"sanity": "6.17.0",
 		"@sanity/ui": "^4.4.10",
 		"styled-components": "^6.5.3",
@@ -98,6 +99,9 @@
 		"zod": "^4.6.5"
 	},
 	"peerDependenciesMeta": {
+		"@sanity/icons": {
+			"optional": true
+		},
 		"sanity": {
 			"optional": true
 		},

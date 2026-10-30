@@ -3,7 +3,10 @@
  * Native controls stay intact through renderDefault. Browser state comes from the
  * tool-level provider, not from the disposable navigator. See docs/pages.md.
  */
-import { Box, Button, Flex, Text, useClickOutsideEvent } from '@sanity/ui'
+import { ChevronDownIcon } from '@sanity/icons/ChevronDown'
+import { DocumentsIcon } from '@sanity/icons/Documents'
+import { PanelLeftIcon } from '@sanity/icons/PanelLeft'
+import { Box, Flex, Text, useClickOutsideEvent } from '@sanity/ui'
 import { Popover } from '@sanity/ui/popover'
 import { useEffect, useRef } from 'react'
 import FocusLockModule from 'react-focus-lock'
@@ -14,11 +17,13 @@ import {
 import { useBrowserState } from './browser-state.js'
 import { PagesBrowser } from './browser.js'
 import { usePageDocuments } from './use-page-data.js'
+import { TooltipButton } from './tooltip.js'
 
 // NodeNext sees the CommonJS namespace; Vite may unwrap its default export.
 const FocusLock = FocusLockModule.default ?? FocusLockModule
 
 export function PagesHeader(props: PreviewHeaderProps) {
+	const { toggleNavigator, ...withoutNavigatorToggle } = props
 	const { runtime, pickerOpen, setPickerOpen } = useBrowserState()
 	const trigger = useRef<HTMLButtonElement>(null)
 	const panel = useRef<HTMLDivElement>(null)
@@ -27,6 +32,7 @@ export function PagesHeader(props: PreviewHeaderProps) {
 	const { documents } = usePageDocuments()
 	const { documentPath, previewedDocument } = runtime.model
 	const current = previewedDocument(documents, params.preview)
+	const pageTitle = current?.title || params.preview || 'Choose page'
 	const edited = documents.find((document) => document._id === params.id)
 	const open = pickerOpen && !props.navigatorEnabled
 	useEffect(() => {
@@ -44,9 +50,19 @@ export function PagesHeader(props: PreviewHeaderProps) {
 	return (
 		<Flex direction="column" flex={1} style={{ minWidth: 0 }}>
 			<Flex align="center" gap={1} style={{ minWidth: 0 }}>
-				<Box flex={1} style={{ minWidth: 0 }}>
-					{props.renderDefault(props)}
-				</Box>
+				{/* Only relocate the public navigator toggle. All other native controls
+				    still come from renderDefault, with their behavior unchanged. */}
+				{!props.navigatorEnabled && toggleNavigator && (
+					<TooltipButton
+						aria-label="Toggle navigator"
+						tooltip="Show navigator"
+						icon={PanelLeftIcon}
+						mode="bleed"
+						fontSize={1}
+						padding={3}
+						onClick={toggleNavigator}
+					/>
+				)}
 				{!props.navigatorEnabled && (
 					<Popover
 						open={open}
@@ -60,10 +76,19 @@ export function PagesHeader(props: PreviewHeaderProps) {
 								// Use the same public focus library as native Studio search.
 								// The effect above owns return focus so reopening the sidebar
 								// never targets a picker trigger that has just disappeared.
+								// Flex wrappers pass the native available-height constraint down
+								// to the list; short content has no fixed height to fill.
 								<FocusLock
 									returnFocus={false}
+									lockProps={{
+										style: {
+											display: 'flex',
+											flexDirection: 'column',
+											minHeight: 0,
+										},
+									}}
 									onActivation={() =>
-										panel.current?.querySelector<HTMLElement>('input')?.focus()
+										panel.current?.focus({ preventScroll: true })
 									}
 								>
 									<Box
@@ -71,11 +96,28 @@ export function PagesHeader(props: PreviewHeaderProps) {
 										role="dialog"
 										aria-modal="true"
 										aria-label="Choose page"
+										tabIndex={-1}
 										style={{
-											width: 'min(380px, 90vw)',
-											height: 'min(480px, 70vh)',
+											width: 'min(320px, 90vw)',
+											display: 'flex',
+											flexDirection: 'column',
+											minHeight: 0,
+											maxHeight: 'calc(100dvh - 32px)',
+											outline: 'none',
 										}}
 										onKeyDown={(event) => {
+											// The dialog is the quiet entry point, not an extra Tab stop.
+											// First forward Tab enters search; subsequent tabs use DOM order.
+											if (
+												event.target === panel.current &&
+												event.key === 'Tab' &&
+												!event.shiftKey
+											) {
+												event.preventDefault()
+												panel.current
+													?.querySelector<HTMLElement>('input')
+													?.focus()
+											}
 											if (event.key === 'Escape') {
 												event.preventDefault()
 												event.stopPropagation()
@@ -83,22 +125,46 @@ export function PagesHeader(props: PreviewHeaderProps) {
 											}
 										}}
 									>
-										<PagesBrowser />
+										<PagesBrowser fitContent />
 									</Box>
 								</FocusLock>
 							) : null
 						}
 					>
-						<Button
+						<TooltipButton
 							ref={trigger}
-							text="Choose page"
-							aria-label={`Choose page: ${current?.title ?? params.preview ?? 'Pages'}`}
+							mode="ghost"
+							tone="default"
+							fontSize={1}
+							padding={3}
+							icon={DocumentsIcon}
+							iconRight={ChevronDownIcon}
+							text={
+								<span
+									style={{
+										display: 'block',
+										maxWidth: 'clamp(6ch, 14vw, 22ch)',
+										overflow: 'hidden',
+										textOverflow: 'ellipsis',
+										whiteSpace: 'nowrap',
+									}}
+								>
+									{pageTitle}
+								</span>
+							}
+							tooltip={pageTitle}
+							aria-label={`Choose page: ${pageTitle}`}
 							aria-haspopup="dialog"
 							aria-expanded={open}
 							onClick={() => setPickerOpen((value) => !value)}
 						/>
 					</Popover>
 				)}
+				<Box flex={1} style={{ minWidth: 0 }}>
+					{props.renderDefault(
+						props.navigatorEnabled ? props : withoutNavigatorToggle,
+					)}
+				</Box>
 			</Flex>
 			{edited && !documentPath(edited) && (
 				<Box padding={2}>

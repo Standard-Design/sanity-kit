@@ -13,7 +13,7 @@ export function usePagesDataSession() {
 	return dataStore.session(client, perspectiveStack)
 }
 
-/** Transitional proof-list adapter. The tree UI will consume the same session. */
+/** Transitional bounded header identity adapter; browsing uses the other resources. */
 export function usePageDocuments() {
 	const session = usePagesDataSession()
 	const result = useSyncExternalStore(

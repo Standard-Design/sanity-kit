@@ -6,11 +6,11 @@ without replacing Sanity's editor, preview, routing, or document actions?
 
 Nothing in this directory is published. The reusable plugin now lives under `src/studio/` and local builds expose
 `/studio`; the fixture itself is never packed. Consumers supply their own Studio
-installation. Studio-only runtime packages are optional peers. The browser
-is intentionally a flat list of at most 50 fixture documents, not the approved
-tree and collection interface.
+installation. Studio-only runtime packages are optional peers. The browser now
+renders the first folder tree and collection view. Folder writes, advanced filters,
+the URL field, and full release acceptance are still pending.
 
-The next slice now uses a shared internal route registry. See
+The plugin uses a shared internal route registry. See
 [the routing foundation](ROUTING.md) for its configuration, validation,
 resolver overrides, and remaining work. The A1 live integration checks are now
 complete; see the dated observations in [ACCEPTANCE.md](ACCEPTANCE.md). This does
@@ -91,12 +91,17 @@ button; the seed script creates published fixture records explicitly.
 ## How the pieces fit together
 
 - `src/studio/pages/plugin.tsx` installs the unstable header and navigator slots.
-  `header.tsx` calls `renderDefault` with the original props.
+  `header.tsx` retains `renderDefault` for native preview controls. With the
+  sidebar closed, it moves the public navigator toggle ahead of the outlined
+  page-title picker and omits that toggle from the default renderer to avoid a
+  duplicate. With the sidebar open, it passes the original props unchanged.
   A bounded picker button sits beside the native controls rather than replacing
   them. A separate status line explains unavailable previews.
   Sanity UI's modal popover blocks pointer interaction with the background;
   `react-focus-lock` keeps Tab navigation inside the picker, including when no
-  pages match the search. The adapter focuses Search on opening and restores
+  pages match the search. The adapter focuses the dialog on opening; the first
+  forward Tab enters Search. Content determines its height up to the available
+  viewport space, with the list scrolling when needed. It restores
   focus to Choose page on dismissal, unless the sidebar has replaced that button.
 - `src/studio/pages/browser-state.tsx` lives around the native **tool**, not its navigator. Sanity
   unmounts the navigator when it closes; search and scroll therefore survive the
@@ -107,8 +112,9 @@ button; the seed script creates published fixture records explicitly.
   a session from `data-store.ts`, instead of each opening a separate listener.
   `data-session.ts` cancels obsolete reads, retains rows during refreshes, handles
   reconnection, and releases data when the last reader leaves. It also provides
-  lazy tree and collection resources, though the visible browser still uses the
-  bounded proof list. See [Shared live-data loading](../../../docs/pages.md#shared-live-data-loading)
+  lazy tree and collection resources for the current browser. Only the header's
+  transitional identity helper still uses the bounded proof query.
+  See [Shared live-data loading](../../../docs/pages.md#shared-live-data-loading)
   for the lifecycle, retry behavior, and periodic query cost.
 - `routes.ts` registers the fixture's page, alternate-path, and collection types.
   Internal helpers in `src/studio/pages/` generate native resolvers and the
@@ -136,7 +142,7 @@ another preview URL; do not force the editor to match the preview at all times.
 These adapters use public imports from `sanity`, `sanity/presentation`,
 `sanity/router`, `@sanity/ui`, and `react-focus-lock`. No private bundles, internal contexts, or
 Studio DOM selectors are used. The only DOM lookup in the header searches its
-own picker for the input to focus.
+own picker for the input to focus on that initial Tab.
 
 ## Compatibility and checks
 
@@ -176,9 +182,10 @@ sidebar/picker transitions with all native controls preserved. Do not count a
 successful build or mocked test as a substitute for an unchecked live item.
 
 A2 now provides the reusable plugin and opt-in `/studio` boundary in local
-builds. It keeps the bounded flat list while the finished interface is pending. A3/A4 implement path
-hierarchy, collections, incremental queries,
-schema previews, status/permission states, template choices, and the approved
-interface. A5 adds the full compatibility/distribution checks and release
+builds. A3/A4 now include the first path hierarchy, collection search/incremental
+loading, and native version indicators. Folder actions, query-side sort/status
+filters, long-list virtualization, targeted header identity, schema previews,
+permission-aware template choices, and the URL field remain pending.
+A5 adds the full compatibility/distribution checks and release
 documentation. No version bump, commit, publication, or deployment is implied
 by this fixture.
