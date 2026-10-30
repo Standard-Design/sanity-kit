@@ -2,7 +2,8 @@
  * Assemble an ordinary-page snapshot before giving it to buildNavigationTree().
  * Each request is bounded, but the completed tree needs ALL ordinary pages in
  * memory. Posts are intentionally absent: their own browser loads them on demand.
- * The UI integration will own subscriptions and restart this read after changes.
+ * data-session.ts owns subscriptions and restarts this read after changes. The
+ * tree resource is ready for the navigator UI; the proof list does not use it.
  */
 import {
 	type createNavigationQueries,

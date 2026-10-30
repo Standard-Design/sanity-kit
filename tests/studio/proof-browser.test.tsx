@@ -11,19 +11,23 @@ const native = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	intent: vi.fn(),
 	fetch: vi.fn(),
+	listen: vi.fn(),
 	unsubscribe: vi.fn(),
+	perspective: ['drafts'],
+	observer: undefined as
+		{ next(event: { type: string }): void; error(): void } | undefined,
 	params: { preview: '/about', id: 'shared', type: 'kitProofShared' },
 }))
 
 vi.mock('sanity', () => {
 	const client = {
 		fetch: native.fetch,
-		listen: () => ({ subscribe: () => ({ unsubscribe: native.unsubscribe }) }),
+		listen: native.listen,
 	}
 	return {
 		definePlugin: (factory: unknown) => factory,
 		useClient: () => client,
-		usePerspective: () => ({ perspectiveStack: ['drafts'] }),
+		usePerspective: () => ({ perspectiveStack: [...native.perspective] }),
 	}
 })
 vi.mock('sanity/presentation', () => ({
@@ -68,6 +72,14 @@ describe('Pages Presentation adapter lifecycle', () => {
 	let root: Root
 	beforeEach(() => {
 		vi.clearAllMocks()
+		native.perspective = ['drafts']
+		native.observer = undefined
+		native.listen.mockImplementation(() => ({
+			subscribe: (observer: typeof native.observer) => {
+				native.observer = observer
+				return { unsubscribe: native.unsubscribe }
+			},
+		}))
 		// JSDOM has no layout. Give the real Popover a visible anchor and viewport
 		// so Floating UI does not hide it before we exercise the real focus lock.
 		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
@@ -251,6 +263,84 @@ describe('Pages Presentation adapter lifecycle', () => {
 	it('unsubscribes from the dataset when the browser leaves the tool', async () => {
 		await render()
 		act(() => root.render(null))
-		expect(native.unsubscribe).toHaveBeenCalledTimes(2)
+		expect(native.unsubscribe).toHaveBeenCalledTimes(1)
+	})
+
+	it('shares one initial fetch and listener between header, sidebar, and picker', async () => {
+		await render()
+		expect(native.fetch).toHaveBeenCalledTimes(1)
+		expect(native.listen).toHaveBeenCalledTimes(1)
+		await click('Toggle native sidebar')
+		await click('Choose page')
+		expect(native.fetch).toHaveBeenCalledTimes(1)
+		expect(native.unsubscribe).not.toHaveBeenCalled()
+	})
+	it('does not show previous-perspective rows while a new perspective loads', async () => {
+		await render()
+		expect(button('About · /about')).toBeTruthy()
+		native.fetch.mockReturnValueOnce(new Promise(() => {}))
+		native.perspective = ['published']
+		await render()
+		expect(
+			[...document.querySelectorAll('button')].some((element) =>
+				element.textContent?.includes('About · /about'),
+			),
+		).toBe(false)
+		expect(native.fetch.mock.calls.at(-1)?.[2]).toMatchObject({
+			perspective: ['published'],
+		})
+		expect(native.unsubscribe).toHaveBeenCalledTimes(1)
+	})
+	it('keeps the mounted list and its scroll position during a background refresh', async () => {
+		await render()
+		const scroller = button('Team · /about/team').parentElement!.parentElement!
+		act(() => {
+			scroller.scrollTop = 120
+			scroller.dispatchEvent(new Event('scroll', { bubbles: true }))
+		})
+		const pending = Promise.withResolvers<unknown>()
+		native.fetch.mockReturnValueOnce(pending.promise)
+		await act(async () => {
+			native.observer!.next({ type: 'welcome' })
+			await Promise.resolve()
+		})
+		expect(button('Team · /about/team').parentElement!.parentElement).toBe(
+			scroller,
+		)
+		expect(scroller.scrollTop).toBe(120)
+		await act(async () => {
+			pending.resolve([
+				{
+					_id: 'about',
+					_type: 'kitProofPage',
+					title: 'About',
+					pathname: '/about',
+				},
+				{
+					_id: 'team',
+					_type: 'kitProofPage',
+					title: 'Team',
+					pathname: '/about/team',
+				},
+			])
+			await Promise.resolve()
+		})
+		expect(scroller.scrollTop).toBe(120)
+	})
+
+	it('shows a retry action and disables stale selection after a listener error', async () => {
+		await render()
+		act(() => native.observer!.error())
+		expect(button('About · /about').disabled).toBe(true)
+		expect(document.querySelector('[role="alert"]')?.textContent).toContain(
+			'out of date',
+		)
+		await click('Retry loading pages')
+		expect(native.listen).toHaveBeenCalledTimes(2)
+		await act(async () => {
+			native.observer!.next({ type: 'welcome' })
+			await Promise.resolve()
+		})
+		expect(button('About · /about').disabled).toBe(false)
 	})
 })

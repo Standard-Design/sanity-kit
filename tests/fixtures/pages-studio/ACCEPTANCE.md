@@ -245,6 +245,36 @@ above establish acceptance for the future tree, collection browser, or statuses.
   browser instances, status filters, sorting controls, and the approved tree UI
   remain later work.
 
+## Shared live-data layer — October 29, 2026
+
+The header, sidebar, and picker now share requests and one listener per active
+tool/client/perspective session. The visible UI is still the bounded proof list,
+not the approved tree design. Tree, recent-item, and paginated collection
+resources are implemented behind that UI and tested independently.
+
+- `pnpm verify` passed: formatting, declaration build, lint, typecheck, and all
+  584 tests in 25 files. The 29 new tests cover shared subscriptions, perspective
+  isolation, cancellation and late responses, reconnect/retry, periodic repair,
+  complete tree reads, loaded-depth collection refreshes, and cleanup. They also
+  check that background refreshes retain the mounted list and its scroll position.
+- `pnpm studio:build` passed with the existing Sanity 6.17.0 baseline.
+- Coverage passed. `pnpm test:package` passed all five frontend profiles, the
+  separate strict-peer Studio consumer, declaration checks, and TypeGen workspace
+  checks. The 85-file tarball remains a local test artifact, not a release. The
+  Studio consumer now explicitly installs the existing `groq` peer required by
+  the query builders; frontend dependency isolation remains unchanged.
+- In the live Studio, the existing unpublished “Incomplete draft” appeared in
+  Drafts, disappeared in Published with the same search, and returned in Drafts.
+  This checks native draft/published isolation, not release-stack precedence.
+- A Team search survived closing the picker and opening the navigator. About
+  remained the previewed page while the shared footer remained the edited
+  document. No fields were edited, records created, or documents published.
+- Connection failures, retries, stale responses, and collection refresh depth
+  were tested with controlled adapters, not a live network outage or a large
+  Content Lake fixture. Live collection, release-perspective, permission, and
+  final navigator acceptance remain later work. No new overlay-click claim is
+  made by these checks.
+
 ## Test records created
 
 The explicit seed run created the following published fixture documents with

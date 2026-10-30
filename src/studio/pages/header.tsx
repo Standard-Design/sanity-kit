@@ -12,7 +12,8 @@ import {
 	type PreviewHeaderProps,
 } from 'sanity/presentation'
 import { useBrowserState } from './browser-state.js'
-import { PagesBrowser, usePageDocuments } from './browser.js'
+import { PagesBrowser } from './browser.js'
+import { usePageDocuments } from './use-page-data.js'
 
 // NodeNext sees the CommonJS namespace; Vite may unwrap its default export.
 const FocusLock = FocusLockModule.default ?? FocusLockModule

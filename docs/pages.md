@@ -89,6 +89,9 @@ The consuming Studio supplies them; the kit does not bundle another Sanity
 runtime. They are optional for the package as a whole, but required when using
 `/studio`. Frontend consumers do not need them. React remains a shared peer,
 with existing frontend compatibility unchanged.
+Studio consumers also need the existing `groq` peer (`^5.1.0`) for the navigator
+query builders. The packed Studio test installs it explicitly rather than relying
+on a hoisted copy from another dependency.
 
 Packed-consumer checks install Studio separately from the frontend profiles.
 Minimal-consumer checks reject all Studio peer installation. Full frontend
@@ -161,15 +164,89 @@ title, and pathname. A projection selects and names fields; it does not fetch
 anything by itself. Different schema fields become the same `title` and
 `pathname` properties in the result.
 
-`usePageDocuments()` fetches those records using Studio's selected perspective
-(the content view, such as drafts or a release). It listens for changes to the
-registered types and refetches after changes become query-visible. It cancels
-obsolete requests and cleans up the listener when the component unmounts.
+`usePageDocuments()` reads a shared session using Studio's selected perspective
+(the content view, such as drafts or a release). The session, described below,
+owns requests and the listener. The header and navigator no longer fetch and
+subscribe separately.
 
 This is deliberately a small proof: it fetches at most 50 documents, ordered by
 last update, and searches only that loaded list. It is not a complete collection
-browser, a shared query cache, or proof of correct draft/release reconciliation.
-Incremental loading and the final data layer remain future work.
+browser or a full release-perspective acceptance result. Shared loading now works
+for that list; the tree and incremental collection resources are implemented and
+tested separately, but still need their visible navigator UI.
+
+## Shared live-data loading
+
+The tool-level provider creates one `dataStore`. For each Studio client and
+perspective stack, that store keeps a separate session. A session contains
+resources: independently loaded results such as the proof list, complete ordinary
+pages, a collection's recent items, or a collection search. Two readers of the
+same resource share its data and request. All active resources in a session share
+one listener for the registered document types.
+
+The native perspective is read inside Presentation's header and navigator, where
+Sanity provides it. The outer provider only owns the store. It does not guess
+which perspective is active. Switching perspectives immediately selects a different
+session; it does not briefly render the previous perspective's rows while waiting
+for an effect to run. Different clients, workspaces, and tool instances do not
+share result data. Nothing is cached globally or persisted to browser storage.
+
+### Requests, changes, and reconnects
+
+`data-source.ts` uses Studio's existing authenticated client. Requests explicitly
+disable the CDN and Stega encoding and supply the session's perspective and abort
+signal. The kit does not create or copy a credential. An empty perspective stack
+is treated as published; `raw` is rejected.
+
+The listener requests all document versions, including drafts and releases, so
+their changes can invalidate an effective-perspective result. Notifications are
+not patched into the list: the session asks Content Lake for a fresh result.
+Mutation bursts are grouped into a 150 ms refresh window. Obsolete requests are
+aborted immediately, and their responses are ignored even if a transport does not
+honor cancellation.
+
+A `welcome` event triggers a fresh read after the listener connects or reconnects.
+This closes the gap between an initial query and the listener becoming ready. A
+reconnect, terminal error, or completed stream marks the data as disconnected.
+The SDK handles ordinary reconnect attempts; the browser also offers **Retry
+loading pages**. A successful query alone does not clear a failed-listener warning.
+The listener must connect successfully too.
+
+Query visibility is best-effort, not a guarantee that every notified change is
+already queryable. While connected and in use, each session therefore rechecks
+active resources once per minute. It does not interrupt a slow request for that
+periodic check. See Sanity's [listener reference](https://www.sanity.io/docs/http-reference/listen)
+for event and visibility semantics. This extra read has a cost: for a loaded tree
+it rereads all ordinary pages, and for a collection it rereads the loaded depth.
+Later optimization can narrow invalidation without changing the UI contract.
+
+### Keep useful data without mixing views
+
+Background refreshes keep the last successful rows visible, rather than replacing
+the list with a loading screen. Search and scroll remain in the separate browser
+UI state. Read failures retain those rows with a warning; the current browser
+disables page selection until recovery, so stale results are not presented as
+current. Initial reads still have a loading state.
+
+A collection's `loadMore()` uses its last cursor and ignores duplicate calls while
+a request is running. Results are deduplicated by effective document ID. After a
+change, the session starts from the beginning and rereads the number of batches
+already loaded, rather than appending to an obsolete cursor or collapsing a long
+list back to 50 rows. Different normalized search terms get different resources.
+Inactive old search result arrays are discarded when another search is selected;
+small resource descriptors remain until the tool's store is discarded.
+
+Resources do no work until subscribed. When an inactive resource is reopened, it
+is refreshed. Closing the sidebar leaves the shared proof resource alive through
+the header, so reopening the picker does not create another listener or initial
+request. When the last reader leaves a session, all its requests are aborted,
+timers and listener are stopped, and cached result data is cleared.
+
+The collection resources are not yet connected to scroll controls or a search
+field. Debouncing typed collection search, status filters, sort choices, list
+virtualization, native status previews, and the approved tree rendering are still
+next-slice work. The current browser's local search has not silently become a
+full-dataset search.
 
 ## Navigator data foundation
 
@@ -264,12 +341,11 @@ return a late snapshot successfully. A failed later batch rejects the whole read
 rather than returning a partial tree as though it were complete.
 
 These batches are **not a transactionally consistent database snapshot**. Content
-can change between requests. The upcoming live-data integration must listen for
-changes, restart affected reads, discard old cursors when perspective/search
-changes, and prevent late results from replacing a newer view. It must also share
-the data between the sidebar and picker and preserve their UI state. Those
-subscription, cache, and live-update guarantees are not implemented by these pure
-helpers or established by their offline tests.
+can change between requests. The shared session now listens for changes, restarts
+reads, separates perspectives/searches, and discards obsolete responses. Those
+behaviors belong to `data-session.ts`, not these pure helpers. Tests exercise the
+session's lifecycle and query behavior; live collection and release-perspective
+acceptance still need the corresponding UI and fixtures.
 
 ## How selection and preview navigation work
 
@@ -404,7 +480,11 @@ implementation paths are private. Nothing in this slice publishes a release.
   document query, preview-page identity, and browser selection behavior.
 - `src/studio/pages/navigation.ts`, `queries.ts`, and `snapshot.ts`: the next
   navigator's tree model, bounded query plans, and ordinary-page snapshot reader.
-  These helpers are tested but not yet connected to the browser.
+  The shared session can load these resources; the tree UI is not connected yet.
+- `src/studio/pages/data-store.ts`, `data-session.ts`, and `data-source.ts`:
+  tool-scoped sessions, shared read lifetimes, and the authenticated transport.
+  `use-page-data.ts` connects the current browser and header to the shared proof
+  resource through React's external-store subscription API.
 - `src/studio/pages/plugin.tsx`, `header.tsx`, and `browser-state.tsx`:
   native tool integration and shared browser UI state.
 

@@ -4,75 +4,19 @@
  * See docs/pages.md for the query limits and which parts Presentation owns.
  */
 import { Box, Button, Card, Flex, Stack, Text, TextInput } from '@sanity/ui'
-import { useEffect, useLayoutEffect, useRef, useState } from 'react'
-import { useClient, usePerspective } from 'sanity'
+import { useLayoutEffect, useRef } from 'react'
 import {
 	usePresentationNavigate,
 	usePresentationParams,
 } from 'sanity/presentation'
 import { useRouter } from 'sanity/router'
 import { useBrowserState } from './browser-state.js'
-import type { PageDocument } from './model.js'
-
-/** A bounded live list is enough to test the native shell; A3 replaces this data layer. */
-export function usePageDocuments() {
-	const { runtime } = useBrowserState()
-	const { query, types } = runtime.model
-	const client = useClient({ apiVersion: '2026-10-01' })
-	const { perspectiveStack } = usePerspective()
-	const perspectiveKey = JSON.stringify(perspectiveStack)
-	const [result, setResult] = useState<{
-		documents: PageDocument[]
-		error: boolean
-		loading: boolean
-	}>({ documents: [], error: false, loading: true })
-	const [refresh, setRefresh] = useState(0)
-	// A change notification is a reason to refetch, not a replacement document.
-	// Wait until it is query-visible so the fetch can actually see that change.
-	useEffect(() => {
-		const subscription = client
-			.listen(
-				'*[_type in $types]',
-				{ types: types },
-				{ includeResult: false, visibility: 'query' },
-			)
-			.subscribe({
-				next: () => setRefresh((value) => value + 1),
-				error: () => setResult((value) => ({ ...value, error: true })),
-			})
-		return () => subscription.unsubscribe()
-	}, [client, types])
-	useEffect(() => {
-		const controller = new AbortController()
-		// A perspective change must not briefly present the previous view's rows.
-		// Abort stale reads when the perspective changes or the browser unmounts.
-		setResult({ documents: [], error: false, loading: true })
-		const perspective = JSON.parse(perspectiveKey) as string[]
-		void client
-			.fetch<PageDocument[]>(
-				query,
-				{ types: types },
-				{ perspective, useCdn: false, signal: controller.signal },
-			)
-			.then(
-				(documents) => {
-					if (!controller.signal.aborted)
-						setResult({ documents, error: false, loading: false })
-				},
-				() => {
-					if (!controller.signal.aborted)
-						setResult({ documents: [], error: true, loading: false })
-				},
-			)
-		return () => controller.abort()
-	}, [client, perspectiveKey, refresh, query, types])
-	return result
-}
+import { usePageDocuments } from './use-page-data.js'
 
 /** The sidebar and popover mount this same component with the same tool state. */
 export function PagesBrowser() {
 	const { runtime, state, setState, setPickerOpen } = useBrowserState()
-	const { documents, loading, error } = usePageDocuments()
+	const { documents, loading, error, retry } = usePageDocuments()
 	const params = usePresentationParams()
 	const navigate = usePresentationNavigate()
 	const router = useRouter()
@@ -142,8 +86,11 @@ export function PagesBrowser() {
 				{error && (
 					<Card padding={3} tone="critical">
 						<Text role="alert">
-							Cannot load pages. Check connection and dataset access.
+							Pages may be out of date. Check connection and dataset access.
 						</Text>
+						<Box marginTop={3}>
+							<Button text="Retry loading pages" onClick={retry} />
+						</Box>
 					</Card>
 				)}
 				{!loading && !error && filtered.length === 0 && (
@@ -154,6 +101,7 @@ export function PagesBrowser() {
 						<Button
 							key={document._id}
 							mode="bleed"
+							disabled={error}
 							selected={current?._id === document._id}
 							text={`${document.title ?? 'Untitled'} · ${documentPath(document) ?? 'Preview unavailable'}`}
 							onClick={() => {

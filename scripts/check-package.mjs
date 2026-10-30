@@ -458,6 +458,7 @@ await writeFile(
 		dependencies: {
 			'@standard-design/sanity-kit': `file:${tarball}`,
 			...studioVersions,
+			groq: current.groq,
 			'@sanity/client': current['@sanity/client'],
 			react: current.react,
 			'react-dom': current['react-dom'],

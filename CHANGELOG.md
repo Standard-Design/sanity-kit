@@ -15,6 +15,11 @@
   separate collection overviews, complete ordinary-page batch reads, five-item
   collection previews, and cursor-based collection search. Test them offline;
   the visible browser still uses the proof list until the next integration slice.
+- Share proof-list requests and listeners between the sidebar and picker. Add
+  perspective-isolated sessions, cancellation, reconnect/retry handling, periodic
+  reconciliation, and lazy tree/collection resources. Preserve last-good rows
+  during refresh and reread loaded collection depth after changes. The approved
+  navigator UI and native status integration remain pending.
 - Keep the full navigator, custom URL field, folder actions, and broader release
   acceptance as later work. No version bump or publication is included here.
 

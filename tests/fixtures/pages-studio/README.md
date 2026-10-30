@@ -90,8 +90,8 @@ button; the seed script creates published fixture records explicitly.
 
 ## How the pieces fit together
 
-- `src/studio/pages/header.tsx` and `plugin.tsx` is the only file that installs the unstable header
-  and navigator slots. Its header calls `renderDefault` with the original props.
+- `src/studio/pages/plugin.tsx` installs the unstable header and navigator slots.
+  `header.tsx` calls `renderDefault` with the original props.
   A bounded picker button sits beside the native controls rather than replacing
   them. A separate status line explains unavailable previews.
   Sanity UI's modal popover blocks pointer interaction with the background;
@@ -102,10 +102,14 @@ button; the seed script creates published fixture records explicitly.
   unmounts the navigator when it closes; search and scroll therefore survive the
   move to the picker. Each mounted workspace/tool gets its own provider. There
   is no module-global document router or cross-workspace state cache.
-- `src/studio/pages/browser.tsx` reads with Studio's authenticated client and perspective
-  stack. It uses query-visible change notifications, cancels obsolete requests,
-  and tears down subscriptions on unmount. This deliberately small query layer
-  will be replaced by the production tree/collection data layer.
+- `src/studio/pages/use-page-data.ts` reads Studio's authenticated client and
+  native perspective inside Presentation. The header, picker, and sidebar share
+  a session from `data-store.ts`, instead of each opening a separate listener.
+  `data-session.ts` cancels obsolete reads, retains rows during refreshes, handles
+  reconnection, and releases data when the last reader leaves. It also provides
+  lazy tree and collection resources, though the visible browser still uses the
+  bounded proof list. See [Shared live-data loading](../../../docs/pages.md#shared-live-data-loading)
+  for the lifecycle, retry behavior, and periodic query cost.
 - `routes.ts` registers the fixture's page, alternate-path, and collection types.
   Internal helpers in `src/studio/pages/` generate native resolvers and the
   browser projection from that same metadata. The compiled helpers are private implementation files beneath the new `/studio`

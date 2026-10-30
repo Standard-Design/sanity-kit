@@ -1,7 +1,8 @@
 /**
  * Query plans for the next navigator data layer. These functions perform no IO:
  * callers supply Studio's authenticated client, effective perspective, and abort
- * signal. The current proof browser still uses model.ts until integration lands.
+ * signal. data-session.ts runs these for the next navigator; the current proof
+ * list still uses model.ts through that same shared session.
  */
 import { defineQuery } from 'groq'
 import type { PageDocument } from './model.js'
