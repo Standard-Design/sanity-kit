@@ -71,6 +71,7 @@ for (const path of [
 	'studio/url/is-unique.js',
 	'studio/url/generate.js',
 	'studio/folders/planner.js',
+	'studio/folders/load.js',
 	'url/settings/resolve.js',
 	'url/settings/load.js',
 	'redirect/snapshot.js',

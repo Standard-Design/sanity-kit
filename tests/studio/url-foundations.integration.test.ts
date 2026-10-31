@@ -97,12 +97,10 @@ describe('private URL foundations together', () => {
 		for (const mode of ['published', 'drafts'] as const) {
 			const selected = context(mode)
 			const result = createFolderPlanner({
-				site: 'main',
 				routes: selected.routes,
 			}).planSynchronize(
 				null,
 				{
-					site: 'main',
 					perspective: 'raw',
 					complete: true,
 					readAccess: 'all-registered-versions',

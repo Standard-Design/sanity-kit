@@ -2,6 +2,12 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add private folder reads for registry metadata and raw document inventories.
+  Require explicit visibility, detect overflow, and preserve malformed URL evidence
+  for later planner checks. Reads do not adopt folders or authorize writes.
+  Remove folder `site` configuration and use the fixed `sanityKit.folders` registry
+  in the configured Sanity project/dataset.
+
 - Add a private collection-settings loader with exact-ID reads, explicit draft
   visibility, bounded responses, and cancellation. Bypass CDN and inherited fetch
   caching; preserve client configuration. Keep fixed-only routes independent of

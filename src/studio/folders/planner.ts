@@ -27,12 +27,10 @@ export interface FolderRegistryData {
 	readonly _id: string
 	readonly _type: 'sanityKitFolderRegistry'
 	readonly schemaVersion: 1
-	readonly site: string
 	readonly folders: readonly FolderRecord[]
 }
 
 export interface FolderInventory {
-	readonly site: string
 	readonly perspective: 'raw'
 	readonly complete: boolean
 	/** Caller attestation, never a permission check performed by this planner. */
@@ -104,21 +102,15 @@ function fieldValue(document: Record<string, unknown>, path: string): unknown {
 }
 
 /**
- * site names one managed singleton, not ordinary content IDs. Configuration is
+ * One managed singleton serves the configured project/dataset. Configuration is
  * copied by the shared registry, so caller changes cannot alter an existing plan.
  * null means the caller established that the registry is absent; undefined does not.
  */
 export function createFolderPlanner(options: {
-	readonly site: string
 	readonly routes: PagesRouteConfig
 }) {
-	const { site } = options
-	if (typeof site !== 'string' || !/^[A-Za-z][A-Za-z0-9_-]{0,63}$/u.test(site))
-		throw new Error(
-			'Folder site must be a 1–64 character application-owned identifier.',
-		)
 	const registry = createPagesRegistry(options.routes)
-	const id = `sanityKit.folders.${site}`
+	const id = 'sanityKit.folders'
 	// Collection groups live at the overview URL in today's navigator, which may
 	// differ from the item prefix. Descendant ordinary folders remain permissible.
 	const groups = new Set(
@@ -134,7 +126,6 @@ export function createFolderPlanner(options: {
 		_id: id,
 		_type: 'sanityKitFolderRegistry',
 		schemaVersion: 1,
-		site,
 		folders: [],
 	}
 	const withinSize = (document: FolderRegistryData) =>
@@ -157,7 +148,6 @@ export function createFolderPlanner(options: {
 			!record(input) ||
 			input._id !== id ||
 			input._type !== empty._type ||
-			input.site !== site ||
 			input.schemaVersion !== 1 ||
 			typeof input._rev !== 'string' ||
 			!input._rev ||
@@ -276,7 +266,6 @@ export function createFolderPlanner(options: {
 	): Result<{ occupied: string[]; inferred: string[] }> {
 		if (
 			!input ||
-			input.site !== site ||
 			input.perspective !== 'raw' ||
 			input.complete !== true ||
 			input.readAccess !== 'all-registered-versions'

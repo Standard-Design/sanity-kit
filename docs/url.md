@@ -20,7 +20,7 @@ does not fetch documents, load settings, mutate content, or choose an app route.
 This public resolver accepts fixed collection prefixes. A private
 [collection-settings layer](collection-routing.md), now approved, resolves
 loaded settings into that same configuration. Its private read-only loader is
-now under review; editor controls and the custom URL field are later work.
+now approved; editor controls and the custom URL field are later work.
 
 ## Register once, reuse in the app and Studio
 

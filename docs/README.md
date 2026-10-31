@@ -59,11 +59,13 @@ discarding stale asynchronous results.
 folder records, explicit adoption from existing URLs, and empty-only removal.
 The planner returns proposed changes; persistence and editor controls are still
 separate work.
+Its private read layer is now under review. It loads registry records and raw
+document versions for planning, without changing any content.
 
 [Collection routing settings](collection-routing.md) covers the approved private
 prefix resolver. It selects published or draft settings and produces the
-same route configuration the existing URL helpers already use. A private loader
-is now under review: it reads the configured settings IDs and checks the response
+same route configuration the existing URL helpers already use. The approved private
+loader reads the configured settings IDs and checks the response
 before resolving routes. Studio controls remain later work.
 
 [Redirects](redirects.md) covers approved private snapshot validation and lookup.

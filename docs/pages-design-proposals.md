@@ -17,13 +17,17 @@ proposals are explicitly identified. See also
 
 The private [folder validation and planning](folders.md) foundation is approved.
 [Collection-settings resolution](collection-routing.md) is also approved.
-These layers do not yet add schema registration, loaders, persistence, editor
+These layers do not yet add schema registration, persistence, editor
 controls, or publication actions. Their guides explain the exact behavior and
 limits of each slice.
 
 [Redirect snapshot validation](redirects.md) is also approved.
 The integration tests exercise the shared route configuration across these
 foundations without writing to Sanity.
+
+The private collection-settings loader is approved. The folder read layer is
+under review. Both preserve the foundations' perspective and validation rules.
+Reads alone do not establish publication safety or authorize mutations.
 
 The private [Studio generation bridge](url.md#studio-generation-context-internal)
 is implemented and approved. It binds native source and slugify callbacks, returns
@@ -32,16 +36,18 @@ displayed candidates, confirm replacement, check conflicts, and apply changes.
 
 ## Folder storage
 
-Approved October 31: private internal metadata, one registry document per site,
+Approved October 31: private internal metadata, one registry document per dataset,
 immediate organizational changes, no frontend dependency, and path-derived page
 placement. Exact schema fields, limits, and concurrent-write mechanisms still
 need implementation review.
 
-Start with one internal folder-registry document per configured site scope. It
+Use one internal folder-registry document, `sanityKit.folders`, in the configured
+Sanity project/dataset. It
 contains a schema version and an array of folder records with stable keys and
 canonical paths. Page documents keep their own pathnames; they do not acquire
-parent-folder references. The site scope is a stable identifier shared by tools
-that manage the same routes, not the tool's display title.
+parent-folder references. The initial kit supports one website per project/dataset.
+There is no separate `site` identifier. Multi-site routing is deferred until it
+has a concrete use case.
 
 This is a deliberately managed singleton, not a path-derived ID for each page or
 folder. Place its ID in a kit-owned dotted namespace, outside Sanity's reserved
@@ -219,7 +225,7 @@ see [its guide](url.md) for the implemented scope and exact failure reasons.
 The successful inner `{pathname, prefix, slug}` shape is agreed. The result
 wrapper and fixed-prefix reason codes are approved and implemented, not yet
 released. Private settings-backed resolution is now approved. Its read-only
-loader is implemented for review; editor/publication controls remain future work.
+loader is also approved; editor/publication controls remain future work.
 
 ## Creation contract
 
@@ -244,7 +250,7 @@ implementation. Ordinary document IDs remain Sanity-generated.
 
 ## Remaining review items
 
-- Exact folder schema and site-scope configuration, supported size limits, and
+- Exact folder schema, supported size limits, and
   concurrency/synchronization protocols. The singleton and immediate lifecycle
   are decided; their implementation is not.
 - Settings registration/schema and any optional overview shortcut. Draft preview

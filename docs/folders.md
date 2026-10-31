@@ -4,11 +4,12 @@ Folders help editors organize site pages. A saved folder can remain visible even
 when no page uses it yet. A page's URL still determines where it belongs: saving a
 folder does not add a parent reference to the page or change its URL.
 
-This first implementation supplies **private validation and planning functions**
-in `src/studio/folders/planner.ts`. They work on supplied records and return a
-proposed change. They do not read or write Sanity, register a Studio schema, add
-folder controls, or change the current navigator. There is no public package
-export for these functions yet.
+The implementation supplies **private validation and planning functions** in
+`src/studio/folders/planner.ts` and a **private read layer** in
+`src/studio/folders/load.ts`. The planner works on supplied records and returns a
+proposed change. The read layer can fetch the evidence needed by those plans.
+Neither writes Sanity, registers a Studio schema, adds folder controls, or changes
+the current navigator. There is no public package export for these functions yet.
 
 The broader editor behavior is described in [Pages](./pages.md) and the
 [Pages design decisions](./pages-design-proposals.md). The shared route
@@ -16,14 +17,14 @@ registration comes from the [URL subsystem](./url.md).
 
 ## What a saved folder contains
 
-The proposed storage model is one managed registry document per site:
+The storage model is one managed registry document in the configured Sanity
+project and dataset. That project/dataset serves one website:
 
 ```json
 {
-	"_id": "sanityKit.folders.main",
+	"_id": "sanityKit.folders",
 	"_type": "sanityKitFolderRegistry",
 	"schemaVersion": 1,
-	"site": "main",
 	"folders": [
 		{ "_key": "folder-about", "pathname": "/about" },
 		{ "_key": "folder-company", "pathname": "/about/company" }
@@ -38,10 +39,9 @@ so a future writer can detect changes made after the registry was read. A folder
 records; a future writer can use UUIDs. The planner rejects duplicate keys rather
 than replacing another folder.
 
-The site identifier is application configuration, not an editor-entered page
-name. This slice proposes a 1–64 character identifier beginning with a letter,
-followed by letters, digits, underscores, or hyphens:
-`^[A-Za-z][A-Za-z0-9_-]{0,63}$`. Different sites have different registry IDs.
+The registry ID is always `sanityKit.folders`. There is no site identifier or
+multisite configuration. The supplied client selects the project and dataset;
+ordinary page documents continue to use their own Sanity-generated IDs.
 
 The root `/` is implicit and never saved as a folder. Every saved folder must have
 its ordinary ancestors in the registry. Paths use the shared safe-path rules and
@@ -74,7 +74,7 @@ which page URLs belong to the navigator.
 
 ## The plans
 
-`createFolderPlanner({site, routes})` copies the shared route configuration and
+`createFolderPlanner({routes})` copies the shared route configuration and
 returns these private functions:
 
 | Function                                        | What it does                                                                                                                                          |
@@ -85,7 +85,7 @@ returns these private functions:
 | `planRemove(record, pathname, inventory)`       | Removes one saved folder only when the supplied evidence says it has no index page, descendant page, saved subfolder, or collection group beneath it. |
 
 Use `null` only when a read has established that the registry does not exist.
-`undefined`, malformed records, other sites, and unsupported schema versions are
+`undefined`, malformed records, a different registry ID, and unsupported schema versions are
 errors. An unreadable registry must not be mistaken for an empty one.
 
 Synchronization is an explicit operation. Simply opening the navigator must not
@@ -117,7 +117,6 @@ version. Removal and synchronization therefore require a supplied inventory:
 
 ```ts
 {
-  site: 'main',
   perspective: 'raw',
   complete: true,
   readAccess: 'all-registered-versions',
@@ -126,7 +125,7 @@ version. Removal and synchronization therefore require a supplied inventory:
 ```
 
 The caller must supply every relevant registered document version within the
-site's routing scope, including published documents, drafts, and release versions.
+configured routing scope, including published documents, drafts, and release versions.
 Each registered document needs its real `_id`, `_type`, `_rev`, and configured URL
 field. Do not collapse versions into one effective document. A page at the folder
 URL counts as its index page and blocks removal, just as a descendant page does.
@@ -144,6 +143,60 @@ or establish that no document changed after the inventory was read. An incomplet
 or unknown inventory is refused. A falsely marked complete inventory remains
 unsafe and must never be treated as a transaction guarantee.
 
+## Reading evidence from Sanity
+
+`createFolderLoader({routes}, client)` creates a private loader. Call the
+returned function with `{readAccess: 'all-registered-versions'}` and an optional
+abort signal. That assertion means the caller knows its credentials can read the
+private registry and **all** relevant published, draft, and release documents.
+`'unknown'` refuses the read; guessing from an empty response is not sufficient.
+
+The loader makes one structured GROQ request for the registry and registered
+document types. It uses the dated `2026-10-01` API, requests the raw perspective,
+disables the CDN and Stega, asks for filtered results, and explicitly requests
+`cache: 'no-store'`. It does not memoize snapshots or subscribe to changes. Tests
+verify that the installed SDK forwards `no-store` to its underlying fetch call.
+
+The client supplies the project and dataset for one website. Registered schema
+types define the content scope within that dataset. Consumers must own that scope
+and attest access to every registered document version. The loader does not filter
+documents by a site field or provide multisite support.
+
+Document projections include `_id`, `_type`, `_rev`, original-identity evidence,
+and each type's configured URL value. Bodies and unrelated content are omitted.
+The loader rebuilds nested field paths, such as `pathname.current`, so the existing
+planner can read them. It preserves each stored URL value, including malformed or
+misplaced URLs, and retains documents without URLs. It neither cleans these values
+nor filters them out. Missing values are represented as `null`; surrounding field
+metadata is not fetched. URL mappings cannot target document metadata fields.
+
+An extra result row detects an inventory larger than the supported limit. An
+overflow returns failure, never a truncated inventory marked complete. The loader
+also checks envelope shape, registered types, raw identities, revisions, and
+duplicates. A matching `_originalId` is preserved; a differing one is refused
+because it can indicate an effective-perspective merge. The singleton is checked
+with the planner's existing registry validation.
+
+A successful result has `status: 'loaded'` and a `snapshot` containing `registry`
+and `inventory`. A missing registry is explicitly `null`. A malformed response,
+failed request, unsupported registry, unknown access, oversized result, or canceled
+read returns `status: 'unavailable'` with a reason. Cancellation is checked both
+before and after the request, including when an adapter ignores its signal.
+
+This is validated **read evidence**, not approval of a folder operation. Pass the
+snapshot through `planCreate`, `planSynchronize`, or `planRemove` as appropriate;
+their existing guards still apply. In particular, the read can succeed with a
+malformed stored URL that causes synchronization or removal to refuse. Reading
+never adopts inferred folders. Cancellation and request failures never become an
+empty registry or a successful emptiness check.
+
+The returned registry contains only the planner's owned fields and `_rev`.
+Additional source metadata is left untouched but is not returned. A future writer
+must use targeted patches that preserve unknown document and folder metadata, not
+replace records with this snapshot. A single request reduces separate-read drift;
+it does not lock documents against later changes. Successful reads cannot prove
+ACL visibility or make a future removal race-free.
+
 ## Proposed bounds for this implementation
 
 These are conservative implementation-review defaults, not Sanity platform
@@ -151,7 +204,7 @@ limits or a performance promise:
 
 | Limit                                              | Value   |
 | -------------------------------------------------- | ------- |
-| Saved folders per site                             | 1,000   |
+| Saved folders in the configured project/dataset    | 1,000   |
 | Characters in a pathname                           | 2,048   |
 | UTF-8 bytes in the planner's owned registry fields | 512,000 |
 | Raw document versions supplied to one inventory    | 10,000  |
@@ -184,5 +237,6 @@ uniqueness or race-free empty-folder removal.
 
 Folder rename, moving descendants, redirect creation, UI actions, private-schema
 registration, and live acceptance tests remain separate work. These planners use
-the supplied route registration; loading editable collection settings and
-coordinating a settings change with folder operations also remain future work.
+the supplied route registration. A separate private collection-settings loader
+is now approved. Coordinating settings changes with folder operations remains
+future work.

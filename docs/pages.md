@@ -641,7 +641,7 @@ and [redirect validation](redirects.md) are also approved. Their UI and persiste
 integrations are still pending. The [Studio generation bridge](url.md#studio-generation-context-internal)
 is also approved as a private foundation.
 The [collection-settings loader](collection-routing.md#loading-settings-from-sanity)
-now reads and validates settings for review; it is not connected to Studio controls.
+is approved and reads and validates settings; it is not connected to Studio controls.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -816,7 +816,8 @@ organizational metadata; it does not create a website page or occupy its index
 URL. The folder schema and persistence operations still need implementation.
 
 Approved October 31: use one internal, authenticated-only folder-registry document
-per site, with stable record identifiers and paths. Hide it from normal content
+per project/dataset, with stable record identifiers and paths. Its fixed ID is
+`sanityKit.folders`; no separate `site` configuration is required. Hide it from normal content
 lists and creation menus. Organizational changes take effect immediately without
 a publishing step; frontend rendering does not depend on this metadata. Define
 size limits and concurrent-write safeguards before shipping.
@@ -895,7 +896,7 @@ must not become editor-renamable through this workflow.
   arrangement, fields, registration, optional overview relationship, and the
   controlled publication integration. The draft-preview/published-activation
   lifecycle is agreed.
-- **Folder implementation:** define exact fields, site-scope configuration, size
+- **Folder implementation:** define exact fields, size
   limits, and safe synchronization/concurrency mechanisms. The private singleton,
   immediate organizational lifecycle, adoption of inferred folders, and empty-only
   removal are agreed.

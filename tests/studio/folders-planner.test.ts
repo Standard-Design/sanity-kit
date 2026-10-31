@@ -25,9 +25,8 @@ const routes = {
 	],
 	excludePaths: ['/reserved'],
 } satisfies PagesRouteConfig
-const planner = createFolderPlanner({ site: 'main', routes })
+const planner = createFolderPlanner({ routes })
 const inventory = (documents: unknown[] = []): FolderInventory => ({
-	site: 'main',
 	perspective: 'raw',
 	complete: true,
 	readAccess: 'all-registered-versions',
@@ -43,7 +42,6 @@ const stored = (...paths: string[]) => ({
 	_id: planner.id,
 	_type: 'sanityKitFolderRegistry',
 	schemaVersion: 1,
-	site: 'main',
 	_rev: 'registry-r1',
 	folders: paths.map((pathname, index) => ({ _key: `key-${index}`, pathname })),
 })
@@ -53,32 +51,15 @@ const keys = () => {
 }
 
 describe('private folder registry plans', () => {
-	it('uses an explicit per-site metadata identity, not page IDs', () => {
-		expect(planner.id).toBe('sanityKit.folders.main')
-		expect(createFolderPlanner({ site: 'Second_site-2', routes }).id).toBe(
-			'sanityKit.folders.Second_site-2',
-		)
-	})
-	it.each([
-		'',
-		'bad.site',
-		'bad site',
-		'1site',
-		'a'.repeat(65),
-		undefined,
-		null,
-		{ toString: () => 'main' },
-	])('rejects invalid site scope %j', (site) => {
-		expect(() => createFolderPlanner({ site: site as string, routes })).toThrow(
-			'application-owned identifier',
-		)
+	it('uses one fixed metadata identity for the configured project/dataset', () => {
+		expect(planner.id).toBe('sanityKit.folders')
 	})
 	it('requires canonical collection configuration', () => {
 		const changed = structuredClone(routes)
 		changed.collections[0]!.overview.pathname = '/content//journal'
-		expect(() =>
-			createFolderPlanner({ site: 'main', routes: changed }),
-		).toThrow('canonical collection')
+		expect(() => createFolderPlanner({ routes: changed })).toThrow(
+			'canonical collection',
+		)
 	})
 	it('distinguishes a verified missing registry from an unknown read', () => {
 		expect(planner.validateRegistry(null)).toMatchObject({
@@ -101,7 +82,6 @@ describe('private folder registry plans', () => {
 					_id: planner.id,
 					_type: 'sanityKitFolderRegistry',
 					schemaVersion: 1,
-					site: 'main',
 					folders: [
 						{ _key: 'new-0', pathname: '/about' },
 						{ _key: 'new-1', pathname: '/about/company' },
@@ -219,9 +199,9 @@ describe('private folder registry plans', () => {
 		).toBe(true)
 	})
 	it.each([
-		{ _id: 'drafts.sanityKit.folders.main' },
+		{ _id: 'drafts.sanityKit.folders' },
+		{ _id: 'sanityKit.folders.other' },
 		{ _type: 'page' },
-		{ site: 'other' },
 		{ schemaVersion: 2 },
 		{ _rev: '' },
 		{ folders: null },
@@ -306,7 +286,6 @@ describe('private folder registry plans', () => {
 	})
 	it('adopts only parents, not an ordinary leaf page as a folder', () => {
 		const simple = createFolderPlanner({
-			site: 'main',
 			routes: { pages: routes.pages },
 		})
 		expect(
@@ -330,7 +309,6 @@ describe('private folder registry plans', () => {
 		{ complete: false },
 		{ perspective: 'published' },
 		{ readAccess: 'unknown' },
-		{ site: 'other' },
 	])('refuses insufficient inventory evidence %j', (override) => {
 		const evidence = { ...inventory(), ...override } as FolderInventory
 		expect(planner.planSynchronize(null, evidence, keys())).toEqual({
@@ -479,7 +457,7 @@ describe('private folder registry plans', () => {
 	})
 	it('snapshots route configuration', () => {
 		const mutable = structuredClone(routes),
-			model = createFolderPlanner({ site: 'main', routes: mutable })
+			model = createFolderPlanner({ routes: mutable })
 		mutable.collections[0]!.overview.pathname = '/elsewhere'
 		expect(model.planCreate(null, '/content/journal', keys())).toEqual({
 			ok: false,
