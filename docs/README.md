@@ -44,11 +44,17 @@ but the current npm release does not. Consumers keep their own Studio installati
 The guide distinguishes the working navigator and routing foundation from
 planned URL editing, folder actions, and other features.
 
+[Shared URL resolution](url.md) describes the local-build `/url` entry point:
+derive `{pathname, prefix, slug}` from the same registration without loading
+Studio. Fixed-prefix resolution is implemented; dynamic settings and the input
+field remain future work. This entry is not in the current npm release.
+
 ## Design decisions and proposals — not implemented
 
 - [Pages contracts and proposals](pages-design-proposals.md): approved folder,
   bulk-change, and field/helper behavior, alongside the remaining implementation
-  proposals. Approval status is explicit; these future features are not implemented.
+  proposals. Approval status is explicit; the guides distinguish the initial URL
+  helper from future editing and persistence workflows.
 - [Redirect subsystem](redirects-design.md): proposed Sanity-managed rules,
   Studio workflows, URL-change integration, frontend resolution, and optional
   consumer-owned caching. Includes safety policies and implementation gates;

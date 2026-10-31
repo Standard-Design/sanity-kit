@@ -6,6 +6,25 @@ import {
 } from '@standard-design/sanity-kit/core'
 import { createSanityLinkQueryFragments } from '@standard-design/sanity-kit/link'
 import { createSitemapResponse } from '@standard-design/sanity-kit/sitemap'
+import {
+	createSanityUrlResolver,
+	type SanityUrlResult,
+} from '@standard-design/sanity-kit/url'
+
+const resolveUrl = createSanityUrlResolver({
+	pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
+})
+const resolvedUrl: SanityUrlResult = resolveUrl({
+	_type: 'page',
+	pathname: { current: '/' },
+})
+if (resolvedUrl.ok) {
+	const pathname: string = resolvedUrl.value.pathname
+	void pathname
+} else {
+	// @ts-expect-error failed resolution never fabricates a URL
+	void resolvedUrl.value
+}
 
 const config = defineSanityConfig({
 	projectId: 'project',

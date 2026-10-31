@@ -4,7 +4,9 @@ Prepared October 30, 2026; approvals updated October 31. The folder-storage and
 synchronization direction, reviewed folder-rename policy, collection-prefix
 preview/publication lifecycle, and the field/helper/creation behavior described
 below are now approved. **They are not implemented features or finalized public
-APIs.** Remaining proposals are explicitly identified. See also
+APIs.** The initial fixed-prefix [URL resolver](url.md) is now implemented locally
+for API review; the editor and persistence workflows below are not. Remaining
+proposals are explicitly identified. See also
 [the Pages guide](pages.md#design-decisions-and-remaining-work).
 
 ## Folder storage
@@ -156,7 +158,9 @@ Approved October 31: one field factory sharing routing registration, a configura
 title source and slug generator, shared validation without silent numeric suffixes,
 pure resolution against separately loaded settings, explicit success/failure
 outcomes, and the root representation below. Function names and exact TypeScript
-shapes remain proposals.
+shapes require implementation approval. The initial fixed-prefix resolver now
+uses `createSanityUrlResolver()` from `/url` and the `ok`/`value` result below;
+see [its guide](url.md) for the implemented scope and exact failure reasons.
 
 - **One field factory:** resolve the storage mode and prefix source from shared
   type/collection registration. Do not configure the prefix independently in the
@@ -189,7 +193,8 @@ shapes remain proposals.
   whether to render a warning, omit a link, or return an HTTP error.
 
 The successful inner `{pathname, prefix, slug}` shape is agreed. The result
-wrapper and exact reason codes are still proposals.
+wrapper and fixed-prefix reason codes are implemented in the current slice for
+review, not yet released. Settings-backed resolution is still future work.
 
 ## Creation contract
 

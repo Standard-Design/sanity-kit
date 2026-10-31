@@ -2,6 +2,14 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add the framework-independent `/url` entry with `createSanityUrlResolver()`.
+  Reuse Pages registration to derive `{pathname, prefix, slug}` from full paths
+  or fixed-prefix collection slugs, with explicit failure results and no fetching
+  or mutations. Keep legacy Studio navigation unchanged; the new resolver rejects
+  noncanonical separators instead of silently repairing them. Document the API and
+  add browser-boundary and package-consumer coverage. Settings-backed prefixes and
+  URL editing remain future work.
+
 - Add the opt-in `/studio` entry with `pagesTool()` for an app-owned Sanity
   Studio. Reuse native Presentation, the editor, and document actions; do not
   supply a standalone Studio application or generate schemas/frontend routes.

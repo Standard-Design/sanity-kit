@@ -15,6 +15,10 @@
 		"node": ">=24.0.0"
 	},
 	"exports": {
+		"./url": {
+			"types": "./dist/url/index.d.ts",
+			"import": "./dist/url/index.js"
+		},
 		"./studio": {
 			"types": "./dist/studio/index.d.ts",
 			"import": "./dist/studio/index.js"

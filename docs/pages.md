@@ -627,8 +627,9 @@ folder decisions on October 30 and 31. Earlier sketches are preserved, but the
 following decisions describe the selected direction. Explicitly marked proposals still
 need agreement before implementation. This section records design intent, not
 additional working APIs. The navigator is partly implemented; the custom URL
-field, persistent folders, dynamic collection prefixes, and shared frontend URL
-helpers are not implemented yet.
+field, persistent folders, and dynamic collection prefixes are not implemented
+yet. The first [shared frontend URL helper](url.md), for fixed-prefix
+registration, is now implemented locally and under API review.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -654,8 +655,9 @@ For a collection item, combine the collection prefix with the stored slug. These
 are derived values, not three independently stored fields. On October 31, the
 homepage result was agreed as `{pathname: '/', prefix: '/', slug: ''}`; empty
 collection-item slugs remain invalid. Resolution must distinguish missing data,
-invalid data, and unavailable routing settings. Helper names, result wrappers,
-and exact reason codes remain to be designed.
+invalid data, and unavailable routing settings. The first fixed-prefix helper's
+name, result wrapper, and reason codes are documented in [the URL guide](url.md)
+for implementation approval. Settings-unavailable behavior remains future work.
 
 Also approved: pure URL resolution against already loaded routing settings. The
 caller loads the appropriate published/preview context separately, allowing reuse
@@ -892,7 +894,8 @@ or page URLs have been written by this documentation update.
 Concrete recommendations for these open contracts are in
 [Pages contracts and proposals](pages-design-proposals.md), with October 31
 approvals distinguished from remaining suggestions. None of these future APIs
-or workflows should be treated as implemented behavior.
+or workflows should be treated as implemented behavior unless explicitly linked
+to the working [fixed-prefix URL helper](url.md).
 The separate [redirect subsystem design](redirects-design.md) covers proposed
 redirect records, publication integration, request handling, and cache adapters
 without deciding the remaining Pages contracts.
@@ -904,8 +907,9 @@ same revision. Local package builds include the compiled plugin and this guide,
 but not the test fixture. Only `/studio` is a supported Studio import; compiled
 implementation paths are private. Nothing in this slice publishes a release.
 
-- `src/studio/pages/registry.ts`: configuration and pathname checks; no Studio
-  runtime import and no database writes.
+- `src/url/registry.ts`: shared configuration and pathname checks; no Studio
+  runtime import and no database writes. `src/studio/pages/registry.ts` is the
+  private bridge used by the navigator and Presentation resolvers.
 - `src/studio/pages/resolvers.ts`: query projection and native Presentation
   resolver definitions. It returns configuration, not an editor or a router.
 - `tests/fixtures/pages-studio/routes.ts`: the fixture's application-owned registry.

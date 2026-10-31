@@ -12,6 +12,22 @@ import {
 	sanityPortableTextLinkQueryFragment,
 } from '@standard-design/sanity-kit/link'
 import { createSitemapResponse } from '@standard-design/sanity-kit/sitemap'
+import { createSanityUrlResolver } from '@standard-design/sanity-kit/url'
+
+const resolveUrl = createSanityUrlResolver({
+	pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
+})
+assert.deepEqual(resolveUrl({ _type: 'page', pathname: { current: '/' } }), {
+	ok: true,
+	value: { pathname: '/', prefix: '/', slug: '' },
+})
+assert.deepEqual(
+	resolveUrl({ _type: 'page', pathname: { current: '/about/' } }),
+	{
+		ok: false,
+		reason: 'noncanonical-path',
+	},
+)
 
 // TypeGen uses CommonJS-style module resolution to read ESM source statically.
 assert.ok(

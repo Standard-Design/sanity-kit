@@ -161,7 +161,7 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|pages|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
+			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|pages|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
@@ -191,6 +191,7 @@ for (const required of [
 	'docs/image.md',
 	'docs/image-react.md',
 	'docs/link.md',
+	'docs/url.md',
 	'docs/pages.md',
 	'docs/pages-design-proposals.md',
 	'docs/redirects-design.md',
@@ -611,6 +612,7 @@ async function checkBrowserBundles(cwd, full) {
 		'/core',
 		'/link',
 		'/sitemap',
+		'/url',
 		...(full
 			? ['/image', '/image/react', '/react-router', '/validation/zod']
 			: []),

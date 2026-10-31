@@ -241,6 +241,10 @@ internal compiled paths are not public APIs.
 The [documentation index](docs/README.md) explains shared terms and application
 ownership. Each subsystem guide covers its options, failure behavior, and tests.
 
+Local development builds also include the unreleased `/studio` Pages plugin and
+the framework-independent [`/url` resolver](docs/url.md). The latter derives URL
+parts using the same registration; neither entry is in npm version alpha.5.
+
 ## Development and verification
 
 ```sh
