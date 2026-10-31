@@ -8,8 +8,11 @@ The implementation supplies **private validation and planning functions** in
 `src/studio/folders/planner.ts` and a **private read layer** in
 `src/studio/folders/load.ts`. The planner works on supplied records and returns a
 proposed change. The read layer can fetch the evidence needed by those plans.
-Neither writes Sanity, registers a Studio schema, adds folder controls, or changes
-the current navigator. There is no public package export for these functions yet.
+The new **private additive writer** in `src/studio/folders/write.ts` is prepared
+for review. It connects reads and plans to explicit create and synchronize actions.
+It can save new folder records but cannot remove folders or change page URLs.
+None of these modules registers a Studio schema, adds controls, or changes the
+current navigator. There is no public package export for these functions yet.
 
 The broader editor behavior is described in [Pages](./pages.md) and the
 [Pages design decisions](./pages-design-proposals.md). The shared route
@@ -33,10 +36,10 @@ project and dataset. That project/dataset serves one website:
 ```
 
 Sanity supplies `_rev` on an existing document. The planner requires that revision
-so a future writer can detect changes made after the registry was read. A folder's
+so the writer can detect changes made after the registry was read. A folder's
 `_key` stays stable when other folders are added or removed. Keys must contain
 1–128 letters, digits, underscores, or hyphens. The caller supplies keys for new
-records; a future writer can use UUIDs. The planner rejects duplicate keys rather
+records; the writer uses `crypto.randomUUID()`. The planner rejects duplicate keys rather
 than replacing another folder.
 
 The registry ID is always `sanityKit.folders`. There is no site identifier or
@@ -51,8 +54,9 @@ is a separate editing behavior.
 
 The dotted document ID is intended for authenticated organizational metadata.
 Hiding a schema from menus is not access control. This slice installs no schema,
-permission policy, or writer, so those protections still require implementation
-and verification. The intended lifecycle is immediate organizational updates,
+or permission policy. The writer uses the supplied client's credentials; Sanity
+enforces its write permissions. Studio access and schema integration still need
+implementation and verification. Its lifecycle is immediate organizational updates,
 without drafts or publication. Frontend rendering does not need this registry.
 
 ## Collections and ordinary folders
@@ -191,9 +195,9 @@ never adopts inferred folders. Cancellation and request failures never become an
 empty registry or a successful emptiness check.
 
 The returned registry contains only the planner's owned fields and `_rev`.
-Additional source metadata is left untouched but is not returned. A future writer
-must use targeted patches that preserve unknown document and folder metadata, not
-replace records with this snapshot. A single request reduces separate-read drift;
+Additional source metadata is left untouched but is not returned. The additive
+writer appends missing records instead of replacing existing records with this
+snapshot. A single request reduces separate-read drift;
 it does not lock documents against later changes. Successful reads cannot prove
 ACL visibility or make a future removal race-free.
 
@@ -202,38 +206,101 @@ ACL visibility or make a future removal race-free.
 These are conservative implementation-review defaults, not Sanity platform
 limits or a performance promise:
 
-| Limit                                              | Value   |
-| -------------------------------------------------- | ------- |
-| Saved folders in the configured project/dataset    | 1,000   |
-| Characters in a pathname                           | 2,048   |
-| UTF-8 bytes in the planner's owned registry fields | 512,000 |
-| Raw document versions supplied to one inventory    | 10,000  |
+| Limit                                               | Value   |
+| --------------------------------------------------- | ------- |
+| Saved folders in the configured project/dataset     | 1,000   |
+| Characters in a pathname                            | 2,048   |
+| UTF-8 bytes in the planner's owned registry fields  | 512,000 |
+| UTF-8 bytes in the writer's serialized request body | 512,000 |
+| Raw document versions supplied to one inventory     | 10,000  |
 
 Existing records and proposed additions must fit these bounds. Over-limit
 inventories must fail rather than truncate. Larger sites need a deliberate storage
 and inventory design before these limits can be raised. The byte check covers the
-fields returned by the planner; a future writer must also account for the actual
-stored document and mutation payload.
+fields returned by the planner. The writer separately checks its request body,
+including revision and patch overhead. Neither bound measures unrelated metadata
+already stored on the registry; Sanity still enforces its own document limits.
 
-## What a persistence slice must still do
+## Saving new folders and adopting existing paths
 
-The plan is not an executable Sanity mutation. A future writer must check access,
-read a complete inventory when required, validate the plan, and apply the correct
-atomic write. Initial creation must fail if the registry already exists. An update
-must require the expected `_rev`; a stale revision requires a new read and plan.
+The private `createFolderWriter({routes}, client)` returns two explicit actions:
 
-`document` contains only owned registry fields. Source records are left intact,
-but unrelated metadata is not copied into the returned plan. A writer must patch
-the intended fields and preserve unrelated metadata, including any additional
-fields on existing folder records. It must never replace an existing document
-with this reduced object or blindly replace its folder array. It must also treat
-an uncertain network outcome as uncertain and reconcile it before retrying.
+- `create({pathname, readAccess, signal?})` saves the requested folder and any
+  missing ancestors. Its input must already be canonical.
+- `synchronize({readAccess, signal?})` saves folders implied by registered page
+  URLs and collection-group ancestors. It only adds records; it never prunes
+  folders that no longer have pages.
+
+Both use the same `readAccess` assertion as the reader. Unknown access refuses
+the operation. The client must configure a concrete dataset name; dataset aliases
+are not supported by this private writer. Constructing it does not read or write anything. Each
+action loads new evidence and runs the planner itself; callers cannot submit
+arbitrary plans for execution. The supplied routes are copied at construction.
+Settings changes require a new writer with newly resolved routes.
+
+If the registry is absent, the writer uses strict `create`. It never uses
+`createIfNotExists`, which could silently succeed without adding the desired
+folders when another editor creates the singleton first. For an existing registry,
+the writer checks its exact `_rev` and appends only new records. Existing array
+items, keys, and unrelated document or item metadata remain untouched. An action
+with nothing to add returns `unchanged` without sending a mutation. This describes
+the read snapshot, not a guarantee that the dataset cannot change afterward.
+
+The mutation uses the dated API and `visibility: 'sync'`, so a confirmed result
+waits for Sanity's ordinary query visibility. It requests identifiers rather than
+document bodies, disables SDK mutation retries per request, and overrides inherited
+framework cache hints with `no-store`. These choices are verified against the
+installed SDK transport. Custom request handlers and proxies can still override
+transport behavior; applications must not add hidden write retries.
+
+Sanity's revision check rejects a stale registry update atomically. The writer
+does not retry or merge after that rejection; the caller must obtain a new result.
+The single strict create or guarded patch is the entire transaction. No document
+URL, collection setting, redirect, or published page changes with it. See
+[Sanity transactions](https://www.sanity.io/docs/content-lake/transactions) and
+[the mutation API](https://www.sanity.io/docs/http-reference/mutation).
+
+## Results and uncertain outcomes
+
+The writer returns explicit states:
+
+| Status            | Meaning                                                                                                                    |
+| ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
+| `written`         | Sanity acknowledged the expected registry mutation. Includes its transaction ID and added keys/paths.                      |
+| `unchanged`       | The fresh read showed no missing folders. No mutation was sent.                                                            |
+| `unavailable`     | Reading failed, access was not confirmed, or cancellation happened before mutation dispatch. Includes the reader's reason. |
+| `invalid`         | Planning or request-size validation refused the action. No mutation was sent.                                              |
+| `rejected`        | A recognized API rejection reports a conflict, permission failure, or rejected request. No automatic retry follows.        |
+| `outcome-unknown` | A mutation was attempted but its result could not be confirmed. Includes the attempted added keys/paths.                   |
+
+A timeout, lost response, cancellation after dispatch, server error, or malformed
+acknowledgment can leave the outcome unknown. The write may have succeeded. The
+writer also treats timeout/client-closed HTTP statuses as uncertain rather than
+assuming they prove rejection. Conversely, a valid acknowledgment remains
+`written` even if cancellation arrives just afterward. The result never claims
+that cancellation undid a committed mutation. See
+[Sanity's cancellation guidance](https://www.sanity.io/docs/apis-and-sdks/js-client-advanced#cancel-with-an-abort-signal).
+
+Do not blindly retry an uncertain result. Read the registry again and reconcile
+the returned keys and paths with the current data; a delayed or stale query alone
+cannot prove the first operation failed. The private writer does not yet provide
+an automated reconciliation workflow or UI. Its reported transaction ID is only
+available after a valid acknowledgment.
+
+Tests in `tests/studio/folders-write.test.ts` cover result handling, size bounds,
+and SDK retry behavior. `tests/studio/folder-persistence.integration.test.ts` runs
+actual GROQ and the native client against local fixtures to exercise additive
+adoption, metadata preservation, and concurrent registry changes. These are
+offline tests, not live dataset acceptance.
+
+## What remains before editor integration
 
 A registry revision check only protects the registry. It does not stop another
 writer from creating a page in a folder after the occupancy check. The persistence
 design still needs coordinated URL changes, appropriate permissions, freshness
 checks, and a policy for external writers. This slice does not claim database-wide
-uniqueness or race-free empty-folder removal.
+uniqueness or race-free empty-folder removal. For this reason the writer has no
+remove action, even though the pure planner can describe one.
 
 Folder rename, moving descendants, redirect creation, UI actions, private-schema
 registration, and live acceptance tests remain separate work. These planners use

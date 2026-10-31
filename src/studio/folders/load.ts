@@ -1,7 +1,8 @@
 /**
  * Read the evidence used by private folder plans. This is deliberately separate
  * from the navigator, which reads an effective perspective and can hide versions.
- * No read adopts folders, changes documents, or authorizes a later write.
+ * No read adopts folders, changes documents, or authorizes a later write. The
+ * separate write.ts service uses these reads for explicit create/sync actions.
  * See docs/folders.md for scope, access assertions, and snapshot limitations.
  */
 import { defineQuery } from 'groq'

@@ -1,5 +1,6 @@
 /**
- * Private, pure plans for the future persistent-folder service. Folder records
+ * Private, pure plans used by the additive folder writer and future removal UI.
+ * Folder records
  * keep empty editor folders visible; page URLs still determine page placement.
  * A plan is not a mutation or proof that a later write is safe. See docs/folders.md.
  */
@@ -43,7 +44,7 @@ export interface FolderPlan {
 	readonly guard:
 		| { readonly kind: 'absent' }
 		| { readonly kind: 'revision'; readonly revision: string }
-	/** Owned registry fields only; a future writer must not replace unrelated fields. */
+	/** Owned fields only; write.ts appends additions without replacing existing metadata. */
 	readonly document: FolderRegistryData
 	readonly added: readonly FolderRecord[]
 	readonly removed: readonly FolderRecord[]

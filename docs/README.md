@@ -57,10 +57,11 @@ discarding stale asynchronous results.
 
 [Folders](folders.md) explains the approved private registry planner: saved
 folder records, explicit adoption from existing URLs, and empty-only removal.
-The planner returns proposed changes; persistence and editor controls are still
-separate work.
-Its private read layer is now approved. It loads registry records and raw
-document versions for planning, without changing any content.
+The planner returns proposed changes. Its approved read layer loads registry
+records and raw document versions for planning. A private writer for folder
+creation and explicit synchronization is now under review: it saves only new
+folder records and preserves existing metadata. Removal, rename, and editor
+controls remain separate work.
 
 [Collection routing settings](collection-routing.md) covers the approved private
 prefix resolver. It selects published or draft settings and produces the
@@ -69,7 +70,7 @@ loader reads the configured settings IDs and checks the response
 before resolving routes. Studio controls remain later work.
 
 [Redirects](redirects.md) covers approved private snapshot validation and lookup,
-plus a published-rule loader now under review. The loader validates the fetched
+plus the approved published-rule loader. The loader validates the fetched
 snapshot before returning lookup results. The broader [redirect design](redirects-design.md)
 still describes future caching, HTTP handling, editor controls, and publication
 coordination.

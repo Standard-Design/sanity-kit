@@ -627,7 +627,7 @@ folder decisions on October 30 and 31. Earlier sketches are preserved, but the
 following decisions describe the selected direction. Explicitly marked proposals still
 need agreement before implementation. This section records design intent, not
 additional working APIs. The navigator is partly implemented; the custom URL
-field and persistence/editor controls for folders and collection prefixes are
+field and editor controls for folders and collection prefixes are
 not implemented yet. The first [shared frontend URL helper](url.md), for fixed-prefix
 registration, is implemented locally and approved. The separate
 [internal authoring preparation](url.md#authoring-preparation-internal) is now
@@ -642,6 +642,9 @@ integrations are still pending. The [Studio generation bridge](url.md#studio-gen
 is also approved as a private foundation.
 The [collection-settings loader](collection-routing.md#loading-settings-from-sanity)
 is approved and reads and validates settings; it is not connected to Studio controls.
+A private [folder writer](folders.md) for creation and explicit synchronization
+is now under review. It adds folder records without changing page URLs. It is
+not connected to the navigator; removal and rename remain future work.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -806,14 +809,16 @@ selection, and folder creation from this field. The resolved URL remains visible
 and copyable. This is an editor-interface restriction, not dataset-level write
 protection. The field and these controls are not implemented yet.
 
-### Persistent folders — agreed October 30, not implemented yet
+### Persistent folders — agreed October 30, editor integration pending
 
 Explicitly created folders should persist even when no pages use them. Removing
 or moving the last page must not remove an explicitly created folder from the
 navigator. The navigator will need to combine saved folder records with folders
 inferred from page URLs, without showing duplicates. An empty folder is
 organizational metadata; it does not create a website page or occupy its index
-URL. The folder schema and persistence operations still need implementation.
+URL. The private creation/synchronization writer is now under review. Schema
+registration, navigator integration, and removal/rename operations remain future
+work.
 
 Approved October 31: use one internal, authenticated-only folder-registry document
 per project/dataset, with stable record identifiers and paths. Its fixed ID is

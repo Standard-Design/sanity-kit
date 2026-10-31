@@ -2,6 +2,11 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add private folder creation and explicit synchronization writes. Preserve
+  existing metadata, guard against registry changes, and distinguish uncertain
+  write outcomes from confirmed saves. No folder removal, page URL changes, or
+  Studio controls are added.
+
 - Add private folder reads for registry metadata and raw document inventories.
   Require explicit visibility, detect overflow, and preserve malformed URL evidence
   for later planner checks. Reads do not adopt folders or authorize writes.

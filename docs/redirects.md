@@ -1,7 +1,7 @@
 # Redirect foundation
 
 Status: the private snapshot foundation was approved on October 31, 2026. The
-private Sanity loader described below is prepared for review. This is
+private Sanity loader described below is also approved. This is
 not a public package entry point, a working Studio feature, or an installed
 website redirect system. The names, record shape, and bounds below describe
 these internal slices; they are not a public API contract. The broader

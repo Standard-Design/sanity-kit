@@ -29,7 +29,12 @@ The private collection-settings loader and folder read layer are approved.
 Both preserve the foundations' perspective and validation rules.
 Reads alone do not establish publication safety or authorize mutations.
 
-The published redirect reader is also implemented for review.
+The published redirect reader is also approved.
+
+A private folder writer for creation and explicit synchronization is now under
+review. It adds records using guarded writes; it does not remove or rename
+folders, change page URLs, or install Studio controls. See [Folders](folders.md)
+for the write results and recovery limits.
 
 The private [Studio generation bridge](url.md#studio-generation-context-internal)
 is implemented and approved. It binds native source and slugify callbacks, returns
