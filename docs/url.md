@@ -18,7 +18,7 @@ The frontend and [Pages tool](pages.md) share one registration and its ownership
 checks. There are no Studio, React, or React Router runtime imports. The helper
 does not fetch documents, load settings, mutate content, or choose an app route.
 This public resolver accepts fixed collection prefixes. A private
-[collection-settings layer](collection-routing.md), now under review, resolves
+[collection-settings layer](collection-routing.md), now approved, resolves
 loaded settings into that same configuration. Settings loading, editor controls,
 and the custom URL field are later work.
 

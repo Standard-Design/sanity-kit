@@ -16,10 +16,14 @@ proposals are explicitly identified. See also
 [the Pages guide](pages.md#design-decisions-and-remaining-work).
 
 The private [folder validation and planning](folders.md) foundation is approved.
-[Collection-settings resolution](collection-routing.md) is implemented for review.
+[Collection-settings resolution](collection-routing.md) is also approved.
 These layers do not yet add schema registration, loaders, persistence, editor
 controls, or publication actions. Their guides explain the exact behavior and
 limits of each slice.
+
+[Redirect snapshot validation](redirects.md) is also implemented for review.
+The integration tests exercise the shared route configuration across these
+foundations without writing to Sanity.
 
 ## Folder storage
 

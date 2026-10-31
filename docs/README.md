@@ -57,10 +57,14 @@ folder records, explicit adoption from existing URLs, and empty-only removal.
 The planner returns proposed changes; persistence and editor controls are still
 separate work.
 
-[Collection routing settings](collection-routing.md) covers the private prefix
-resolver under review. It selects published or draft settings and produces the
+[Collection routing settings](collection-routing.md) covers the approved private
+prefix resolver. It selects published or draft settings and produces the
 same route configuration the existing URL helpers already use. It does not yet
 load settings or connect Studio controls.
+
+[Redirects](redirects.md) covers private snapshot validation and lookup under
+review. The broader [redirect design](redirects-design.md) still describes future
+loading, caching, HTTP handling, editor controls, and publication coordination.
 
 ## Design decisions and remaining proposals
 

@@ -5,6 +5,9 @@
 - Add private collection-settings resolution into the existing route configuration.
   Distinguish published reads from draft coverage; preserve item slugs and independent
   overview URLs. Loading, caching, Studio fields, and publication remain later work.
+- Add private redirect snapshot validation and exact-path lookup. Reject ambiguous
+  rules, chains, cycles, and occupied sources within supplied bounds. No redirect
+  fetching, caching, HTTP responses, editor controls, or public exports yet.
 
 - Add private folder-registry validation and plans for creation, explicit adoption,
   and empty-only removal. Preserve stable keys and return revision/absence guards.

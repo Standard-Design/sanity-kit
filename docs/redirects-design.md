@@ -1,6 +1,9 @@
 # Redirect subsystem — design proposal
 
-Status: proposed on October 31, 2026. **Not implemented or released.** All API
+Status: proposed on October 31, 2026. **Not released.** A private
+[snapshot validator and lookup](redirects.md) is implemented for review; loading,
+caching, HTTP handling, Studio controls, and publication coordination remain
+future work. All API
 names and configuration examples below are candidates for review, not exports
 that consumers can import today. This document does not approve the other open
 [Pages design proposals](pages-design-proposals.md).

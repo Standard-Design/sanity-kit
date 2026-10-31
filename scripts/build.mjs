@@ -77,6 +77,7 @@ for (const file of [
 	'docs/pages.md',
 	'docs/folders.md',
 	'docs/collection-routing.md',
+	'docs/redirects.md',
 	'docs/pages-design-proposals.md',
 	'docs/redirects-design.md',
 	'docs/react-router.md',
