@@ -21,9 +21,14 @@ These layers do not yet add schema registration, loaders, persistence, editor
 controls, or publication actions. Their guides explain the exact behavior and
 limits of each slice.
 
-[Redirect snapshot validation](redirects.md) is also implemented for review.
+[Redirect snapshot validation](redirects.md) is also approved.
 The integration tests exercise the shared route configuration across these
 foundations without writing to Sanity.
+
+The private [Studio generation bridge](url.md#studio-generation-context-internal)
+is implemented for review. It binds native source and slugify callbacks, returns
+candidates, and discards invalidated async results. The field UI must still clear
+displayed candidates, confirm replacement, check conflicts, and apply changes.
 
 ## Folder storage
 
@@ -213,7 +218,8 @@ see [its guide](url.md) for the implemented scope and exact failure reasons.
 
 The successful inner `{pathname, prefix, slug}` shape is agreed. The result
 wrapper and fixed-prefix reason codes are approved and implemented, not yet
-released. Settings-backed resolution is still future work.
+released. Private settings-backed resolution is now approved; settings loading
+and editor/publication controls remain future work.
 
 ## Creation contract
 

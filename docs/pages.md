@@ -633,8 +633,13 @@ registration, is implemented locally and approved. The separate
 [internal authoring preparation](url.md#authoring-preparation-internal) is now
 implemented and approved; it does not yet add the Studio field or save candidates.
 The next [internal conflict-checking layer](url.md#url-conflict-checks-and-native-validation-internal)
-is implemented for review, including a native `options.isUnique` adapter. It is not
+is implemented and approved, including a native `options.isUnique` adapter. It is not
 yet installed on any Studio field.
+
+Private [folder plans](folders.md), [collection-settings resolution](collection-routing.md),
+and [redirect validation](redirects.md) are also approved. Their UI and persistence
+integrations are still pending. The [Studio generation bridge](url.md#studio-generation-context-internal)
+is the next private slice under review.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -788,8 +793,10 @@ still needs the same URL validation and conflict checks as manual editing.
 The private preparation layer now follows the Sanity-compatible generation rules
 agreed October 31 and described in the [URL guide](url.md#generate-follows-sanity-defaults):
 native transliteration, symbol conversion, and truncation, plus async custom
-generators that bypass the default length limit. The Generate button and native
-source/context integration are not implemented yet.
+generators that bypass the default length limit. The private Studio bridge now
+binds native source and slugify context for review and discards invalidated async
+results. It prepares candidates without writing them. The Generate button and
+replacement confirmation UI are not implemented yet.
 
 Support a read-only setting for the entire field, in addition to locking only
 the prefix. Whole-field read-only disables slug editing, generation, folder

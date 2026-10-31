@@ -69,6 +69,7 @@ await assert.rejects(import('@standard-design/sanity-kit/url/authoring.js'), {
 for (const path of [
 	'studio/url/conflicts.js',
 	'studio/url/is-unique.js',
+	'studio/url/generate.js',
 	'studio/folders/planner.js',
 	'url/settings/resolve.js',
 	'redirect/snapshot.js',

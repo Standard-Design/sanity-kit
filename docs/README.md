@@ -51,6 +51,9 @@ work. This entry is not in the current npm release.
 Its guide also covers approved private candidate cleanup and slug generation,
 plus the approved internal conflict-checking/native `isUnique` adapter.
 These layers do not yet add Studio controls or document writes.
+The [Studio generation bridge](url.md#studio-generation-context-internal) is now
+under review: native source/context options, explicit candidate preparation, and
+discarding stale asynchronous results.
 
 [Folders](folders.md) explains the approved private registry planner: saved
 folder records, explicit adoption from existing URLs, and empty-only removal.
@@ -62,8 +65,8 @@ prefix resolver. It selects published or draft settings and produces the
 same route configuration the existing URL helpers already use. It does not yet
 load settings or connect Studio controls.
 
-[Redirects](redirects.md) covers private snapshot validation and lookup under
-review. The broader [redirect design](redirects-design.md) still describes future
+[Redirects](redirects.md) covers approved private snapshot validation and lookup.
+The broader [redirect design](redirects-design.md) still describes future
 loading, caching, HTTP handling, editor controls, and publication coordination.
 
 ## Design decisions and remaining proposals

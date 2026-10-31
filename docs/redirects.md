@@ -1,9 +1,9 @@
 # Redirect foundation
 
-Status: private implementation prepared for review on October 31, 2026. This is
+Status: private implementation approved on October 31, 2026. This is
 not a public package entry point, a working Studio feature, or an installed
-website redirect system. The names, record shape, and bounds below are proposals
-for this first implementation slice. The broader
+website redirect system. The names, record shape, and bounds below describe
+this approved internal slice; they are not a public API contract. The broader
 [redirect design](redirects-design.md) still describes the later work.
 
 ## What this slice does

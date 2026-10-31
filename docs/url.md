@@ -241,12 +241,77 @@ For example, a custom result of `nested/slug` or an encoded slash is rejected ev
 though a native custom slugifier can return arbitrary strings. A custom generator
 can return a safe percent-encoded Unicode segment when desired.
 
-This private helper always returns a promise. It does not yet implement the
-native field's complete `source`/`slugify` API: the later Studio adapter must bind
-schema/context arguments, select the title field or callback, and ignore stale
-async completions after newer edits, document switches, or read-only changes.
-It must also confirm replacement of an existing slug and honor conditional
-read-only settings. Ordinary title edits must not trigger automatic URL changes.
+This private helper always returns a promise. The Studio bridge below now binds
+source selection and native callback arguments for review. The Generate button,
+replacement dialog, and saving workflow remain future work. Ordinary title edits
+must not trigger automatic URL changes.
+
+### Studio generation context (internal)
+
+`src/studio/url/generate.ts` connects the existing generator to a Studio field's
+compiled schema and current document. It is private, implemented for review, and
+not installed in the fixture. It adds no React controls or document writes.
+
+Create one `createUrlGeneration(routes)` controller per mounted field. Supply
+already resolved routes, including any selected collection-settings prefix.
+Call `generate()` only for an explicit editor action, passing:
+
+- `document`: the current form document, including unsaved title edits.
+- `schemaType`: the compiled native slug schema with its `options`.
+- `path`: the native path to the registered slug object, without `current`.
+- `context`: Studio's project, dataset, schema, current user, and `getClient`.
+- `prefix`: the selected page folder or resolved collection prefix.
+- `readOnly`: Studio's evaluated read-only state, including parent restrictions.
+- An optional cancellation `signal`.
+
+The bridge uses the schema's `options.source`, `maxLength`, and `slugify`. Sources
+can be simple or dotted field names, native path arrays, or callbacks. String
+paths resolve from the document root: `seo.title` means that field on the document,
+even when the URL input is nested. For array sources, use a path array such as
+`['translations', {_key: 'english'}, 'title']` or `['names', 0, 'title']`.
+Bracketed string paths and array slice selectors are not supported in this first
+bridge. This avoids depending on Studio's internal string-path parser. Only own
+document properties are read; numeric selectors require an array.
+
+A source callback receives `(document, context)`. A custom slugifier receives
+`(source, schemaType, context)`, with the same context object. The bridge adds
+`parent` and `parentPath`: a root field's parent is the whole document, while a
+nested field's parent is its enclosing object. This follows the native callback
+contract. The registered URL field itself must be a dotted slug-object path;
+array URL fields, unrelated slug fields, and missing nested parents are refused.
+
+Generation always changes the final segment, preserving the supplied prefix.
+The result passes through the existing authoring checks, so a collection cannot
+escape its prefix. Collection documents still store only their slug; ordinary
+pages still store the full pathname. Missing source text is reported without
+calling the custom generator. Source failures, generation failures, invalid
+results, and authoring errors have distinct reasons; no number is silently added
+to resolve a collision.
+
+Success returns `{ok: true, value: candidate, requiresConfirmation}`. The candidate
+contains the existing `{url, fieldPath, storedValue}` shape. Confirmation is
+required when a nonempty current value would change. An identical value needs no
+replacement confirmation. The flag does not display a dialog or grant permission
+to save. Native read-only state prevents generation, as does a static read-only
+schema. Conditional read-only evaluation belongs to Studio, not this helper.
+
+Starting another generation makes older pending results unusable. The input must
+also call `invalidate()` on edits, document or routing-context changes, read-only
+changes, and unmount. These events do not automatically reach this private helper.
+A changed routing context needs a new controller and invalidation of the old one.
+Stale successes and failures return `superseded`; a cancelled request returns
+`aborted`. Cancellation does not forcibly stop application callbacks or their
+network work: a pending callback must settle before this helper returns.
+
+Invalidation cannot revoke a candidate already returned to the caller. The future
+input must clear displayed candidates on those same changes, recheck read-only
+state and URL conflicts before applying, and obtain confirmation when needed.
+This slice neither performs uniqueness reads nor issues patches. The bridge
+itself makes no network requests, though application callbacks can use the native
+`getClient` context. Callback side effects remain application responsibility.
+
+See `tests/studio/url-generation.test.ts` for source/context behavior, collection
+storage, confirmation decisions, cancellation, and competing async requests.
 
 ### What must happen before saving
 

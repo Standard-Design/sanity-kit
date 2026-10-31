@@ -2,6 +2,11 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add a private Studio generation bridge using native source and slugify context.
+  Preserve the selected prefix, mark replacements for confirmation, honor evaluated
+  read-only state, and discard cancelled or invalidated async results. Return
+  candidates only; field controls, conflict reads, and saving remain separate work.
+
 - Add private collection-settings resolution into the existing route configuration.
   Distinguish published reads from draft coverage; preserve item slugs and independent
   overview URLs. Loading, caching, Studio fields, and publication remain later work.

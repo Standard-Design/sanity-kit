@@ -1,7 +1,7 @@
 # Redirect subsystem — design proposal
 
 Status: proposed on October 31, 2026. **Not released.** A private
-[snapshot validator and lookup](redirects.md) is implemented for review; loading,
+[snapshot validator and lookup](redirects.md) is implemented and approved; loading,
 caching, HTTP handling, Studio controls, and publication coordination remain
 future work. All API
 names and configuration examples below are candidates for review, not exports
