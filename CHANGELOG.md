@@ -2,6 +2,10 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add private collection-settings resolution into the existing route configuration.
+  Distinguish published reads from draft coverage; preserve item slugs and independent
+  overview URLs. Loading, caching, Studio fields, and publication remain later work.
+
 - Add private folder-registry validation and plans for creation, explicit adoption,
   and empty-only removal. Preserve stable keys and return revision/absence guards.
   Bound supplied inventories and registry data; refuse incomplete evidence.

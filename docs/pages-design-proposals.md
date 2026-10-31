@@ -9,11 +9,17 @@ approved locally; the editor and persistence workflows below are not. The privat
 [authoring preparation](url.md#authoring-preparation-internal) is implemented and
 approved, with Sanity-compatible generation. The next private
 [conflict-checking layer](url.md#url-conflict-checks-and-native-validation-internal)
-is implemented for review. It uses a native `options.isUnique` adapter and excludes
+is implemented and approved. It uses a native `options.isUnique` adapter and excludes
 all versions of the current document, following Sanity. The field UI and write
 safeguards remain future work. Remaining
 proposals are explicitly identified. See also
 [the Pages guide](pages.md#design-decisions-and-remaining-work).
+
+The private [folder validation and planning](folders.md) foundation is approved.
+[Collection-settings resolution](collection-routing.md) is implemented for review.
+These layers do not yet add schema registration, loaders, persistence, editor
+controls, or publication actions. Their guides explain the exact behavior and
+limits of each slice.
 
 ## Folder storage
 

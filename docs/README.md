@@ -46,18 +46,23 @@ planned URL editing, folder actions, and other features.
 
 [Shared URL resolution](url.md) describes the local-build `/url` entry point:
 derive `{pathname, prefix, slug}` from the same registration without loading
-Studio. Fixed-prefix resolution is implemented; dynamic settings and the input
-field remain future work. This entry is not in the current npm release.
+Studio. Fixed-prefix resolution is implemented; the input field remains future
+work. This entry is not in the current npm release.
 Its guide also covers approved private candidate cleanup and slug generation,
-plus the internal conflict-checking/native `isUnique` adapter now under review.
+plus the approved internal conflict-checking/native `isUnique` adapter.
 These layers do not yet add Studio controls or document writes.
 
-[Folders](folders.md) explains the private registry planner under review: saved
+[Folders](folders.md) explains the approved private registry planner: saved
 folder records, explicit adoption from existing URLs, and empty-only removal.
 The planner returns proposed changes; persistence and editor controls are still
 separate work.
 
-## Design decisions and proposals — not implemented
+[Collection routing settings](collection-routing.md) covers the private prefix
+resolver under review. It selects published or draft settings and produces the
+same route configuration the existing URL helpers already use. It does not yet
+load settings or connect Studio controls.
+
+## Design decisions and remaining proposals
 
 - [Pages contracts and proposals](pages-design-proposals.md): approved folder,
   bulk-change, and field/helper behavior, alongside the remaining implementation

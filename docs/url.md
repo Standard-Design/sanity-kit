@@ -6,7 +6,7 @@ This entry point is available in local builds on the Pages development branch,
 not in the published `0.1.0-alpha.5` package. The fixed-prefix resolver API was
 approved on October 31, 2026, along with the separate internal authoring
 preparation layer. The conflict-checking and native validation adapter described
-below are the next internal slice, awaiting review.
+below are also approved. All remain unreleased.
 
 ## What this does
 
@@ -17,7 +17,9 @@ reads the appropriate field and returns the same three URL parts for either:
 The frontend and [Pages tool](pages.md) share one registration and its ownership
 checks. There are no Studio, React, or React Router runtime imports. The helper
 does not fetch documents, load settings, mutate content, or choose an app route.
-This first version supports fixed collection prefixes. Editor-controlled settings
+This public resolver accepts fixed collection prefixes. A private
+[collection-settings layer](collection-routing.md), now under review, resolves
+loaded settings into that same configuration. Settings loading, editor controls,
 and the custom URL field are later work.
 
 ## Register once, reuse in the app and Studio
@@ -265,7 +267,7 @@ field/settings/folder direction. This helper does not implement those workflows.
 ## URL conflict checks and native validation (internal)
 
 A well-formed URL can still belong to another page. This layer checks that separate
-question before the future field offers a change. It is implemented for review,
+question before the future field offers a change. It is implemented and approved,
 but not connected to the fixture or exported from the package. No existing Studio
 field behaves differently yet, and no documents are changed.
 

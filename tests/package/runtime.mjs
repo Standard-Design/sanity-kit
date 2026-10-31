@@ -70,6 +70,7 @@ for (const path of [
 	'studio/url/conflicts.js',
 	'studio/url/is-unique.js',
 	'studio/folders/planner.js',
+	'url/settings/resolve.js',
 ]) {
 	await assert.rejects(import(`@standard-design/sanity-kit/${path}`), {
 		code: 'ERR_PACKAGE_PATH_NOT_EXPORTED',
