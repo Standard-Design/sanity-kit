@@ -2,6 +2,11 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add private folder-registry validation and plans for creation, explicit adoption,
+  and empty-only removal. Preserve stable keys and return revision/absence guards.
+  Bound supplied inventories and registry data; refuse incomplete evidence.
+  Schema registration, persistence, concurrency coordination, and UI remain later work.
+
 - Add private, read-only URL conflict checks across registered full-path and
   slug-only types. Use raw document versions and Sanity's native self-exclusion,
   with a typed `options.isUnique` adapter for the future field. Bound conflict

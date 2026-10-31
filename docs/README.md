@@ -52,6 +52,11 @@ Its guide also covers approved private candidate cleanup and slug generation,
 plus the internal conflict-checking/native `isUnique` adapter now under review.
 These layers do not yet add Studio controls or document writes.
 
+[Folders](folders.md) explains the private registry planner under review: saved
+folder records, explicit adoption from existing URLs, and empty-only removal.
+The planner returns proposed changes; persistence and editor controls are still
+separate work.
+
 ## Design decisions and proposals — not implemented
 
 - [Pages contracts and proposals](pages-design-proposals.md): approved folder,
