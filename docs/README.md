@@ -48,6 +48,8 @@ planned URL editing, folder actions, and other features.
 derive `{pathname, prefix, slug}` from the same registration without loading
 Studio. Fixed-prefix resolution is implemented; dynamic settings and the input
 field remain future work. This entry is not in the current npm release.
+Its guide also covers the private authoring preparation layer now under review:
+candidate cleanup and slug generation, without Studio controls or document writes.
 
 ## Design decisions and proposals — not implemented
 

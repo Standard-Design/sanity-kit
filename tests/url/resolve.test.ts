@@ -233,6 +233,8 @@ describe('shared URL resolution', () => {
 			metafile: true,
 		})
 		for (const path of Object.keys(bundle.metafile.inputs)) {
+			expect(path).not.toMatch(/src\/url\/authoring\.ts$/u)
+			expect(path).not.toMatch(/node_modules\/speakingurl\//u)
 			expect(path).not.toMatch(/src\/studio\//u)
 			expect(path).not.toMatch(
 				/node_modules\/(?:sanity|react|react-dom|react-router|@sanity\/ui)\//u,

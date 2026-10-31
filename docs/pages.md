@@ -629,7 +629,9 @@ need agreement before implementation. This section records design intent, not
 additional working APIs. The navigator is partly implemented; the custom URL
 field, persistent folders, and dynamic collection prefixes are not implemented
 yet. The first [shared frontend URL helper](url.md), for fixed-prefix
-registration, is now implemented locally and under API review.
+registration, is implemented locally and approved. The separate
+[internal authoring preparation](url.md#authoring-preparation-internal) is now
+implemented for review; it does not yet add the Studio field or save candidates.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -657,7 +659,7 @@ homepage result was agreed as `{pathname: '/', prefix: '/', slug: ''}`; empty
 collection-item slugs remain invalid. Resolution must distinguish missing data,
 invalid data, and unavailable routing settings. The first fixed-prefix helper's
 name, result wrapper, and reason codes are documented in [the URL guide](url.md)
-for implementation approval. Settings-unavailable behavior remains future work.
+with the approved API. Settings-unavailable behavior remains future work.
 
 Also approved: pure URL resolution against already loaded routing settings. The
 caller loads the appropriate published/preview context separately, allowing reuse
@@ -778,6 +780,12 @@ registration rather than repeat prefix configuration in every subsystem.
 Ordinary title edits must not silently regenerate an existing URL. Generation
 still needs the same URL validation and conflict checks as manual editing.
 
+The private preparation layer now follows the Sanity-compatible generation rules
+agreed October 31 and described in the [URL guide](url.md#generate-follows-sanity-defaults):
+native transliteration, symbol conversion, and truncation, plus async custom
+generators that bypass the default length limit. The Generate button and native
+source/context integration are not implemented yet.
+
 Support a read-only setting for the entire field, in addition to locking only
 the prefix. Whole-field read-only disables slug editing, generation, folder
 selection, and folder creation from this field. The resolved URL remains visible
@@ -818,10 +826,11 @@ different bulk URL-change operation, not simple folder removal. It can create
 conflicting paths and affect published URLs. It is not part of the approved
 empty-folder removal workflow.
 
-### URL cleanup — agreed October 29, not implemented yet
+### URL cleanup — agreed October 29, field integration pending
 
-The planned URL field will clean up separator mistakes when an editor finishes
-editing: collapse repeated slashes and remove trailing slashes, while preserving
+The internal preparation layer can now propose separator cleanup, but it is not
+connected to Studio yet. The planned URL field will clean up mistakes when an
+editor finishes editing: collapse repeated slashes and remove trailing slashes, while preserving
 the site root `/`. For example, `/about//team/` becomes `/about/team`. Show the
 resulting value in the field and check for a conflicting page URL before applying
 the change. This does not allow nested slugs in collection fields: those still
@@ -880,7 +889,7 @@ must not become editor-renamable through this workflow.
   race handling, size bounds, recovery, and cache/redirect coordination. The
   URL-only write policy and initial release-version refusal are agreed.
 - **Detailed APIs:** settle function/configuration names, result wrappers and
-  error codes, Unicode/generation defaults, and template parameters. The root
+  error codes and template parameters. Sanity-compatible generation is now agreed. The root
   value, pure resolution, configurable title source and slug generation, explicit
   failure categories, and one-versus-many chooser behavior are agreed.
 - **Redirect defaults:** review the defaults and integration gates in the separate

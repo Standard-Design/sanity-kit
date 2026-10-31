@@ -3,8 +3,9 @@
 Import from `@standard-design/sanity-kit/url`.
 
 This entry point is available in local builds on the Pages development branch,
-not in the published `0.1.0-alpha.5` package. Its API is part of the current
-implementation review.
+not in the published `0.1.0-alpha.5` package. The fixed-prefix resolver API was
+approved on October 31, 2026. The authoring layer described below is a separate,
+internal implementation awaiting review.
 
 ## What this does
 
@@ -148,6 +149,112 @@ handles exact exclusions, not route patterns.
 - `tests/url/resolve.test.ts` covers storage modes, root, nested prefixes,
   malformed data, mutation isolation, Studio parity, and browser dependencies.
 - Package fixtures exercise the `/url` export without installing Studio.
+
+## Authoring preparation (internal)
+
+Reading a URL and editing a URL are different jobs. The public resolver never
+changes stored data. The new private authoring layer can prepare a candidate for
+an explicit editor action, without applying that candidate to a document.
+
+This is the engine for the forthcoming URL field, not the field itself. Nothing
+is connected to Studio inputs yet. These helpers are not public exports, and
+consumers should not import their compiled paths.
+
+### What a candidate contains
+
+The preparation result includes the resolved `{pathname, prefix, slug}`, the
+registered string-field path, and the string that would be stored there:
+
+- A page at `/about/team` produces `pathname.current` and `/about/team` when
+  that is the app's configured field mapping.
+- A slug-only post at `/journal/story` produces `slug.current` and `story`.
+- An existing full-path collection item still stores its complete pathname.
+
+The three resolved URL parts are never written as three separate fields.
+Preparation respects excluded paths, overview ownership, and collection
+boundaries. It refuses mappings into reserved document metadata such as `_id`.
+Configured collection prefixes must already be canonical; authoring setup rejects
+noncanonical prefixes rather than silently changing application configuration.
+
+### Folder and slug editing
+
+For ordinary pages, preparation combines the selected folder with one final
+segment. For slug-only items, that folder must equal the registered collection
+prefix. Legacy full-path items may retain nested folders beneath their collection
+prefix, but cannot move outside it.
+
+An empty final segment is accepted only for the homepage at `/`. To create an
+index page at `/about`, the later folder action can prepare the complete value
+`/about`; its canonical parts are prefix `/` and slug `about`. Clearing the final
+segment of an ordinary child page does not silently turn it into an index page.
+
+### Separator cleanup
+
+Whole-path preparation turns `/about//team/` into `/about/team`. It also cleans
+the selected folder before joining it to a final segment. It does not clean a
+collection slug into a different slug: `story/` and `two/segments` are invalid.
+
+Only literal internal repeated slashes and trailing slashes are repaired. The
+layer rejects leading `//` (which can mean another host), dot segments, encoded
+separators, query strings, hashes, whitespace, and invalid escapes. It does not
+invent a leading slash, decode a path, or trim malformed path text. Root `/`
+stays `/`.
+
+This cleanup does not run when viewing documents and does not migrate existing
+content. The future field must display the candidate and check conflicts before
+applying it.
+
+### Generate follows Sanity defaults
+
+Approved October 31: use Sanity's native generation behavior rather than a
+separate kit-specific Unicode or length policy. The implementation uses the same
+`speakingurl` dependency and options as Sanity 6.17.0: `symbols: true` and
+`truncate: maxLength`, with a default of 200.
+It is a direct kit dependency, not an undeclared reliance on Studio's transitive
+dependencies. The public URL resolver does not import or bundle it.
+
+Examples: `Hello World` becomes `hello-world`, `Café` becomes `cafe`, and
+`Research & Development` becomes `research-and-development`. Transliteration,
+punctuation, underscores, and word-boundary truncation all follow that library;
+the kit does not add its own normalization or percent-encoding step. Some scripts
+produce no slug with the default generator, so an application can supply a custom
+generator when needed.
+
+Long generated values are shortened using native truncation, not rejected for
+exceeding a separate encoded-length limit. This is not a simple character slice:
+the result may be shorter than `maxLength`. The limit affects default generation,
+not existing manual values. No numeric collision suffixes are added.
+
+A custom generator receives the Stega-clean source text unchanged, including
+outer whitespace. It may return a string or a promise. As in Sanity, a custom
+generator bypasses `maxLength` and is not passed through the default generator
+again. Synchronous throws and rejected promises give a generation failure.
+See [Sanity's slug options](https://www.sanity.io/docs/studio/slug-type).
+
+Generation and URL validation remain separate. The kit removes Stega for URL
+comparison and requires a nonempty, safe single segment from either generator.
+For example, a custom result of `nested/slug` or an encoded slash is rejected even
+though a native custom slugifier can return arbitrary strings. A custom generator
+can return a safe percent-encoded Unicode segment when desired.
+
+This private helper always returns a promise. It does not yet implement the
+native field's complete `source`/`slugify` API: the later Studio adapter must bind
+schema/context arguments, select the title field or callback, and ignore stale
+async completions after newer edits, document switches, or read-only changes.
+It must also confirm replacement of an existing slug and honor conditional
+read-only settings. Ordinary title edits must not trigger automatic URL changes.
+
+### What must happen before saving
+
+A valid candidate is not permission to write. The field must still enforce
+read-only state and permissions, check full-path occupancy across registered
+types, and preserve the agreed folder metadata. Published URL changes also need
+the reviewed redirect/publication workflow. None of those checks, writes, or UI
+controls are introduced by this slice. There is no uniqueness guarantee.
+
+The private implementation is `src/url/authoring.ts`; its tests are in
+`tests/url/authoring.test.ts`. The public resolver and existing Studio navigation
+are unchanged. The public `/url` entry does not import the authoring module.
 
 The [Pages design decisions](pages-design-proposals.md) describe the broader
 field/settings/folder direction. This helper does not implement those workflows.

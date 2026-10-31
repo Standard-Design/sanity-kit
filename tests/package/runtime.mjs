@@ -63,6 +63,9 @@ await assert.rejects(
 	import('@standard-design/sanity-kit/dist/react-router/server/index.js'),
 	{ code: 'ERR_PACKAGE_PATH_NOT_EXPORTED' },
 )
+await assert.rejects(import('@standard-design/sanity-kit/url/authoring.js'), {
+	code: 'ERR_PACKAGE_PATH_NOT_EXPORTED',
+})
 
 if (process.argv.includes('--full')) {
 	const { createElement } = await import('react')

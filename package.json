@@ -84,7 +84,8 @@
 		"verify": "pnpm format:check && pnpm build && pnpm lint && pnpm typecheck && pnpm test"
 	},
 	"dependencies": {
-		"@sanity/asset-utils": "^2.3.0"
+		"@sanity/asset-utils": "^2.3.0",
+		"speakingurl": "^14.0.1"
 	},
 	"peerDependencies": {
 		"@sanity/icons": "^5.2.2",
@@ -155,6 +156,7 @@
 		"@types/node": "^24.0.0",
 		"@types/react": "^19.3.0",
 		"@types/react-dom": "^19.3.0",
+		"@types/speakingurl": "^13.0.6",
 		"@vitest/coverage-v8": "^5.0.1",
 		"esbuild": "^0.28.2",
 		"eslint": "10.10.0",

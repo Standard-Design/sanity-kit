@@ -2,6 +2,14 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add private URL-authoring preparation for the future Studio field: return
+  storage-aware candidates, clean literal internal/trailing separators, and
+  preserve collection boundaries without writing data. Match Sanity's default
+  `speakingurl` generation and truncation; support async custom generators that
+  bypass `maxLength`, followed by separate URL-safety validation. Do not add
+  collision suffixes. Keep these helpers outside public exports;
+  the input UI, conflict checks, and persistence remain subsequent work.
+
 - Add the framework-independent `/url` entry with `createSanityUrlResolver()`.
   Reuse Pages registration to derive `{pathname, prefix, slug}` from full paths
   or fixed-prefix collection slugs, with explicit failure results and no fetching

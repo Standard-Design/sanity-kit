@@ -4,8 +4,10 @@ Prepared October 30, 2026; approvals updated October 31. The folder-storage and
 synchronization direction, reviewed folder-rename policy, collection-prefix
 preview/publication lifecycle, and the field/helper/creation behavior described
 below are now approved. **They are not implemented features or finalized public
-APIs.** The initial fixed-prefix [URL resolver](url.md) is now implemented locally
-for API review; the editor and persistence workflows below are not. Remaining
+APIs.** The initial fixed-prefix [URL resolver](url.md) is now implemented and
+approved locally; the editor and persistence workflows below are not. The private
+[authoring preparation](url.md#authoring-preparation-internal) is implemented for
+review, with Sanity-compatible generation now agreed. Remaining
 proposals are explicitly identified. See also
 [the Pages guide](pages.md#design-decisions-and-remaining-work).
 
@@ -158,8 +160,8 @@ Approved October 31: one field factory sharing routing registration, a configura
 title source and slug generator, shared validation without silent numeric suffixes,
 pure resolution against separately loaded settings, explicit success/failure
 outcomes, and the root representation below. Function names and exact TypeScript
-shapes require implementation approval. The initial fixed-prefix resolver now
-uses `createSanityUrlResolver()` from `/url` and the `ok`/`value` result below;
+shapes require implementation approval except for the approved fixed-prefix
+resolver. It uses `createSanityUrlResolver()` from `/url` and the `ok`/`value` result below;
 see [its guide](url.md) for the implemented scope and exact failure reasons.
 
 - **One field factory:** resolve the storage mode and prefix source from shared
@@ -171,8 +173,11 @@ see [its guide](url.md) for the implemented scope and exact failure reasons.
   silently migrate existing strings or introduce a three-value stored URL object.
 - **Title source:** accept a field path such as `title` or `name`, or a callback
   when the name is composed from multiple fields. Permit a custom slugifier.
-- **Generation:** propose lowercase, hyphen-separated segments, a defined Unicode
-  policy, and shared final validation. Present the candidate before replacing a
+- **Generation:** agreed October 31 to follow native Sanity generation: use
+  `speakingurl`, symbol conversion, and native truncation (200 by default).
+  Custom generators may be async and bypass `maxLength`; all results still pass
+  kit URL-safety validation. See the [detailed rules](url.md#generate-follows-sanity-defaults).
+  Present the candidate before replacing a
   nonempty value; never append a number silently to resolve a collision. Ordinary
   title changes do not regenerate URLs. Empty names produce helpful feedback.
 - **Read-only:** honor the native field's static or conditional read-only state
@@ -182,19 +187,19 @@ see [its guide](url.md) for the implemented scope and exact failure reasons.
   return a result. Loading settings is a separate operation so callers can cache
   once and choose the correct published/preview perspective explicitly.
 - **Successful result:** the agreed value is `{pathname, prefix, slug}`; the
-  proposed wrapper is `{ok: true, value: {pathname, prefix, slug}}`.
+  approved wrapper is `{ok: true, value: {pathname, prefix, slug}}`.
   For `/about`, use `{pathname: '/about', prefix: '/', slug: 'about'}`. For the
   homepage, use `{pathname: '/', prefix: '/', slug: ''}`; empty collection
   item slugs remain invalid.
 - **Unsuccessful result:** distinguish missing values, invalid values, and
-  unavailable routing. The proposed wrapper is `{ok: false, reason: ...}`.
+  unavailable routing. The approved wrapper is `{ok: false, reason: ...}`.
   Do not fabricate a URL. Reverse lookup must also distinguish not-found from
   ambiguous matches. Consumers decide
   whether to render a warning, omit a link, or return an HTTP error.
 
 The successful inner `{pathname, prefix, slug}` shape is agreed. The result
-wrapper and fixed-prefix reason codes are implemented in the current slice for
-review, not yet released. Settings-backed resolution is still future work.
+wrapper and fixed-prefix reason codes are approved and implemented, not yet
+released. Settings-backed resolution is still future work.
 
 ## Creation contract
 
@@ -225,9 +230,10 @@ implementation. Ordinary document IDs remain Sanity-generated.
 - Settings registration/schema and any optional overview shortcut. Draft preview
   followed by reviewed publication is decided; action and cache coordination need
   implementation design.
-- Function names, result wrappers/reason codes, slug-generation defaults including
-  Unicode, and template parameters. The shared result, root value, configurable
-  sources, and chooser behavior are decided.
+- Field/settings API names, their failure codes, template parameters, and native
+  source/context integration. The fixed-prefix resolver API, root value,
+  Sanity-compatible generation behavior, configurable sources, and chooser
+  behavior are decided.
 - Publication/redirect/cache integration and its acceptance gates. The separate
   [redirect design](redirects-design.md) now covers this subsystem; acknowledging
   that design is not approval of every proposed status, query, or failure default.
