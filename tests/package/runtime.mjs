@@ -75,6 +75,7 @@ for (const path of [
 	'url/settings/resolve.js',
 	'url/settings/load.js',
 	'redirect/snapshot.js',
+	'redirect/load.js',
 ]) {
 	await assert.rejects(import(`@standard-design/sanity-kit/${path}`), {
 		code: 'ERR_PACKAGE_PATH_NOT_EXPORTED',

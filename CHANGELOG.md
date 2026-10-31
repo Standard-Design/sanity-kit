@@ -7,6 +7,11 @@
   for later planner checks. Reads do not adopt folders or authorize writes.
   Remove folder `site` configuration and use the fixed `sanityKit.folders` registry
   in the configured Sanity project/dataset.
+- Add private published redirect loading with bounded queries and validated snapshots.
+  Include disabled history, handle cancellation, and override inherited caching.
+  Remove redirect `site` configuration; the configured project/dataset defines
+  the website's redirect rules.
+  HTTP responses, cache adapters, and Studio integration remain later work.
 
 - Add a private collection-settings loader with exact-ID reads, explicit draft
   visibility, bounded responses, and cancellation. Bypass CDN and inherited fetch

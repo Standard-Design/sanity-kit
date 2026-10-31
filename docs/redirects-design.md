@@ -1,9 +1,9 @@
 # Redirect subsystem — design proposal
 
 Status: proposed on October 31, 2026. **Not released.** A private
-[snapshot validator and lookup](redirects.md) is implemented and approved; loading,
-caching, HTTP handling, Studio controls, and publication coordination remain
-future work. All API
+[snapshot validator and lookup](redirects.md) is implemented and approved. A private
+published-rule loader is now under review; caching, HTTP handling, Studio controls,
+and publication coordination remain future work. All API
 names and configuration examples below are candidates for review, not exports
 that consumers can import today. This document does not approve the other open
 [Pages design proposals](pages-design-proposals.md).
@@ -38,7 +38,7 @@ existing published items, not a rule that captures every possible old-prefix URL
 
 | Part                     | Kit responsibility                                              | Consumer responsibility                                                      |
 | ------------------------ | --------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Pure redirect logic      | Validate rules, detect cycles, build an index, match a pathname | Supply site scope and reserved-path policy                                   |
+| Pure redirect logic      | Validate rules, detect cycles, build an index, match a pathname | Supply reserved-path and destination policy                                  |
 | Sanity loading           | Fetch a complete published rule set, validate it before use     | Supply a configured client and access policy                                 |
 | Cache integration        | Define the read-through contract and invalidation events        | Supply storage, expiry, cross-instance invalidation, and availability policy |
 | React Router integration | Convert decisions using router-aware response semantics         | Install it in the relevant request paths                                     |
@@ -63,7 +63,6 @@ Use one ordinary Sanity document per rule. A proposed minimum record is:
 ```json
 {
 	"_type": "sanityKitRedirect",
-	"site": "main",
 	"source": "/about/team",
 	"destination": "/company/team",
 	"status": 301,
@@ -72,9 +71,10 @@ Use one ordinary Sanity document per rule. A proposed minimum record is:
 }
 ```
 
-`site` is a stable application-configured scope, not a value trusted from an
-arbitrary Host header. Scope uniqueness by project, dataset, and site. A locale
-can be part of the pathname; multi-domain policies need explicit site mappings.
+The initial kit supports one website per configured Sanity project/dataset.
+There is no separate `site` field or discriminator. Source-path uniqueness applies
+across that dataset's redirect documents. A locale can be part of the pathname;
+multi-site routing is deferred until there is a concrete requirement.
 
 Use Sanity-generated document IDs, not IDs derived from source URLs. Sanity
 document revisions support concurrency checks. Optional operation IDs and weak
@@ -111,7 +111,7 @@ path. Site-wide slash/case normalization remains the consumer's responsibility.
 
 Before activation:
 
-- Allow at most one enabled published source per site, across manual and generated
+- Allow at most one enabled published source per dataset, across manual and generated
   rules. Disabled records may retain old values for history.
 - Reject source equal to destination, loops, unsupported statuses, and invalid paths.
 - Reject sources that are current published page URLs or reserved app endpoints,
@@ -206,7 +206,7 @@ a validated index and pathname; it has no network or storage dependency.
 
 The recommended integration order is:
 
-1. Determine trusted site scope and preview/session state.
+1. Use the application's configured project/dataset and determine preview/session state.
 2. Bypass non-GET/HEAD methods, preview traffic, and reserved paths.
 3. Resolve an exact rule using a validated published snapshot.
 4. If matched, return the redirect; otherwise continue normal routing.
@@ -261,7 +261,7 @@ interface ProposedRedirectCache {
 }
 ```
 
-`RedirectCacheContext` would contain trusted project, dataset, site, API version,
+`RedirectCacheContext` would contain trusted project, dataset, API version,
 and query/schema version identifiers, not credentials or arbitrary query strings.
 This is a design sketch, not a declaration currently available in the package.
 
@@ -272,7 +272,7 @@ records again, and compiles its lookup index after that boundary. Store serializ
 raw rule data and snapshot metadata, not a JavaScript Map, Response, or transformed
 decoder result. A corrupt hit raises an error; recovery/eviction is explicit.
 
-Cache keys must isolate project, dataset, site, API/query/schema version, and any
+Cache keys must isolate project, dataset, API/query/schema version, and any
 configured rule-source variant. Cache only published records. A null key bypasses
 caching; an omitted adapter fetches directly. Preview bypasses the public resolver
 by default, so it does not read or write this cache at all.
@@ -378,7 +378,7 @@ Before release, cover:
 - Revision changes during review, external-writer races, unknown outcomes,
   permissions, release refusal, and all-or-nothing bounded transactions.
 - Cache hit/miss/expiry, corrupt serialized hits, empty valid snapshots, adapter
-  failures, index expiry, project/site isolation, and preview isolation.
+  failures, index expiry, project/dataset isolation, and preview isolation.
 - Delayed query visibility, duplicate/out-of-order invalidations, old in-flight
   loads, multi-instance refresh, and explicit stale/fail-open policies.
 - Real React Router document and data navigations, explicit and catch-all routes,

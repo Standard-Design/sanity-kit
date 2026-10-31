@@ -25,9 +25,11 @@ limits of each slice.
 The integration tests exercise the shared route configuration across these
 foundations without writing to Sanity.
 
-The private collection-settings loader is approved. The folder read layer is
-under review. Both preserve the foundations' perspective and validation rules.
+The private collection-settings loader and folder read layer are approved.
+Both preserve the foundations' perspective and validation rules.
 Reads alone do not establish publication safety or authorize mutations.
+
+The published redirect reader is also implemented for review.
 
 The private [Studio generation bridge](url.md#studio-generation-context-internal)
 is implemented and approved. It binds native source and slugify callbacks, returns

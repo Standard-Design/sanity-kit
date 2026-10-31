@@ -124,14 +124,12 @@ describe('private URL foundations together', () => {
 		if (!oldUrl.ok || !proposedUrl.ok) throw new Error('Expected URL parts')
 		// This models a future publication review, not an already published prefix.
 		const envelope = {
-			site: 'main',
 			perspective: 'published',
 			complete: true,
 			records: [
 				{
 					_id: 'redirect-story',
 					_type: 'sanityKitRedirect',
-					site: 'main',
 					enabled: true,
 					source: oldUrl.value.pathname,
 					destination: proposedUrl.value.pathname,
@@ -140,7 +138,6 @@ describe('private URL foundations together', () => {
 			],
 		}
 		const options = {
-			site: 'main',
 			destinations: [proposedUrl.value.pathname],
 			occupiedPaths: [proposedUrl.value.pathname],
 		}

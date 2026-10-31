@@ -10,7 +10,6 @@ export const REDIRECT_MAX_RECORDS = 1_000
 export const REDIRECT_MAX_BYTES = 1_048_576
 
 export interface RedirectSnapshotOptions {
-	readonly site: string
 	/** Exact app endpoints that redirects must never claim. Not route patterns. */
 	readonly reservedPaths?: readonly string[]
 	/** Current published page URLs, supplied by the application/publication review. */
@@ -30,7 +29,6 @@ export type RedirectMatch =
 	| { readonly kind: 'invalid-path' }
 
 export interface RedirectSnapshot {
-	readonly site: string
 	/** Enabled rules only; disabled history records do not enter the index. */
 	readonly size: number
 	/** Checked against the supplied path list, not against the running website. */
@@ -42,7 +40,6 @@ export type RedirectSnapshotReason =
 	| 'invalid-envelope'
 	| 'incomplete-snapshot'
 	| 'wrong-perspective'
-	| 'wrong-site'
 	| 'too-many-records'
 	| 'payload-too-large'
 	| 'invalid-record'
@@ -79,7 +76,6 @@ const fields = new Set([
 	'_rev',
 	'_createdAt',
 	'_updatedAt',
-	'site',
 	'source',
 	'destination',
 	'status',
@@ -155,12 +151,6 @@ export function compileRedirectSnapshot(
 	input: unknown,
 	options: RedirectSnapshotOptions,
 ): RedirectSnapshotResult {
-	if (
-		typeof options.site !== 'string' ||
-		!/^[A-Za-z][A-Za-z0-9_-]{0,63}$/u.test(options.site)
-	)
-		throw new Error('Redirect site must be a stable site identifier.')
-	const site = options.site
 	const reserved = pathSet(options.reservedPaths, 'reservedPaths')
 	const occupied = pathSet(options.occupiedPaths, 'occupiedPaths')
 	if (
@@ -176,16 +166,15 @@ export function compileRedirectSnapshot(
 			: pathSet(options.destinations, 'destinations')
 	if (
 		!record(input) ||
-		!['site', 'perspective', 'complete', 'records'].every((key) =>
+		!['perspective', 'complete', 'records'].every((key) =>
 			Object.hasOwn(input, key),
 		) ||
 		Object.keys(input).some(
-			(key) => !['site', 'perspective', 'complete', 'records'].includes(key),
+			(key) => !['perspective', 'complete', 'records'].includes(key),
 		) ||
 		!Array.isArray(input.records)
 	)
 		return { ok: false, reason: 'invalid-envelope' }
-	if (input.site !== site) return { ok: false, reason: 'wrong-site' }
 	if (input.complete !== true)
 		return { ok: false, reason: 'incomplete-snapshot' }
 	if (input.perspective !== 'published')
@@ -194,7 +183,6 @@ export function compileRedirectSnapshot(
 		return { ok: false, reason: 'too-many-records' }
 	let bytes = encoder.encode(
 		JSON.stringify({
-			site,
 			perspective: 'published',
 			complete: true,
 			records: [],
@@ -205,9 +193,7 @@ export function compileRedirectSnapshot(
 	for (const row of input.records as unknown[]) {
 		if (
 			!record(row) ||
-			!['_id', '_type', 'site', 'enabled'].every((key) =>
-				Object.hasOwn(row, key),
-			)
+			!['_id', '_type', 'enabled'].every((key) => Object.hasOwn(row, key))
 		)
 			return { ok: false, reason: 'invalid-record' }
 		const size = recordBytes(row)
@@ -215,15 +201,7 @@ export function compileRedirectSnapshot(
 		bytes += size + (ids.size ? 1 : 0)
 		if (bytes > REDIRECT_MAX_BYTES)
 			return { ok: false, reason: 'payload-too-large' }
-		const {
-			_id,
-			_type,
-			site: rowSite,
-			enabled,
-			source,
-			destination,
-			status,
-		} = row
+		const { _id, _type, enabled, source, destination, status } = row
 		if (
 			typeof _id !== 'string' ||
 			!/^[A-Za-z0-9_.-]{1,128}$/u.test(_id) ||
@@ -236,13 +214,11 @@ export function compileRedirectSnapshot(
 			return { ok: false, reason: 'invalid-record' }
 		if (_id.startsWith('drafts.') || _id.startsWith('versions.'))
 			return { ok: false, reason: 'unpublished-record', recordId: _id }
-		if (rowSite !== site)
-			return { ok: false, reason: 'wrong-site', recordId: _id }
 		if (ids.has(_id))
 			return { ok: false, reason: 'duplicate-id', recordId: _id }
 		ids.add(_id)
 		// Disabled historical rules may retain obsolete paths/statuses. They must
-		// still have a valid identity/scope and fit the bounded projected shape.
+		// still have a valid identity and fit the bounded projected shape.
 		if (!enabled) continue
 		if (
 			!['source', 'destination', 'status'].every((key) =>
@@ -294,7 +270,6 @@ export function compileRedirectSnapshot(
 	return {
 		ok: true,
 		value: Object.freeze({
-			site,
 			size: rules.size,
 			destinationsVerified: destinations !== undefined,
 			match(pathname: unknown): RedirectMatch {

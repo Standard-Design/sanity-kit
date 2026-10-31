@@ -9,13 +9,11 @@ import {
 } from '../../src/redirect/snapshot.js'
 
 const options: RedirectSnapshotOptions = {
-	site: 'main',
 	destinations: 'unverified',
 }
 const rule = (_id = 'rule-1', source = '/old', destination = '/new') => ({
 	_id,
 	_type: 'sanityKitRedirect',
-	site: 'main',
 	source,
 	destination,
 	status: 301,
@@ -23,7 +21,6 @@ const rule = (_id = 'rule-1', source = '/old', destination = '/new') => ({
 	origin: 'manual',
 })
 const envelope = (records: unknown[] = [rule()]) => ({
-	site: 'main',
 	perspective: 'published',
 	complete: true,
 	records,
@@ -41,7 +38,6 @@ describe('private redirect snapshot foundation', () => {
 			{ ...rule('home', '/old-home', '/'), status: 302 },
 		])
 		expect(index.size).toBe(2)
-		expect(index.site).toBe('main')
 		expect(index.destinationsVerified).toBe(false)
 		expect(index.match('/old')).toEqual({
 			kind: 'redirect',
@@ -135,8 +131,8 @@ describe('private redirect snapshot foundation', () => {
 		[{ ...envelope(), complete: false }, 'incomplete-snapshot'],
 		[{ ...envelope(), perspective: 'drafts' }, 'wrong-perspective'],
 		[{ ...envelope(), perspective: 'raw' }, 'wrong-perspective'],
-		[{ ...envelope(), site: 'other' }, 'wrong-site'],
-		[envelope([{ ...rule(), site: 'other' }]), 'wrong-site'],
+		[{ ...envelope(), site: 'legacy' }, 'invalid-envelope'],
+		[envelope([{ ...rule(), site: 'legacy' }]), 'invalid-record'],
 		[envelope([{ ...rule(), _id: 'drafts.rule-1' }]), 'unpublished-record'],
 		[
 			envelope([{ ...rule(), _id: 'versions.launch.rule-1' }]),
@@ -152,7 +148,7 @@ describe('private redirect snapshot foundation', () => {
 		[envelope([{ ...rule(), body: { blocks: [] } }]), 'invalid-record'],
 		[envelope([{ ...rule(), _rev: Number.NaN }]), 'invalid-record'],
 	])(
-		'refuses incomplete, mixed-scope, and malformed input %#',
+		'refuses incomplete and malformed input, including removed fields %#',
 		(input, reason) => {
 			expect(compileRedirectSnapshot(input, options)).toMatchObject({
 				ok: false,
@@ -192,7 +188,6 @@ describe('private redirect snapshot foundation', () => {
 			{
 				_id: 'historical',
 				_type: 'sanityKitRedirect',
-				site: 'main',
 				enabled: false,
 				source: 'obsolete',
 				status: 308,
@@ -263,30 +258,17 @@ describe('private redirect snapshot foundation', () => {
 
 	it('requires explicit destination knowledge or acknowledgement', () => {
 		expect(
-			compiled([rule()], { site: 'main', destinations: ['/new'] })
-				.destinationsVerified,
+			compiled([rule()], { destinations: ['/new'] }).destinationsVerified,
 		).toBe(true)
 		expect(
 			compileRedirectSnapshot(envelope(), {
-				site: 'main',
 				destinations: ['/different'],
 			}),
 		).toMatchObject({ ok: false, reason: 'unknown-destination' })
 		expect(() =>
-			compileRedirectSnapshot(envelope(), {
-				site: 'main',
-			} as RedirectSnapshotOptions),
+			compileRedirectSnapshot(envelope(), {} as RedirectSnapshotOptions),
 		).toThrow('known destinations')
 	})
-
-	it.each(['', '1site', 'a/b', 'a'.repeat(65)])(
-		'rejects invalid trusted site configuration %j',
-		(site) => {
-			expect(() =>
-				compileRedirectSnapshot(envelope(), { ...options, site }),
-			).toThrow('site identifier')
-		},
-	)
 
 	it('rejects noncanonical policy paths', () => {
 		for (const field of ['reservedPaths', 'occupiedPaths', 'destinations'])
@@ -335,7 +317,6 @@ describe('private redirect snapshot foundation', () => {
 	it('copies records and policies, freezes the index facade, and returns independent decisions', () => {
 		const records = [rule()]
 		const policy = {
-			site: 'main',
 			reservedPaths: ['/reserved'],
 			occupiedPaths: ['/page'],
 			destinations: ['/new'],
