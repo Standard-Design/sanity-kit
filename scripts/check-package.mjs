@@ -161,7 +161,7 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|pages|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
+			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|pages|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
@@ -192,13 +192,24 @@ for (const required of [
 	'docs/image-react.md',
 	'docs/link.md',
 	'docs/pages.md',
+	'docs/pages-design-proposals.md',
+	'docs/redirects-design.md',
 	'docs/react-router.md',
 	'docs/server.md',
 	'docs/visual-editing.md',
 	'docs/validation-zod.md',
 	'docs/extraction-provenance.md',
-])
+]) {
 	assert.ok(contents.has(required), `Missing ${required}`)
+	// Linked guides must ship with the reviewed wording, including the distinction
+	// between approved design and APIs that consumers can actually use today.
+	if (required.startsWith('docs/'))
+		assert.equal(
+			run('tar', ['-xOf', tarball, `package/${required}`], root, true),
+			await readFile(join(root, required), 'utf8'),
+			`Packed guide must match its source: ${required}`,
+		)
+}
 assert.equal(sourceManifest.private, true)
 assert.equal(distManifest.private, false)
 assert.deepEqual(distManifest.publishConfig, {

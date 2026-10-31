@@ -74,6 +74,8 @@ for (const file of [
 	'docs/image-react.md',
 	'docs/link.md',
 	'docs/pages.md',
+	'docs/pages-design-proposals.md',
+	'docs/redirects-design.md',
 	'docs/react-router.md',
 	'docs/server.md',
 	'docs/visual-editing.md',

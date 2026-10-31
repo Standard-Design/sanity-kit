@@ -41,7 +41,18 @@ can use the framework-independent helpers without adopting the router adapter.
 native Presentation, and the approved navigator and URL-field designs. It is
 separate from the released subsystems above: local builds now include `/studio`,
 but the current npm release does not. Consumers keep their own Studio installation.
-The guide distinguishes the working flat-list foundation from planned features.
+The guide distinguishes the working navigator and routing foundation from
+planned URL editing, folder actions, and other features.
+
+## Design decisions and proposals — not implemented
+
+- [Pages contracts and proposals](pages-design-proposals.md): approved folder,
+  bulk-change, and field/helper behavior, alongside the remaining implementation
+  proposals. Approval status is explicit; these future features are not implemented.
+- [Redirect subsystem](redirects-design.md): proposed Sanity-managed rules,
+  Studio workflows, URL-change integration, frontend resolution, and optional
+  consumer-owned caching. Includes safety policies and implementation gates;
+  none of the illustrated redirect APIs exist in the released package.
 
 ## Shared terms
 

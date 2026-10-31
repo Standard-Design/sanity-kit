@@ -40,6 +40,11 @@
   identity, and native Presentation resolvers. Preserve existing `pathnameField`
   behavior and detect collisions across both storage modes. The custom URL input,
   authoring validation, and content migration are not included in this slice.
+- Record the approved URL-field, folder-storage, and bulk-change contracts and
+  the proposed redirect subsystem, including consumer-owned caching. Keep pending
+  API details and redirect defaults explicitly marked as proposals. Include both
+  design guides in the package and verify packed guides match their source text;
+  this documentation does not implement those features or change runtime behavior.
 
 ## 0.1.0-alpha.5
 

@@ -607,8 +607,8 @@ the route registry or frontend router.
 
 ## Collection overviews and document-free routes
 
-A collection groups item types, such as posts, and identifies an ordinary page
-as its overview. The overview needs a Sanity document in the initial design. It
+A collection currently groups item types, such as posts, and identifies an ordinary page
+as its overview. The overview needs a Sanity document in the current registration. It
 can contain only SEO fields: the app may own the listing layout and fetch posts
 separately. A document-backed overview does not require a page builder or a splat
 route.
@@ -620,10 +620,103 @@ open the posts or other Sanity content shown there. There is simply no overview
 document to select or edit. Overlays edit stored fields, not the app's query or
 listing code. See the [full distinction](../tests/fixtures/pages-studio/ROUTING.md#collection-overviews-and-app-owned-routes).
 
-## Approved interface direction — not implemented yet
+## Design decisions and remaining work
 
-These choices were approved on October 28, 2026. Earlier sketches are preserved,
-but the following decisions describe the selected direction.
+The interface choices were approved on October 28, 2026, with further field and
+folder decisions on October 30 and 31. Earlier sketches are preserved, but the
+following decisions describe the selected direction. Explicitly marked proposals still
+need agreement before implementation. This section records design intent, not
+additional working APIs. The navigator is partly implemented; the custom URL
+field, persistent folders, dynamic collection prefixes, and shared frontend URL
+helpers are not implemented yet.
+
+### Storage and shared URL results — agreed October 30
+
+Use full pathnames for site-owned pages and single-segment slugs for reusable
+collection content. A post's content and slug should not have to change when the
+website changes the collection's prefix. Use one configurable URL input for both
+storage modes, rather than separate editor experiences. The current routing foundation
+also retains explicit full-path collection registration for existing consumers;
+this decision does not authorize a migration of their documents.
+
+Shared helpers should expose the same resolved shape in either mode:
+
+```ts
+{
+	pathname: '/journal/first-post',
+	prefix: '/journal',
+	slug: 'first-post',
+}
+```
+
+For a page, split the stored pathname into its folder prefix and final segment.
+For a collection item, combine the collection prefix with the stored slug. These
+are derived values, not three independently stored fields. On October 31, the
+homepage result was agreed as `{pathname: '/', prefix: '/', slug: ''}`; empty
+collection-item slugs remain invalid. Resolution must distinguish missing data,
+invalid data, and unavailable routing settings. Helper names, result wrappers,
+and exact reason codes remain to be designed.
+
+Also approved: pure URL resolution against already loaded routing settings. The
+caller loads the appropriate published/preview context separately, allowing reuse
+and caching without hiding network reads inside a pure helper.
+
+URL uniqueness concerns the resolved full pathname across registered page and
+collection types in the same site. `/company/team` and `/leadership/team` may
+coexist; two documents must not claim `/company/team`. Slug-only queries need
+type or collection scope. Current reverse lookup refuses ambiguous matches;
+authoring validation is still future work and must not be described as a
+database-level uniqueness guarantee.
+
+### Collection prefix ownership
+
+Support two explicit sources: a fixed prefix configured in code, or a centrally
+editor-controlled prefix read from Sanity. In both cases, individual collection
+items show the prefix as read-only and expose only their slug for editing. The
+whole-field read-only option can disable slug editing as well. Only fixed,
+code-configured prefixes are implemented in the current routing foundation.
+
+**Preferred proposal, not finalized:** use one routing-settings document per
+collection for editor-controlled prefixes, rather than deriving the prefix from
+an overview page. Keep the collection's stable identity separate from its mutable
+URL prefix. Fixed-prefix consumers should not need an editable settings document
+just to supply the prefix.
+
+Under that proposal, a collection could have zero, one, or many pages displaying
+its items. A page at `/insights` could list posts whose URLs begin with `/journal`.
+Changing that page's pathname would not move the posts; changing the item prefix
+would not move that page. A prefix does not itself create an index page. Whether
+the navigator should designate an optional overview shortcut, and how it selects
+that document, remain open. The current overview registration has not changed.
+
+This is distinct from a document-free overview entry: we are not proposing a
+synthetic page to select when no page document exists. Document-free overview
+entries remain deferred. Approved October 31: preview a draft settings prefix,
+then explicitly publish the reviewed routing change. Published traffic keeps the
+published prefix until that change. No item slugs or independently located listing
+pages are rewritten. The settings schema, registration binding, optional overview
+association, and activation implementation still need design.
+
+Although the item storage does not change, activation must still check the
+resulting URLs for conflicts/reserved routes, plan redirects for old published
+URLs, and refresh routing-related caches. Studio, frontend links, lookup, preview,
+and sitemaps must resolve the same settings and perspective. Redirect records and
+operation metadata can change without rewriting the collection items themselves.
+
+### Frontend routing remains the consumer's choice
+
+The URL field and helpers must not require every consumer to use a catch-all.
+Both explicit app routes alongside a CMS catch-all and a dynamic
+`/:collection/:slug` route are valid integration patterns. The latter supports a
+single-segment collection prefix; nested prefixes require a different matching
+route, such as a catch-all. Consumers must constrain editable prefixes to paths
+their app can handle, including reserved application routes.
+
+The consumer still owns route matching, content loading, and rendering. Shared
+helpers should prevent repeated URL-resolution logic, not choose that application
+architecture. Build-time route generation is not part of the planned examples.
+Runtime cache invalidation and publication behavior for changing prefixes remain
+to be specified.
 
 ### Pages navigator
 
@@ -642,6 +735,18 @@ a page in a folder and creating its index page when absent (or opening it when
 present). An index page lives at the folder's own URL; an ordinary child page
 adds a final segment. These actions still need templates and creation behavior.
 
+Creating from a folder's menu can prefill that folder's prefix. Creating from the
+Pages header has no folder context. This is a convenience, not a stored parent
+relationship: a page's pathname determines where it appears in the navigator.
+
+Consumers should explicitly register which page types/templates can be created;
+being browsable is not sufficient. Collection creation should use its registered
+item choices. Approved October 31: skip selection when only one eligible choice
+exists and offer a chooser when several exist. Create drafts, never auto-publish.
+Exact configuration, template parameters, defaults, and permission-aware behavior
+remain to be designed. The existing single `create` shortcut does not yet
+implement these contextual flows.
+
 ### URL field and folder picker
 
 Use the latest simplified picker: indented folder names, with a **New subfolder**
@@ -655,10 +760,61 @@ example, creating `company/team` inside `/about` selects
 `/about/company/team/leadership`.
 
 The picker does not rename folders. Collection fields are intended to show their
-app-configured prefix as locked, with a single editable slug segment. The
+centrally configured prefix as locked, with a single editable slug segment. The
 `slugField` routing contract now supports that storage shape, but the custom
 input and folder-creation persistence are still pending. The current fixture's
 existing collection documents retain their full-path registration and data.
+
+The planned field includes a **Generate** button that derives the final slug
+segment from the document's configured name/title source. Generation keeps the
+chosen prefix; it does not generate a new folder path. The source must be
+configurable because consumers do not all name their title field the same way.
+Approved October 31: accept a source field such as `title` or `name`, or a callback,
+and support configurable slug generation. Never silently append numeric suffixes
+to resolve a collision. The single field factory should use shared routing
+registration rather than repeat prefix configuration in every subsystem.
+Ordinary title edits must not silently regenerate an existing URL. Generation
+still needs the same URL validation and conflict checks as manual editing.
+
+Support a read-only setting for the entire field, in addition to locking only
+the prefix. Whole-field read-only disables slug editing, generation, folder
+selection, and folder creation from this field. The resolved URL remains visible
+and copyable. This is an editor-interface restriction, not dataset-level write
+protection. The field and these controls are not implemented yet.
+
+### Persistent folders — agreed October 30, not implemented yet
+
+Explicitly created folders should persist even when no pages use them. Removing
+or moving the last page must not remove an explicitly created folder from the
+navigator. The navigator will need to combine saved folder records with folders
+inferred from page URLs, without showing duplicates. An empty folder is
+organizational metadata; it does not create a website page or occupy its index
+URL. The folder schema and persistence operations still need implementation.
+
+Approved October 31: use one internal, authenticated-only folder-registry document
+per site, with stable record identifiers and paths. Hide it from normal content
+lists and creation menus. Organizational changes take effect immediately without
+a publishing step; frontend rendering does not depend on this metadata. Define
+size limits and concurrent-write safeguards before shipping.
+
+Inferred folders should become persistent too: an explicit initial synchronization
+adopts them, kit-managed URL changes preserve existing and destination ancestors,
+and imports can invoke the same synchronization. Viewing the navigator stays
+read-only. Once adopted, inferred and explicitly created folders share the same
+lifecycle. This does not automatically persist arbitrary external changes before
+they have been synchronized.
+
+The approved first removal workflow is **Remove folder** in the navigator, only
+for an empty folder: no index page, descendant pages, or saved subfolders. It
+removes the folder record without changing document URLs. The operation must
+recheck occupancy before writing; the currently displayed tree alone is not
+sufficient, particularly when drafts
+and published content differ. Concurrency safeguards remain to be designed.
+
+Removing a populated folder and lifting its descendants into its parent is a
+different bulk URL-change operation, not simple folder removal. It can create
+conflicting paths and affect published URLs. It is not part of the approved
+empty-folder removal workflow.
 
 ### URL cleanup — agreed October 29, not implemented yet
 
@@ -694,12 +850,52 @@ Open **Rename folder** from the navigator's folder actions, then review the
 affected URLs in a modal before applying. Changing a single page's URL in its
 field is different from renaming the folder and moving all nested paths.
 
-The sketches only change local demo state. The real operation still needs rules
-for URL conflicts, permissions, concurrent edits, drafts and published content,
-and redirects. Storing complete paths does not create parent-child references
-or make descendant paths update automatically. We have not yet implemented that
-bulk update or chosen how unused folders are stored. App-owned collection
-prefixes must not become editor-renamable through this workflow.
+The sketches only change local demo state. Approved October 31: show old/new URLs
+and live impact; require explicit **Apply URL changes** confirmation; keep
+draft-only documents unpublished; and patch only URL fields on published pages
+and matching existing drafts, without publishing unrelated draft content. Stop
+for conflicting planned draft URLs or affected release versions. Use a bounded
+transaction with revision guards; changes during review require a refreshed
+review. Too-large operations must not silently become partially applied batches.
+
+Permissions, concurrent new documents/versions, collision checks, and redirects
+remain implementation gates. Revision guards do not create a database-wide URL
+uniqueness constraint. Storing complete paths does not create parent references
+or make descendant paths update automatically. Code-owned collection prefixes
+must not become editor-renamable through this workflow.
+
+### Details still to harden — updated October 31
+
+- **Collection settings:** finalize the preferred per-collection document
+  arrangement, fields, registration, optional overview relationship, and the
+  controlled publication integration. The draft-preview/published-activation
+  lifecycle is agreed.
+- **Folder implementation:** define exact fields, site-scope configuration, size
+  limits, and safe synchronization/concurrency mechanisms. The private singleton,
+  immediate organizational lifecycle, adoption of inferred folders, and empty-only
+  removal are agreed.
+- **Bulk-change implementation:** prove permissions, revision guards, new-document
+  race handling, size bounds, recovery, and cache/redirect coordination. The
+  URL-only write policy and initial release-version refusal are agreed.
+- **Detailed APIs:** settle function/configuration names, result wrappers and
+  error codes, Unicode/generation defaults, and template parameters. The root
+  value, pure resolution, configurable title source and slug generation, explicit
+  failure categories, and one-versus-many chooser behavior are agreed.
+- **Redirect defaults:** review the defaults and integration gates in the separate
+  subsystem design. The design exists; its presence does not mean every proposed
+  status code, query-string policy, or cache-failure behavior has been approved.
+
+These are subsequent implementation decisions, not reasons to change the current
+fixed-prefix/slug-only routing contract. No settings documents, folder records,
+or page URLs have been written by this documentation update.
+
+Concrete recommendations for these open contracts are in
+[Pages contracts and proposals](pages-design-proposals.md), with October 31
+approvals distinguished from remaining suggestions. None of these future APIs
+or workflows should be treated as implemented behavior.
+The separate [redirect subsystem design](redirects-design.md) covers proposed
+redirect records, publication integration, request handling, and cache adapters
+without deciding the remaining Pages contracts.
 
 ## Where to read the implementation and evidence
 
