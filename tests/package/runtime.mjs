@@ -66,6 +66,15 @@ await assert.rejects(
 await assert.rejects(import('@standard-design/sanity-kit/url/authoring.js'), {
 	code: 'ERR_PACKAGE_PATH_NOT_EXPORTED',
 })
+for (const path of ['studio/url/conflicts.js', 'studio/url/is-unique.js']) {
+	await assert.rejects(import(`@standard-design/sanity-kit/${path}`), {
+		code: 'ERR_PACKAGE_PATH_NOT_EXPORTED',
+	})
+}
+assert.equal(
+	'createUrlIsUnique' in (await import('@standard-design/sanity-kit/url')),
+	false,
+)
 
 if (process.argv.includes('--full')) {
 	const { createElement } = await import('react')

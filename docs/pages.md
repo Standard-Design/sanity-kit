@@ -631,7 +631,10 @@ field, persistent folders, and dynamic collection prefixes are not implemented
 yet. The first [shared frontend URL helper](url.md), for fixed-prefix
 registration, is implemented locally and approved. The separate
 [internal authoring preparation](url.md#authoring-preparation-internal) is now
-implemented for review; it does not yet add the Studio field or save candidates.
+implemented and approved; it does not yet add the Studio field or save candidates.
+The next [internal conflict-checking layer](url.md#url-conflict-checks-and-native-validation-internal)
+is implemented for review, including a native `options.isUnique` adapter. It is not
+yet installed on any Studio field.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -669,8 +672,10 @@ URL uniqueness concerns the resolved full pathname across registered page and
 collection types in the same site. `/company/team` and `/leadership/team` may
 coexist; two documents must not claim `/company/team`. Slug-only queries need
 type or collection scope. Current reverse lookup refuses ambiguous matches;
-authoring validation is still future work and must not be described as a
-database-level uniqueness guarantee.
+the new internal checker compares registered storage fields across raw document
+versions. It excludes all versions of the current document, following Sanity's
+native slug validation. Connecting it to the field is still future work. Neither
+read-time check is a database-level uniqueness guarantee.
 
 ### Collection prefix ownership
 

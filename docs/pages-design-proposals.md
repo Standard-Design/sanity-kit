@@ -6,8 +6,12 @@ preview/publication lifecycle, and the field/helper/creation behavior described
 below are now approved. **They are not implemented features or finalized public
 APIs.** The initial fixed-prefix [URL resolver](url.md) is now implemented and
 approved locally; the editor and persistence workflows below are not. The private
-[authoring preparation](url.md#authoring-preparation-internal) is implemented for
-review, with Sanity-compatible generation now agreed. Remaining
+[authoring preparation](url.md#authoring-preparation-internal) is implemented and
+approved, with Sanity-compatible generation. The next private
+[conflict-checking layer](url.md#url-conflict-checks-and-native-validation-internal)
+is implemented for review. It uses a native `options.isUnique` adapter and excludes
+all versions of the current document, following Sanity. The field UI and write
+safeguards remain future work. Remaining
 proposals are explicitly identified. See also
 [the Pages guide](pages.md#design-decisions-and-remaining-work).
 

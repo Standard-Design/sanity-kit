@@ -2,13 +2,20 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add private, read-only URL conflict checks across registered full-path and
+  slug-only types. Use raw document versions and Sanity's native self-exclusion,
+  with a typed `options.isUnique` adapter for the future field. Bound conflict
+  responses, distinguish failures from duplicates, and preserve cancellation.
+  No field wiring, public exports, dataset writes, or uniqueness reservation yet.
+
 - Add private URL-authoring preparation for the future Studio field: return
   storage-aware candidates, clean literal internal/trailing separators, and
   preserve collection boundaries without writing data. Match Sanity's default
   `speakingurl` generation and truncation; support async custom generators that
   bypass `maxLength`, followed by separate URL-safety validation. Do not add
   collision suffixes. Keep these helpers outside public exports;
-  the input UI, conflict checks, and persistence remain subsequent work.
+  the input UI and persistence remain subsequent work. The separate internal
+  conflict checker above adds read-time checks only.
 
 - Add the framework-independent `/url` entry with `createSanityUrlResolver()`.
   Reuse Pages registration to derive `{pathname, prefix, slug}` from full paths

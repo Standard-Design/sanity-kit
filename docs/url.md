@@ -4,8 +4,9 @@ Import from `@standard-design/sanity-kit/url`.
 
 This entry point is available in local builds on the Pages development branch,
 not in the published `0.1.0-alpha.5` package. The fixed-prefix resolver API was
-approved on October 31, 2026. The authoring layer described below is a separate,
-internal implementation awaiting review.
+approved on October 31, 2026, along with the separate internal authoring
+preparation layer. The conflict-checking and native validation adapter described
+below are the next internal slice, awaiting review.
 
 ## What this does
 
@@ -136,9 +137,10 @@ resolution, not missing document data.
   remains separate; explicit routes and catch-alls are both possible.
 
 Two documents can both resolve to the same pathname. This helper does not prove
-uniqueness or that the website serves the URL. Dataset collision checks, reverse
-lookup, and reserved app routes are separate responsibilities. `excludePaths`
-handles exact exclusions, not route patterns.
+uniqueness or that the website serves the URL. The private conflict checker below
+performs a separate dataset read; resolution itself remains pure. Reverse lookup
+and reserved app routes are also separate responsibilities. `excludePaths` handles
+exact exclusions, not route patterns.
 
 ## Implementation and tests
 
@@ -249,8 +251,9 @@ read-only settings. Ordinary title edits must not trigger automatic URL changes.
 A valid candidate is not permission to write. The field must still enforce
 read-only state and permissions, check full-path occupancy across registered
 types, and preserve the agreed folder metadata. Published URL changes also need
-the reviewed redirect/publication workflow. None of those checks, writes, or UI
-controls are introduced by this slice. There is no uniqueness guarantee.
+the reviewed redirect/publication workflow. Authoring preparation performs none of
+those checks or writes. The next layer below adds conflict reads, not a uniqueness
+guarantee or permission to save.
 
 The private implementation is `src/url/authoring.ts`; its tests are in
 `tests/url/authoring.test.ts`. The public resolver and existing Studio navigation
@@ -258,3 +261,92 @@ are unchanged. The public `/url` entry does not import the authoring module.
 
 The [Pages design decisions](pages-design-proposals.md) describe the broader
 field/settings/folder direction. This helper does not implement those workflows.
+
+## URL conflict checks and native validation (internal)
+
+A well-formed URL can still belong to another page. This layer checks that separate
+question before the future field offers a change. It is implemented for review,
+but not connected to the fixture or exported from the package. No existing Studio
+field behaves differently yet, and no documents are changed.
+
+### Use Sanity's existing validation system
+
+Sanity's slug field already has a uniqueness check. By default, it compares the
+same field path on documents of the same type. That is useful for an ordinary
+slug, but not sufficient for a site's complete URL space. A page might store
+`/journal/story` in `pathname.current`, while a post stores `story` in
+`slug.current`. Both would produce the same website URL.
+
+The private `createUrlIsUnique()` adapter is compatible with native
+`options.isUnique`. It uses shared route registration to compare those two storage
+forms. Sanity keeps responsibility for displaying validation errors; the kit does
+not introduce another validation UI. See [Sanity's slug validation options](https://www.sanity.io/docs/studio/slug-type).
+
+The adapter returns `true` when its check finds no conflict and `false` when it
+finds one. It throws a descriptive error when the check cannot finish, rather
+than reporting a network failure as a duplicate or a successful check. It checks
+that the native field path matches the registered slug object, including nested
+objects. Arrays and unrelated slug fields are not supported. Required-value and
+format rules remain separate field-factory responsibilities.
+
+### What counts as a conflict
+
+Compare the exact complete pathname across all types in the supplied registration,
+not just the current type or the five recent rows in the navigator. Thus:
+
+- `/company/team` and `/leadership/team` can coexist.
+- A full-path page and a slug-only post cannot both claim `/journal/story`.
+- Root `/` is checked like any other pathname.
+- A stored match on a registered type is reported even if that type is not an
+  allowed owner of the path in the navigator. Bad ownership must not hide a match.
+
+The query uses the authenticated Studio client, bypasses the API CDN, and explicitly
+uses the `raw` perspective. This sees published documents, drafts, and release
+versions side by side instead of hiding one behind another. It follows Sanity's
+native self-exclusion: `getPublishedId()` and `sanity::versionOf()` exclude every
+version of the current document. Versions of other documents still count.
+See [Sanity perspectives](https://www.sanity.io/docs/content-lake/perspectives).
+
+A release version of the current document is not a uniqueness conflict with
+itself. Restrictions on editing URLs involved in releases remain a separate
+save/rename safeguard; passing this check does not permit those changes.
+
+### Results and failure handling
+
+The underlying `createUrlConflictChecker()` returns one of three states:
+
+- `checked`: the prepared candidate, up to 20 matching document-version records,
+  and `hasMore` if more matches exist. Each record contains its document ID, type,
+  revision, and published/draft/release classification. No document bodies are read.
+- `invalid`: the proposed URL or document identity cannot be checked.
+- `unavailable`: the request failed, was canceled, or returned an unexpected shape.
+
+The 20-record limit bounds the response, not the search. A match beyond that list
+does not turn a conflict into success. Multiple versions of another document may
+appear separately, so this list is not a count of distinct pages.
+
+Explicit authoring preparation can clean repeated/trailing separators before
+checking a proposed URL. Native validation, however, checks the actual stored
+value and refuses noncanonical input; it never silently validates a repaired URL.
+Neither path rewrites existing content. Matching does not fold case, decode
+percent escapes, or equate legacy trailing/repeated slashes. Applications that
+treat those as aliases need an additional routing policy and content audit.
+
+### What this does not guarantee
+
+These are read-time checks, not URL reservations or a database uniqueness
+constraint. Two editors can both see a free URL before either saves. API writers
+can bypass Studio validation, and queries may lag recent writes. `raw` does not
+bypass permissions: the client must be able to see every relevant document version,
+and an empty result cannot prove that it has that access.
+
+There is no result cache. Cancellation is forwarded to Sanity and checked again
+after the response; the future input must also discard obsolete checks when its
+value changes. Folder persistence, publication permissions, reviewed URL moves,
+redirects, dynamic prefixes, and write coordination remain later work.
+
+Implementation: `src/studio/url/conflicts.ts` performs the read;
+`src/studio/url/is-unique.ts` adapts it to Sanity. Tests in
+`tests/studio/url-conflicts.test.ts` evaluate the generated GROQ against offline
+documents, including native version matching. Neither module is loaded by the
+public `/url` resolver or the current Pages UI.
