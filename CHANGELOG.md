@@ -2,6 +2,11 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Display saved folders alongside folders inferred from page URLs. Keep empty
+  folders visible, share registry refreshes across the navigator and picker, and
+  let page browsing continue when folder metadata cannot be loaded. Opening the
+  tool performs no folder writes.
+
 - Add private folder creation and explicit synchronization writes. Preserve
   existing metadata, guard against registry changes, and distinguish uncertain
   write outcomes from confirmed saves. No folder removal, page URL changes, or

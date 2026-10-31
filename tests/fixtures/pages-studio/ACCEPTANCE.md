@@ -496,6 +496,34 @@ validation, collision checks before applying field edits, folder actions, and
 broader permissions/release-perspective acceptance. Existing test content was
 not migrated or cleaned up in this slice.
 
+## Saved-folder display — October 31, 2026
+
+The navigator now reads saved folders independently of page content. This slice
+adds display behavior; it does not install folder creation or synchronization
+controls.
+
+- Automated browser tests cover empty folders, named index pages, metadata
+  failures and retries, page selection during failed or pending folder reads,
+  shared picker updates, and perspective-session isolation.
+- Query and session tests cover the exact registry ID, raw metadata perspective,
+  overflow detection, invalid registry refusal, cancellation, and independent
+  page loading. The full suite passed 1,288 tests across 42 files.
+- In the running proof Studio, the Journal preview's picker opened and loaded
+  the existing page/collection tree without a saved-folder warning. Escape closed
+  it and returned focus to the trigger. No document fields or dataset records
+  were changed.
+- In a subsequent explicit fixture setup, `seed-empty-folder.ts --apply` added
+  `/empty-folder-test` to `sanityKit.folders` in `ha9kep4l/development` through
+  the guarded writer. The write was acknowledged. The real Studio picker then
+  displayed **Empty-folder-test** and “No pages in this folder.” The Journal
+  selection and preview stayed unchanged. No page fields or permissions changed.
+- A temporary local request failure also showed the folder warning and retry
+  button in the real picker while page rows remained available. The user reviewed
+  both the empty-folder display and the warning. The simulation was removed;
+  normal loading restored the empty folder and cleared the warning.
+- Creation through editor controls and cross-editor persistence acceptance
+  remain with the editing slice.
+
 ## Test records created
 
 The explicit seed run created the following published fixture documents with

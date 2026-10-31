@@ -20,6 +20,8 @@ const native = vi.hoisted(() => ({
 			) => Promise<unknown>
 		>(),
 	listen: vi.fn(),
+	mutate: vi.fn(),
+	request: vi.fn(),
 	unsubscribe: vi.fn(),
 	perspective: ['drafts'],
 	observer: undefined as
@@ -31,6 +33,9 @@ vi.mock('sanity', () => {
 	const client = {
 		fetch: native.fetch,
 		listen: native.listen,
+		mutate: native.mutate,
+		request: native.request,
+		withConfig: () => client,
 	}
 	return {
 		definePlugin: (factory: unknown) => factory,
@@ -155,15 +160,18 @@ describe('Pages Presentation adapter lifecycle', () => {
 		]
 		native.fetch.mockImplementation((query: string, params) =>
 			Promise.resolve(
-				query.includes('"total":')
-					? { total: 0, documents: [] }
-					: params.id
-						? pages.filter(
-								(page) => page._id === params.id && page._type === params.type,
-							)
-						: params.path
-							? pages.filter((page) => page.pathname === params.path)
-							: pages,
+				params.registryId
+					? null
+					: query.includes('"total":')
+						? { total: 0, documents: [] }
+						: params.id
+							? pages.filter(
+									(page) =>
+										page._id === params.id && page._type === params.type,
+								)
+							: params.path
+								? pages.filter((page) => page.pathname === params.path)
+								: pages,
 			),
 		)
 		container = document.createElement('div')
@@ -235,6 +243,139 @@ describe('Pages Presentation adapter lifecycle', () => {
 			return (await result.get()) as unknown
 		})
 	}
+
+	function savedFolderFixture(paths: string[], extraPages: object[] = []) {
+		const folders = {
+			_id: 'sanityKit.folders',
+			_type: 'sanityKitFolderRegistry',
+			_rev: 'folder-revision',
+			schemaVersion: 1,
+			folders: paths.map((pathname, index) => ({
+				_key: `folder-${index}`,
+				pathname,
+			})),
+		}
+		const dataset: object[] = [
+			folders,
+			{
+				_id: 'about',
+				_type: 'kitProofPage',
+				title: 'About',
+				pathname: { current: '/about' },
+			},
+			...extraPages,
+		]
+		native.fetch.mockImplementation(async (query, params): Promise<unknown> =>
+			(await evaluate(parse(query), { dataset, params })).get(),
+		)
+		return { folders, dataset }
+	}
+
+	it('shows saved empty folders without inventing a page or navigating when expanded', async () => {
+		savedFolderFixture(['/empty'])
+		await render()
+		expect(button('Collapse Empty')).toBeTruthy()
+		expect(container.textContent).toContain('No pages in this folder.')
+		expect(document.querySelector('[aria-label="Empty · /empty"]')).toBeNull()
+		await click('Collapse Empty')
+		expect(container.textContent).not.toContain('No pages in this folder.')
+		await click('Expand Empty')
+		expect(container.textContent).toContain('No pages in this folder.')
+		expect(native.navigate).not.toHaveBeenCalled()
+		expect(native.mutate).not.toHaveBeenCalled()
+		expect(native.request).not.toHaveBeenCalled()
+	})
+
+	it('places an existing page inside its saved folder even without descendant pages', async () => {
+		savedFolderFixture(['/about'])
+		await render()
+		expect(button('Collapse About')).toBeTruthy()
+		expect(button('About · /about')).toBeTruthy()
+		expect(container.textContent).not.toContain('No pages in this folder.')
+		await click('Collapse About')
+		expect(document.querySelector('[aria-label="About · /about"]')).toBeNull()
+		await click('Expand About')
+		await click('About · /about')
+		expect(native.navigate).toHaveBeenCalledWith('/about', {
+			id: 'about',
+			type: 'kitProofPage',
+		})
+	})
+
+	it('keeps pages selectable when saved-folder loading fails and recovers through its retry action', async () => {
+		const fixture = savedFolderFixture(['/empty'])
+		fixture.folders.schemaVersion = 2
+		await render()
+		expect(container.textContent).toContain(
+			'The folder list may be incomplete.',
+		)
+		expect(button('About · /about').disabled).toBe(false)
+		await click('About · /about')
+		expect(native.navigate).toHaveBeenCalledWith('/about', {
+			id: 'about',
+			type: 'kitProofPage',
+		})
+		fixture.folders.schemaVersion = 1
+		await click('Retry loading folders')
+		expect(button('Collapse Empty')).toBeTruthy()
+		expect(container.textContent).not.toContain(
+			'The folder list may be incomplete.',
+		)
+		expect(native.listen).toHaveBeenCalledTimes(1)
+		expect(native.mutate).not.toHaveBeenCalled()
+		expect(native.request).not.toHaveBeenCalled()
+	})
+
+	it('does not delay ordinary page browsing while saved-folder metadata is still loading', async () => {
+		savedFolderFixture(['/empty'])
+		const read = native.fetch.getMockImplementation()!
+		native.fetch.mockImplementation((query, params, options) =>
+			params.registryId ? new Promise(() => {}) : read(query, params, options),
+		)
+		await render()
+		expect(button('About · /about').disabled).toBe(false)
+		await click('About · /about')
+		expect(native.navigate).toHaveBeenCalledWith('/about', {
+			id: 'about',
+			type: 'kitProofPage',
+		})
+		expect(native.mutate).not.toHaveBeenCalled()
+		expect(native.request).not.toHaveBeenCalled()
+	})
+
+	it('refreshes saved folders through the shared listener and preserves expansion in the picker', async () => {
+		const fixture = savedFolderFixture(['/empty'])
+		await render()
+		await click('Collapse Empty')
+		fixture.folders.folders.push({ _key: 'added', pathname: '/planned' })
+		fixture.folders._rev = 'folder-revision-2'
+		await act(async () => {
+			native.observer!.next({ type: 'mutation' })
+			await new Promise((resolve) => setTimeout(resolve, 200))
+		})
+		expect(button('Collapse Planned')).toBeTruthy()
+		expect(button('Expand Empty')).toBeTruthy()
+		await click('Toggle navigator')
+		await click('Choose page')
+		const dialog = document.querySelector('[role="dialog"]')!
+		expect(dialog.contains(button('Expand Empty'))).toBe(true)
+		expect(dialog.contains(button('Collapse Planned'))).toBe(true)
+		expect(native.listen).toHaveBeenCalledTimes(1)
+		expect(native.unsubscribe).not.toHaveBeenCalled()
+		expect(native.mutate).not.toHaveBeenCalled()
+		expect(native.request).not.toHaveBeenCalled()
+	})
+
+	it('does not show saved-folder rows from the previous perspective while its new session loads', async () => {
+		savedFolderFixture(['/empty'])
+		await render()
+		expect(button('Collapse Empty')).toBeTruthy()
+		native.fetch.mockReturnValue(new Promise(() => {}))
+		native.perspective = ['published']
+		await render()
+		expect(document.querySelector('[aria-label="Collapse Empty"]')).toBeNull()
+		expect(native.unsubscribe).toHaveBeenCalledTimes(1)
+	})
 
 	it('uses full URLs throughout the browser while collection documents store only slugs', async () => {
 		const runtime = createPagesRuntime({
@@ -731,9 +872,13 @@ describe('Pages Presentation adapter lifecycle', () => {
 		'keeps focus inside the modal picker with %s results',
 		async (state) => {
 			if (state === 'empty')
-				native.fetch.mockImplementation((query: string) =>
+				native.fetch.mockImplementation((query: string, params) =>
 					Promise.resolve(
-						query.includes('"total":') ? { total: 0, documents: [] } : [],
+						params.registryId
+							? null
+							: query.includes('"total":')
+								? { total: 0, documents: [] }
+								: [],
 					),
 				)
 			if (state === 'loading')
@@ -794,12 +939,12 @@ describe('Pages Presentation adapter lifecycle', () => {
 
 	it('shares resources and one listener between header, sidebar, and picker', async () => {
 		await render()
-		expect(native.fetch).toHaveBeenCalledTimes(3)
+		expect(native.fetch).toHaveBeenCalledTimes(4)
 		expect(native.listen).toHaveBeenCalledTimes(1)
 		await click('Toggle navigator')
 		await click('Choose page')
 		// The header keeps its identity resource alive; reopened tree resources refresh.
-		expect(native.fetch).toHaveBeenCalledTimes(5)
+		expect(native.fetch).toHaveBeenCalledTimes(7)
 		expect(native.unsubscribe).not.toHaveBeenCalled()
 	})
 	it('does not show previous-perspective rows while a new perspective loads', async () => {
@@ -813,9 +958,18 @@ describe('Pages Presentation adapter lifecycle', () => {
 				element.getAttribute('aria-label')?.includes('About · /about'),
 			),
 		).toBe(false)
-		expect(native.fetch.mock.calls.at(-1)?.[2]).toMatchObject({
-			perspective: ['published'],
-		})
+		expect(
+			native.fetch.mock.calls.some(
+				(call) =>
+					call[2]?.perspective === 'raw' &&
+					call[1]?.registryId === 'sanityKit.folders',
+			),
+		).toBe(true)
+		expect(
+			native.fetch.mock.calls.some(
+				(call) => JSON.stringify(call[2]?.perspective) === '["published"]',
+			),
+		).toBe(true)
 		expect(native.unsubscribe).toHaveBeenCalledTimes(1)
 	})
 	it('keeps the mounted list and its scroll position during a background refresh', async () => {
@@ -828,7 +982,21 @@ describe('Pages Presentation adapter lifecycle', () => {
 			scroller.dispatchEvent(new Event('scroll', { bubbles: true }))
 		})
 		const pending = Promise.withResolvers<unknown>()
-		native.fetch.mockReturnValueOnce(pending.promise)
+		const read = native.fetch.getMockImplementation()!
+		let deferred = false
+		native.fetch.mockImplementation((query, params, options) => {
+			if (
+				!deferred &&
+				!params.registryId &&
+				!params.id &&
+				!params.path &&
+				!query.includes('"total":')
+			) {
+				deferred = true
+				return pending.promise
+			}
+			return read(query, params, options)
+		})
 		await act(async () => {
 			native.observer!.next({ type: 'welcome' })
 			await Promise.resolve()

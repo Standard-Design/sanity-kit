@@ -73,6 +73,7 @@ for (const path of [
 	'studio/folders/planner.js',
 	'studio/folders/load.js',
 	'studio/folders/write.js',
+	'studio/pages/folder-registry.js',
 	'url/settings/resolve.js',
 	'url/settings/load.js',
 	'redirect/snapshot.js',

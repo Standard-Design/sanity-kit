@@ -31,9 +31,22 @@ const doc = (id: number, type = 'page') => ({
 	path: type === 'page' ? `/page-${id}` : `/journal/post-${id}`,
 	_updatedAt: '2026-10-29T00:00:00Z',
 })
+const savedFolders = (pathname: string) => ({
+	_id: 'sanityKit.folders',
+	_type: 'sanityKitFolderRegistry',
+	_rev: 'folder-revision',
+	schemaVersion: 1,
+	folders: [{ _key: 'saved-folder', pathname }],
+})
 
 function harness(initial = [doc(0)]) {
 	let dataset: object[] = initial
+	const fetchFolderRegistry = vi.fn(
+		(_signal: AbortSignal): Promise<unknown> => {
+			void _signal
+			return Promise.resolve(null)
+		},
+	)
 	const observers: Parameters<PagesDataSource['listen']>[0][] = []
 	const unsubscribe = vi.fn()
 	const fetch = vi.fn(
@@ -49,6 +62,7 @@ function harness(initial = [doc(0)]) {
 		return { unsubscribe }
 	})
 	const source: PagesDataSource = {
+		fetchFolderRegistry,
 		fetch: <T>(plan: PageQueryPlan, signal: AbortSignal) =>
 			fetch(plan, signal) as Promise<T>,
 		listen,
@@ -59,6 +73,7 @@ function harness(initial = [doc(0)]) {
 		session,
 		identity: session.identity(runtime.model.previewQuery('/page-0')),
 		fetch,
+		fetchFolderRegistry,
 		listen,
 		unsubscribe,
 		observers,
@@ -322,6 +337,84 @@ describe('Shared Pages data sessions', () => {
 		expect(recent.getSnapshot().data.documents).toHaveLength(5)
 		expect(h.listen).toHaveBeenCalledTimes(1)
 		expect(h.fetch).toHaveBeenCalledTimes(4)
+	})
+	it('loads saved folders lazily with the shared listener and leaves page reads independent', async () => {
+		const h = setup()
+		h.fetchFolderRegistry.mockResolvedValue(savedFolders('/empty'))
+		h.subscribe(h.session.pages)
+		await settle()
+		expect(h.fetchFolderRegistry).not.toHaveBeenCalled()
+		h.subscribe(h.session.folders)
+		h.subscribe(h.session.folders)
+		await settle()
+		expect(h.session.folders.getSnapshot()).toMatchObject({
+			loading: false,
+			error: false,
+			data: [{ pathname: '/empty' }],
+		})
+		expect(h.fetchFolderRegistry).toHaveBeenCalledTimes(1)
+		expect(h.listen).toHaveBeenCalledTimes(1)
+		h.fetchFolderRegistry.mockRejectedValueOnce(new Error('registry denied'))
+		h.observers[0]!.next({ type: 'mutation' })
+		await changed()
+		expect(h.session.folders.getSnapshot()).toMatchObject({
+			error: true,
+			data: [{ pathname: '/empty' }],
+		})
+		expect(h.session.pages.getSnapshot()).toMatchObject({
+			error: false,
+			data: { documents: [{ _id: 'id-0000' }] },
+		})
+	})
+	it('rejects malformed saved metadata, then recovers through retry without fabricating an empty success', async () => {
+		const h = setup()
+		h.fetchFolderRegistry.mockResolvedValueOnce({
+			...savedFolders('/empty'),
+			schemaVersion: 99,
+		})
+		h.subscribe(h.session.folders)
+		await settle()
+		expect(h.session.folders.getSnapshot()).toMatchObject({
+			loading: false,
+			error: true,
+			data: [],
+		})
+		h.fetchFolderRegistry.mockResolvedValueOnce(savedFolders('/restored'))
+		h.session.retry()
+		await settle()
+		expect(h.session.folders.getSnapshot()).toMatchObject({
+			error: false,
+			data: [{ pathname: '/restored' }],
+		})
+		h.fetchFolderRegistry.mockResolvedValueOnce(null)
+		h.observers[0]!.next({ type: 'mutation' })
+		await changed()
+		expect(h.session.folders.getSnapshot()).toMatchObject({
+			error: false,
+			data: [],
+		})
+	})
+	it('discards obsolete saved-folder responses and clears metadata when the last subscriber leaves', async () => {
+		const h = setup()
+		const pending = Promise.withResolvers<unknown>()
+		h.fetchFolderRegistry.mockReturnValueOnce(pending.promise)
+		h.fetchFolderRegistry.mockResolvedValueOnce(savedFolders('/current'))
+		const release = h.subscribe(h.session.folders)
+		await settle()
+		h.observers[0]!.next({ type: 'mutation' })
+		await changed()
+		expect(h.fetchFolderRegistry.mock.calls[0]![0].aborted).toBe(true)
+		pending.resolve(savedFolders('/obsolete'))
+		await settle()
+		expect(h.session.folders.getSnapshot().data).toMatchObject([
+			{ pathname: '/current' },
+		])
+		release()
+		expect(h.session.folders.getSnapshot()).toMatchObject({
+			loading: true,
+			data: [],
+		})
+		expect(h.unsubscribe).toHaveBeenCalledTimes(1)
 	})
 	it('does not expose a partial tree when a later page batch fails', async () => {
 		const h = setup(Array.from({ length: 105 }, (_, i) => doc(i)))

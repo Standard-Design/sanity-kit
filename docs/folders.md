@@ -8,15 +8,45 @@ The implementation supplies **private validation and planning functions** in
 `src/studio/folders/planner.ts` and a **private read layer** in
 `src/studio/folders/load.ts`. The planner works on supplied records and returns a
 proposed change. The read layer can fetch the evidence needed by those plans.
-The new **private additive writer** in `src/studio/folders/write.ts` is prepared
-for review. It connects reads and plans to explicit create and synchronize actions.
+The approved **private additive writer** in `src/studio/folders/write.ts`
+connects reads and plans to explicit create and synchronize actions.
 It can save new folder records but cannot remove folders or change page URLs.
-None of these modules registers a Studio schema, adds controls, or changes the
-current navigator. There is no public package export for these functions yet.
+None of these modules registers a Studio schema or adds editing controls. There
+is no public package export for these functions yet. A separate, read-only
+navigator integration is now under review; it displays saved folders alongside
+folders inferred from page URLs.
 
 The broader editor behavior is described in [Pages](./pages.md) and the
 [Pages design decisions](./pages-design-proposals.md). The shared route
 registration comes from the [URL subsystem](./url.md).
+
+## One folder experience for editors
+
+Editors should not need to know whether a folder was inferred from a page URL or
+loaded from a saved record. Both appear and behave as ordinary folders. There are
+no persistence labels or different row styles. A **Sync folders** action in the
+Pages `…` menu will be an out-of-the-way recovery option, not a routine editor task.
+
+The intended workflow is for the developer to synchronize existing paths during
+setup, then have kit-managed folder creation and URL changes save the necessary
+records as part of those actions. Imports and external writers should synchronize
+after their changes. Inference remains a fallback that keeps pages discoverable;
+it is not an editor task to resolve. The URL-field write integration is still
+pending, so that automatic persistence is a requirement for the finished workflow,
+not a claim about today's native fixture fields.
+
+The approved safety fallback is a background check after Pages initializes and
+when newly loaded paths reveal missing folders. In the normal workflow it should
+find nothing to save. When needed, it may add missing organizational records;
+it must never change page content or URLs, publish documents, rename folders, or
+remove anything. Checks must be throttled, nonblocking, and avoid overlapping
+runs. Writes require sufficient access, complete inventory evidence, revision
+guards, and reconciliation of uncertain outcomes before retrying.
+
+This replaces the earlier policy that opening Pages must never write. The
+background coordinator and menu action are not implemented in the current
+display slice. Nothing runs while Studio is closed, so import synchronization
+remains the preferred way to persist imported paths.
 
 ## What a saved folder contains
 
@@ -92,8 +122,9 @@ Use `null` only when a read has established that the registry does not exist.
 `undefined`, malformed records, a different registry ID, and unsupported schema versions are
 errors. An unreadable registry must not be mistaken for an empty one.
 
-Synchronization is an explicit operation. Simply opening the navigator must not
-adopt folders or perform other writes. A page at `/about/company/team` contributes
+The current synchronization helper runs only when called; the display reader
+does not call it. The planned background coordinator will invoke it as a safety
+fallback under the policy above. A page at `/about/company/team` contributes
 the parent folders `/about` and `/about/company`; it does not alone establish
 `/about/company/team` as a folder. Once adopted, those parents remain saved even
 if the page later moves away. Removing them requires a separate empty-folder
@@ -200,6 +231,31 @@ writer appends missing records instead of replacing existing records with this
 snapshot. A single request reduces separate-read drift;
 it does not lock documents against later changes. Successful reads cannot prove
 ACL visibility or make a future removal race-free.
+
+## Displaying saved folders in Pages
+
+The navigator has a smaller read than the operation loader above. It reads only
+the fixed registry document, validates it, and merges the saved paths with folders
+inferred from the visible pages. It does not fetch every raw page version, adopt
+folders, or call the writer. Opening the tool is read-only.
+
+Saved folders remain visible with no pages inside. A real page at a saved folder's
+path appears first inside it, using the page's title. Matching inferred and saved
+paths appear once. Collection groups stay separate. The navigator's expansion
+keys remain path-based so saving an inferred folder does not reset its open state.
+
+Organizational metadata has no draft or release lifecycle. Its exact-ID read uses
+the raw perspective, independently of the selected content perspective. A missing
+or invisible registry contributes no saved folders; this is not evidence that the
+registry is absent or permission to create it. Malformed, oversized, or failed
+reads produce a warning and retry action. Ordinary page navigation remains usable.
+The last successful folder list can remain visible with that warning until retry
+succeeds; it is never used as write evidence.
+
+The sidebar and page picker share the same folder resource and existing change
+listener. Registry changes refresh the list, and reconnect/periodic reads repair
+missed notifications. Search still searches pages and overviews, not folder names.
+See [the Pages data architecture](pages.md#shared-live-data-loading).
 
 ## Proposed bounds for this implementation
 

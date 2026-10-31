@@ -31,10 +31,11 @@ Reads alone do not establish publication safety or authorize mutations.
 
 The published redirect reader is also approved.
 
-A private folder writer for creation and explicit synchronization is now under
-review. It adds records using guarded writes; it does not remove or rename
-folders, change page URLs, or install Studio controls. See [Folders](folders.md)
-for the write results and recovery limits.
+The private folder writer for creation and explicit synchronization is approved.
+It adds records using guarded writes; it does not remove or rename folders or
+change page URLs. Read-only navigator support for saved folders is now under
+review. Creation controls remain future work. See [Folders](folders.md) for the
+write results, display behavior, and recovery limits.
 
 The private [Studio generation bridge](url.md#studio-generation-context-internal)
 is implemented and approved. It binds native source and slugify callbacks, returns
@@ -84,17 +85,34 @@ Approved October 31: adopt inferred folders so they have the same lifecycle as
 explicitly created folders. Once adopted, moving the last page does not remove
 them.
 
-- Setup offers an explicit synchronization step that finds valid folder paths
+Editors see one folder system. Do not label folders as inferred or persisted,
+or show different row styles for them. Persistence is the kit's responsibility
+during normal editing. A **Sync folders** action in the Pages `…` menu is approved
+as a recovery fallback, not routine work for editors.
+
+- Developer setup runs an explicit synchronization step that finds valid folder paths
   implied by registered page documents, including required ancestors, and saves
   the missing records. Root remains implicit; collection groups remain separate.
 - URL changes made through the kit ensure both existing and destination folder
   ancestors are retained. The exact write integration must be tested with native
   field patches; do not claim page and metadata changes are atomic until it is.
-- Imports and other API writers can run the same synchronization operation. Until
+- Imports and other API writers should run the same maintenance operation. Until
   synchronization, the navigator can still display inferred folders, but cannot
   guarantee an imported empty folder will survive if its last page moves first.
-- Opening or searching the navigator remains read-only. No hidden background
-  migration runs simply because an editor views the tool.
+- A background safety check after Pages initializes, and when newly loaded paths
+  reveal missing folders, may save missing organizational records. Normally there
+  should be nothing to save. Keep checks throttled and nonblocking, prevent
+  overlapping runs, and require sufficient access and complete inventory evidence.
+  Reuse guarded writes and reconcile uncertain outcomes before retrying.
+- Background synchronization never changes page content or URLs, publishes
+  documents, renames folders, or removes records. It does not run while Studio
+  is closed.
+
+This supersedes the earlier “opening Pages never writes” policy and the proposal
+to omit a synchronization menu action. The current display slice still performs
+no writes; the background coordinator and menu action require implementation.
+Folder creation controls, setup/import maintenance, and automatic URL-write
+integration remain part of the intended workflow.
 
 Synchronization is additive. It never removes unused folders. Empty-only removal
 checks index pages, descendant pages, and saved subfolders across relevant drafts,

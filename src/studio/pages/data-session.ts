@@ -14,6 +14,8 @@ import {
 	type NavigationDocument,
 } from './queries.js'
 import { readPageSnapshot } from './snapshot.js'
+import type { FolderRecord } from '../folders/planner.js'
+import { readNavigationFolders } from './folder-registry.js'
 
 export const CHANGE_DELAY_MS = 150
 export const RECONCILE_MS = 60_000
@@ -184,6 +186,8 @@ export interface PagesDataResource<T> {
 
 /** Named internal boundary keeps resource implementation details out of consumers. */
 export interface PagesDataSession {
+	/** Independent metadata resource: failures do not disable ordinary page reads. */
+	folders: PagesDataResource<readonly FolderRecord[]>
 	identity: (
 		plan: PageQueryPlan | undefined,
 	) => PagesDataResource<PageDocument[]>
@@ -305,6 +309,11 @@ export function createPagesDataSession(
 		return result
 	}
 	const identities = new Map<string, DataResource<PageDocument[]>>()
+	const folders = resource<readonly FolderRecord[]>([], async (signal) => {
+		const input = await source.fetchFolderRegistry(signal)
+		signal.throwIfAborted()
+		return readNavigationFolders(runtime.registry, input)
+	})
 	const pages = resource<{
 		documents: NavigationDocument[]
 		tree: ReturnType<typeof buildNavigationTree>
@@ -322,6 +331,7 @@ export function createPagesDataSession(
 	>()
 	const collections = new Map<string, DataResource<CollectionData>>()
 	return {
+		folders,
 		identity(plan) {
 			const key = JSON.stringify(plan ?? null)
 			if (!identities.has(key))

@@ -368,9 +368,9 @@ pending. No dead rename/create-folder buttons imply those writes already work.
 The tool-level provider creates one `dataStore`. For each Studio client and
 perspective stack, that store keeps a separate session. A session contains
 resources: independently loaded results such as header identity, complete ordinary
-pages, a collection's recent items, or a collection search. Two readers of the
+pages, saved folder records, a collection's recent items, or a collection search. Two readers of the
 same resource share its data and request. All active resources in a session share
-one listener for the registered document types.
+one listener for the registered document types and the fixed folder-registry ID.
 
 The native perspective is read inside Presentation's header and navigator, where
 Sanity provides it. The outer provider only owns the store. It does not guess
@@ -384,7 +384,12 @@ share result data. Nothing is cached globally or persisted to browser storage.
 `data-source.ts` uses Studio's existing authenticated client. Requests explicitly
 disable the CDN and Stega encoding and supply the session's perspective and abort
 signal. The kit does not create or copy a credential. An empty perspective stack
-is treated as published; `raw` is rejected.
+is treated as published; `raw` is rejected for page content. Folder metadata is
+read separately by exact ID with `raw`, because organizational folders do not
+have draft or release versions. This bounded read disables inherited caching and
+validates the complete registry before displaying any saved records. A missing
+or invisible registry adds no saved folders; it does not establish absence for
+writing. See [Folders](folders.md#displaying-saved-folders-in-pages).
 
 The listener requests all document versions, including drafts and releases, so
 their changes can invalidate an effective-perspective result. Notifications are
@@ -414,7 +419,10 @@ Background refreshes keep the last successful rows visible, rather than replacin
 the list with a loading screen. Search and scroll remain in the separate browser
 UI state. Read failures retain those rows with a warning; the current browser
 disables page selection until recovery, so stale results are not presented as
-current. Initial reads still have a loading state.
+current. Initial reads still have a loading state. A failed folder-metadata read
+is different: it shows a folder-loading warning with **Retry loading folders**, but
+keeps successfully loaded pages selectable. Previously loaded folder records may
+remain visible with that warning. They are display data, never write evidence.
 
 A collection's `loadMore()` uses its last cursor and ignores duplicate calls while
 a request is running. Results are deduplicated by effective document ID. After a
@@ -440,16 +448,21 @@ must also run in the query when added, not just filter already-loaded rows.
 The navigator uses the separately tested helpers in `navigation.ts`, `queries.ts`,
 and `snapshot.ts`. These are private implementation details, not new consumer APIs.
 
-### Build folders from page URLs
+### Combine saved folders with page URLs
 
 `buildNavigationTree()` takes the complete list of ordinary pages for one content
-perspective. It infers folders from the paths, without creating folder documents:
+perspective and a separately validated list of saved folder records. It combines
+them without creating or editing folder documents:
 
 - `/about/company/team` establishes the `about` and `company` folders. It does
   not invent About or Company page documents.
 - If a real page exists at `/about`, it appears first inside the About folder,
   with its real title. A page at `/about` with no descendants remains a regular
-  page at the root. The root itself does not become a Site root folder.
+  page at the root unless `/about` is also a saved folder. The root itself does
+  not become a Site root folder.
+- Saved folders remain visible when empty. Expanding one shows **No pages in this
+  folder.** Saved and inferred paths merge into one folder row; saving a folder
+  does not invent an index page or create a preview URL.
 - Collection items do not become ordinary page-tree entries. The collection
   group holds its overview separately, so that document appears only once.
   Ordinary pages beneath the overview URL are still retained in that group.
@@ -472,9 +485,9 @@ groups by path, then pages by title with an ID tie-breaker. No Index badge or
 replacement “Index” title is stored in this model.
 
 These are navigation relationships derived from URLs, **not parent-child
-references saved in Sanity**. They do not make folder renames cascade and cannot
-preserve empty folders. The later URL-field and rename workflows still need their
-own storage and mutation rules.
+references saved in Sanity**. Saved registry records preserve empty folders, but
+do not make renames cascade. The URL-field and rename workflows still need their
+own mutation rules. Merely opening the navigator never adopts inferred folders.
 
 ### Read pages and collections differently
 
@@ -643,8 +656,9 @@ is also approved as a private foundation.
 The [collection-settings loader](collection-routing.md#loading-settings-from-sanity)
 is approved and reads and validates settings; it is not connected to Studio controls.
 A private [folder writer](folders.md) for creation and explicit synchronization
-is now under review. It adds folder records without changing page URLs. It is
-not connected to the navigator; removal and rename remain future work.
+is approved. It adds folder records without changing page URLs. Read-only saved
+folder display is now under review; creation controls, removal, and rename remain
+future work.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -781,7 +795,8 @@ example, creating `company/team` inside `/about` selects
 The picker does not rename folders. Collection fields are intended to show their
 centrally configured prefix as locked, with a single editable slug segment. The
 `slugField` routing contract now supports that storage shape, but the custom
-input and folder-creation persistence are still pending. The current fixture's
+input and folder-creation controls are still pending. The private persistence
+functions are implemented separately. The current fixture's
 existing collection documents retain their full-path registration and data.
 
 The planned field includes a **Generate** button that derives the final slug
@@ -816,9 +831,9 @@ or moving the last page must not remove an explicitly created folder from the
 navigator. The navigator will need to combine saved folder records with folders
 inferred from page URLs, without showing duplicates. An empty folder is
 organizational metadata; it does not create a website page or occupy its index
-URL. The private creation/synchronization writer is now under review. Schema
-registration, navigator integration, and removal/rename operations remain future
-work.
+URL. The private creation/synchronization writer is approved; read-only saved
+folder display is now under review. Schema registration, creation controls, and
+removal/rename operations remain future work.
 
 Approved October 31: use one internal, authenticated-only folder-registry document
 per project/dataset, with stable record identifiers and paths. Its fixed ID is
@@ -827,12 +842,27 @@ lists and creation menus. Organizational changes take effect immediately without
 a publishing step; frontend rendering does not depend on this metadata. Define
 size limits and concurrent-write safeguards before shipping.
 
-Inferred folders should become persistent too: an explicit initial synchronization
-adopts them, kit-managed URL changes preserve existing and destination ancestors,
-and imports can invoke the same synchronization. Viewing the navigator stays
-read-only. Once adopted, inferred and explicitly created folders share the same
-lifecycle. This does not automatically persist arbitrary external changes before
-they have been synchronized.
+Editors see one folder system, without inferred/persisted labels. Initial
+synchronization is a developer setup task;
+imports and external writers should invoke it as maintenance. Kit-managed folder
+creation and URL changes must save the required records as part of normal editing,
+including existing and destination ancestors. That URL-write integration is still
+pending. Once adopted, inferred and explicitly created folders share the same
+lifecycle.
+
+Approved safety fallback: Pages should check after initialization and when newly
+loaded paths reveal missing folders, then save missing folder records only when
+needed. Normal kit edits and import synchronization should leave nothing for it
+to do. Keep this nonblocking and throttled, avoid overlapping runs, and require
+sufficient access, complete evidence, and guarded writes. Uncertain write outcomes
+must be reconciled before retrying. A **Sync folders** action in the Pages `…`
+menu provides an out-of-the-way manual fallback.
+
+This deliberately replaces the earlier no-writes-on-open policy. Background sync
+may add organizational metadata; it never changes page content or URLs, publishes
+documents, renames folders, or removes anything. It does not run while Studio is
+closed. The current display implementation remains read-only; the coordinator
+and menu action are not implemented yet.
 
 The approved first removal workflow is **Remove folder** in the navigator, only
 for an empty folder: no index page, descendant pages, or saved subfolders. It

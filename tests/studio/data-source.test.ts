@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import { createClient, type ClientConfig } from '@sanity/client'
 import {
 	createPagesDataSource,
 	type PagesClient,
@@ -11,8 +12,11 @@ function client() {
 	const unsubscribe = vi.fn()
 	const subscribe = vi.fn().mockReturnValue({ unsubscribe })
 	const listen = vi.fn().mockReturnValue({ subscribe })
+	const value = { fetch, listen, withConfig: vi.fn() }
+	value.withConfig.mockReturnValue(value)
 	return {
-		value: { fetch, listen } as unknown as PagesClient,
+		value: value as unknown as PagesClient,
+		withConfig: value.withConfig,
 		fetch,
 		listen,
 		subscribe,
@@ -56,6 +60,49 @@ describe('Studio data transport and isolation', () => {
 			'effective perspective',
 		)
 	})
+	it('reads organizational metadata raw through the dated client without inherited caching', async () => {
+		const transport = vi.fn((_url: unknown, _init?: RequestInit) => {
+			void _url
+			void _init
+			return Promise.resolve(
+				new Response(JSON.stringify({ result: null }), {
+					status: 200,
+					headers: { 'content-type': 'application/json' },
+				}),
+			)
+		})
+		const client = createClient({
+			projectId: 'test1234',
+			dataset: 'test',
+			apiVersion: '2025-02-19',
+			perspective: 'drafts',
+			useCdn: true,
+			fetch: {
+				cache: 'force-cache',
+				next: { revalidate: 3600 },
+			} as unknown as NonNullable<ClientConfig['fetch']>,
+			resolveFetch: () => transport,
+		})
+		const before = client.config()
+		const source = createPagesDataSource(
+			client as unknown as PagesClient,
+			['release-id', 'drafts'],
+			['page'],
+		)
+		const result = await source.fetchFolderRegistry(
+			new AbortController().signal,
+		)
+		expect(result).toBeNull()
+		expect(transport).toHaveBeenCalledTimes(1)
+		const [url, init] = transport.mock.calls[0]!
+		expect(String(url)).toContain(
+			'test1234.api.sanity.io/v2026-10-01/data/query/test',
+		)
+		expect(new URL(String(url)).searchParams.get('perspective')).toBe('raw')
+		expect(init?.cache).toBe('no-store')
+		expect((init as RequestInit & { next?: unknown }).next).toBeUndefined()
+		expect(client.config()).toEqual(before)
+	})
 	it('requests all versions, query visibility, welcome and reconnect without copying content bodies', () => {
 		const c = client()
 		const error = vi.fn()
@@ -64,8 +111,8 @@ describe('Studio data transport and isolation', () => {
 			.listen({ next, error })
 			.unsubscribe()
 		expect(c.listen).toHaveBeenCalledWith(
-			'*[_type in $types]',
-			{ types: ['page', 'post'] },
+			'*[_type in $types || _id == $registryId]',
+			{ types: ['page', 'post'], registryId: 'sanityKit.folders' },
 			{
 				includeResult: false,
 				includeMutations: false,

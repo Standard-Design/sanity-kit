@@ -7,8 +7,10 @@ without replacing Sanity's editor, preview, routing, or document actions?
 Nothing in this directory is published. The reusable plugin now lives under `src/studio/` and local builds expose
 `/studio`; the fixture itself is never packed. Consumers supply their own Studio
 installation. Studio-only runtime packages are optional peers. The browser now
-renders the first folder tree and collection view. Folder writes, advanced filters,
-the URL field, and full release acceptance are still pending.
+renders the folder tree and collection view, including saved folder records when
+available. Creation/synchronization writers exist internally, but the fixture
+does not call them or seed folders on startup. Folder editing controls, advanced
+filters, the URL field, and full release acceptance are still pending.
 
 The plugin uses a shared internal route registry. See
 [the routing foundation](ROUTING.md) for its configuration, validation,
@@ -87,6 +89,27 @@ title and leave the pathname empty. The native editor should remain usable,
 while the previous preview stays in place and the header explains why the new
 document cannot yet be previewed. Nothing is published automatically by this
 button; the seed script creates published fixture records explicitly.
+
+## Test an empty folder
+
+Until the folder creation controls are available, `seed-empty-folder.ts` can
+add `/empty-folder-test` through the internal guarded folder writer. It is
+restricted to the Standard Stack test project (`ha9kep4l`, `development`) and
+checks unrestricted document read access before loading the inventory. It
+refuses a path that already contains a page. It changes only folder metadata.
+
+With the project and dataset environment variables set, run from the fixture
+directory:
+
+```sh
+../../../node_modules/.bin/sanity exec seed-empty-folder.ts --with-user-token
+../../../node_modules/.bin/sanity exec seed-empty-folder.ts --with-user-token -- --apply
+```
+
+The first command only checks; the second saves the folder. If the write result
+is uncertain, inspect the registry before retrying. Open the page picker or
+navigator and expand **Empty-folder-test** to see “No pages in this folder.”
+Studio startup and automated tests never run this script.
 
 ## How the pieces fit together
 

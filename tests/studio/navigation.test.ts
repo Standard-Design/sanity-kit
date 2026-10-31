@@ -77,6 +77,94 @@ describe('Pages navigator hierarchy', () => {
 			kind: 'page',
 		})
 	})
+	it('shows saved empty folders with their hierarchy and no fabricated pages', () => {
+		const saved = [
+			{ _key: 'company', pathname: '/about/company' },
+			{ _key: 'about', pathname: '/about' },
+		]
+		const { roots } = buildNavigationTree(registry, [], saved)
+		expect(roots[0]).toEqual({
+			kind: 'folder',
+			key: 'folder:/about',
+			name: 'about',
+			pathname: '/about',
+			children: [
+				{
+					kind: 'folder',
+					key: 'folder:/about/company',
+					name: 'company',
+					pathname: '/about/company',
+					children: [],
+				},
+			],
+		})
+		expect(allPages(roots)).toEqual([])
+		expect(roots.some((node) => node.pathname === '/')).toBe(false)
+		expect(buildNavigationTree(registry, [], [...saved].reverse())).toEqual({
+			roots,
+			unfiled: [],
+		})
+		expect(saved.map((folder) => folder._key)).toEqual(['company', 'about'])
+	})
+	it('places a lone page beneath its saved folder using the real page title', () => {
+		const { roots } = buildNavigationTree(
+			registry,
+			[page('about', '/about', 'Our company')],
+			[{ _key: 'about', pathname: '/about' }],
+		)
+		expect(roots[0]).toMatchObject({
+			kind: 'folder',
+			pathname: '/about',
+			children: [
+				{ kind: 'page', document: { _id: 'about', title: 'Our company' } },
+			],
+		})
+		expect(allPages(roots)).toEqual(['about'])
+	})
+	it('merges saved and inferred folders without duplicating them or changing expansion keys', () => {
+		const documents = [page('team', '/about/company/team')]
+		const saved = [
+			{ _key: 'about-record', pathname: '/about' },
+			{ _key: 'company-record', pathname: '/about/company' },
+		]
+		expect(buildNavigationTree(registry, documents, saved)).toEqual(
+			buildNavigationTree(registry, documents),
+		)
+	})
+	it('retains saved folders after their last page moves elsewhere', () => {
+		const saved = [{ _key: 'about', pathname: '/about' }]
+		const before = buildNavigationTree(
+			registry,
+			[page('team', '/about/team')],
+			saved,
+		)
+		const after = buildNavigationTree(registry, [page('team', '/team')], saved)
+		expect(before.roots[0]).toMatchObject({
+			key: 'folder:/about',
+			children: [{ kind: 'page' }],
+		})
+		expect(after.roots[0]).toMatchObject({ key: 'folder:/about', children: [] })
+		expect(allPages(after.roots)).toEqual(['team'])
+	})
+	it('places saved subfolders beneath a collection without duplicating its group', () => {
+		const { roots } = buildNavigationTree(
+			registry,
+			[page('authors', '/journal/authors')],
+			[{ _key: 'authors', pathname: '/journal/authors' }],
+		)
+		expect(roots).toHaveLength(1)
+		expect(roots[0]).toMatchObject({
+			kind: 'collection',
+			key: 'collection:journal',
+			children: [
+				{
+					kind: 'folder',
+					pathname: '/journal/authors',
+					children: [{ kind: 'page', document: { _id: 'authors' } }],
+				},
+			],
+		})
+	})
 	it('keeps overview and posts out of the generic page list', () => {
 		const { roots } = buildNavigationTree(registry, [
 			page('journal', '/journal'),

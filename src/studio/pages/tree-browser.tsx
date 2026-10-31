@@ -1,5 +1,5 @@
 /**
- * Render inferred folders, real named index pages, and bounded recent collection
+ * Render saved and inferred folders, real named index pages, and recent collection
  * items. Folders are navigation only: expansion never selects or writes content.
  * Folder cards match Structure's compact first-pane rows: 4px top/bottom/left
  * and 8px right padding, with a 33px minimum height.
@@ -176,6 +176,13 @@ export function TreeRows({
 						</Card>
 						{open && (
 							<NestedRows>
+								{node.kind === 'folder' && node.children.length === 0 && (
+									<Box padding={2}>
+										<Text size={1} muted>
+											No pages in this folder.
+										</Text>
+									</Box>
+								)}
 								{node.kind === 'collection' && (
 									<>
 										{node.overviews.length === 0 && (

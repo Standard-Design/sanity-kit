@@ -5,6 +5,7 @@
  * docs/pages.md: “Navigator data foundation” for the rollout boundary.
  */
 import type { PageDocument } from './model.js'
+import type { FolderRecord } from '../folders/planner.js'
 import { registeredPathname, type PagesRegistry } from './registry.js'
 
 export interface NavigationPage {
@@ -60,11 +61,14 @@ function compare(a: string, b: string): number {
  * Input must be the COMPLETE ordinary-page snapshot for ONE effective Sanity
  * perspective. Content Lake chooses drafts/releases before this function runs.
  * Collection items belong in their own queries and must not become page folders.
- * No folder documents, empty folders, or parent references are created here.
+ * Saved records have already passed registry validation. They keep empty folders
+ * visible, while page URLs still determine placement. This function writes no
+ * folder documents or parent references.
  */
 export function buildNavigationTree(
 	registry: PagesRegistry,
 	documents: readonly PageDocument[],
+	savedFolders: readonly FolderRecord[] = [],
 ) {
 	const roots: NavigationNode[] = []
 	const unfiled: NavigationPage[] = []
@@ -107,8 +111,23 @@ export function buildNavigationTree(
 		document,
 		pathname: registeredPathname(registry, document._type, document.pathname),
 	})
+	function ensureFolder(pathname: string) {
+		// Collection groups own their paths; the root stays the Pages heading.
+		if (pathname === '/' || groups.has(pathname)) return
+		const folder: NavigationFolder = {
+			kind: 'folder',
+			// Keep inferred and saved identities identical so adoption does not
+			// reset the editor's existing expansion state.
+			key: `folder:${pathname}`,
+			name: pathname.slice(pathname.lastIndexOf('/') + 1),
+			pathname,
+			children: [],
+		}
+		folders.set(pathname, folder)
+		groups.set(pathname, folder)
+	}
 	// Use iteration, not recursion: deeply nested authored paths must not exhaust
-	// the JavaScript call stack. A folder is inferred only when it has descendants.
+	// the JavaScript call stack. Unsaved folders are inferred from descendants.
 	function ensureAncestors(path: string) {
 		const ancestors: string[] = []
 		let parent = parentPath(path)
@@ -116,17 +135,11 @@ export function buildNavigationTree(
 			ancestors.push(parent)
 			parent = parentPath(parent)
 		}
-		for (const pathname of ancestors.reverse()) {
-			const folder: NavigationFolder = {
-				kind: 'folder',
-				key: `folder:${pathname}`,
-				name: pathname.slice(pathname.lastIndexOf('/') + 1),
-				pathname,
-				children: [],
-			}
-			folders.set(pathname, folder)
-			groups.set(pathname, folder)
-		}
+		for (const pathname of ancestors.reverse()) ensureFolder(pathname)
+	}
+	for (const folder of savedFolders) {
+		ensureAncestors(folder.pathname)
+		ensureFolder(folder.pathname)
 	}
 	for (const document of pages) {
 		if (
@@ -159,8 +172,8 @@ export function buildNavigationTree(
 			collection.overviews.push(entry)
 		else if (!entry.pathname || !canGroup(entry.pathname)) unfiled.push(entry)
 		else {
-			// /about belongs inside the /about folder when descendants establish
-			// that folder; otherwise it is a regular page directly under the root.
+			// /about belongs inside /about when descendants or a saved record
+			// establish that folder; otherwise it is a regular page under the root.
 			const path = parentPath(entry.pathname)
 			const parent =
 				folders.get(entry.pathname) ??

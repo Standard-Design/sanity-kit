@@ -58,10 +58,10 @@ discarding stale asynchronous results.
 [Folders](folders.md) explains the approved private registry planner: saved
 folder records, explicit adoption from existing URLs, and empty-only removal.
 The planner returns proposed changes. Its approved read layer loads registry
-records and raw document versions for planning. A private writer for folder
-creation and explicit synchronization is now under review: it saves only new
-folder records and preserves existing metadata. Removal, rename, and editor
-controls remain separate work.
+records and raw document versions for planning. The approved private writer for
+creation and explicit synchronization saves only new folder records and preserves
+existing metadata. Navigator support for displaying saved folders is now under
+review. Creation controls, removal, and rename remain separate work.
 
 [Collection routing settings](collection-routing.md) covers the approved private
 prefix resolver. It selects published or draft settings and produces the
