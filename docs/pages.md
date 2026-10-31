@@ -138,11 +138,64 @@ For example, the registry can describe these documents:
 | About page       | `/about` in `pathname.current`              | Ordinary page                                          |
 | Journal overview | `/journal` in `pathname.current`            | Ordinary page, also identified as the Journal overview |
 | Journal post     | `/journal/first-post` in `pathname.current` | Collection item under the `/journal` prefix            |
+| Slug-only post   | `first-post` in `slug.current`              | Collection item; Pages adds `/journal` when reading    |
 
-The current helpers require the **complete pathname**, starting with `/`.
-`routePrefix: '/journal'` checks that an item's path is beneath `/journal`; it
-does not prepend that text to a stored slug. The planned slug-only field with a
-locked prefix needs additional implementation before it can use this registry.
+Ordinary pages store a **complete pathname**, starting with `/`. Collection
+items can use the same format or opt into slug-only storage. Each item type
+chooses exactly one: `pathnameField` or `slugField`. This is explicit configuration,
+not a guess based on whether a value starts with a slash.
+
+### Full paths or collection slugs
+
+An app with a `journal/:slug` route can register posts like this:
+
+```ts
+collections: [
+	{
+		name: 'journal',
+		title: 'Journal',
+		itemsTitle: 'Posts',
+		overview: { schemaType: 'page', pathname: '/journal' },
+		routePrefix: '/journal',
+		items: [{ schemaType: 'post', slugField: 'slug.current' }],
+	},
+]
+```
+
+Here, a post stores `first-post` in `slug.current`. Pages derives
+`/journal/first-post` for navigator rows, collection search, the picker title,
+and native Presentation links. When Presentation looks up that URL, Pages removes
+the known prefix and queries `slug.current == "first-post"`. It does not query a
+second full-path field or save a generated URL back to the document. The website
+can likewise query by its route's slug parameter; it still owns that route and
+query. The kit's separate frontend link/loader APIs are not configured by this
+Studio registration, so the app must use the same prefix in its frontend links.
+
+A `slugField` can point to any string reached through object fields, not only a
+field literally named `slug.current`. The schema must already define it. Slugs
+must be one nonempty URL segment: `first-post`, not `/first-post`, `first-post/`,
+or `archive/first-post`. Unsafe URL characters, dot segments, and encoded slashes
+are rejected for navigation. The reader does not lowercase, trim, decode, or
+repair stored content. Missing or invalid items remain available for editing.
+The forthcoming custom input will provide the locked prefix and authoring feedback;
+this storage contract does not yet supply that UI or content-value validation rules.
+
+For `pathnameField`, the stored value remains the full path and `routePrefix`
+only checks its boundary. Nothing is prepended. Existing full-path collection
+items can still contain nested paths. A collection may contain several types
+using different storage modes, but each type chooses just one. URL collisions
+are checked across both modes and ordinary page types; the generated resolver
+does not choose an arbitrary document. These lookup checks do not prevent saving
+duplicate URLs.
+
+The collection overview remains an ordinary document at `/journal`; an empty
+item slug does not turn that item into the overview. Exclusions still apply to
+the resulting full URL. Changing a slug-only collection's configured prefix
+changes its derived URLs without changing documents, so coordinate that change
+with the website's routes and redirect policy. Switching an existing type from
+`pathnameField` to `slugField` also needs an explicit content migration; changing
+configuration alone does not strip prefixes from stored values. No migration
+or dataset writes are performed by this slice.
 
 The registry describes existing schemas. It does not add fields, create overview
 documents, fetch content, save URLs, or register frontend routes. Setup checks
@@ -165,7 +218,9 @@ pass configuration to `pagesTool()` rather than importing those internal helpers
 `pageProjection()` to build a small GROQ projection: document ID, document type,
 title, and pathname. A projection selects and names fields; it does not fetch
 anything by itself. Different schema fields become the same `title` and
-`pathname` properties in the result.
+`pathname` properties in the result. For slug-only collection types, the projection
+joins the configured prefix and stored slug. Downstream browser components still
+receive full paths; they do not each implement their own joining rules.
 
 The browser reads the shared session's ordinary-page, recent-item, and collection
 resources in Studio's selected perspective (the content view, such as drafts or
@@ -600,9 +655,10 @@ example, creating `company/team` inside `/about` selects
 `/about/company/team/leadership`.
 
 The picker does not rename folders. Collection fields are intended to show their
-app-configured prefix as locked, with a single editable slug segment. This needs
-a storage/resolution contract beyond the current full-path-only registry. No
-custom field or folder-creation persistence exists in this slice.
+app-configured prefix as locked, with a single editable slug segment. The
+`slugField` routing contract now supports that storage shape, but the custom
+input and folder-creation persistence are still pending. The current fixture's
+existing collection documents retain their full-path registration and data.
 
 ### URL cleanup — agreed October 29, not implemented yet
 

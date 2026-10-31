@@ -35,6 +35,11 @@
   previewed page and edited document. Share the generated resolver's path policy,
   detect ambiguous URLs, and clear obsolete identity results on navigation.
   Older pages and pathless documents no longer depend on a recent-document window.
+- Add opt-in `slugField` registration for collection items. Derive full URLs from
+  the collection prefix and one stored segment across browsing, search, header
+  identity, and native Presentation resolvers. Preserve existing `pathnameField`
+  behavior and detect collisions across both storage modes. The custom URL input,
+  authoring validation, and content migration are not included in this slice.
 
 ## 0.1.0-alpha.5
 

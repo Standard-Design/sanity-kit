@@ -57,6 +57,8 @@ vi.mock('sanity/router', () => ({
 import { BrowserStateProvider } from '../fixtures/pages-studio/browser-state.js'
 import { PagesBrowser as ProofBrowser } from '../../src/studio/pages/browser.js'
 import { PagesHeader as ProofHeader } from '../../src/studio/pages/header.js'
+import { BrowserStateProvider as ConfiguredProvider } from '../../src/studio/pages/browser-state.js'
+import { createPagesRuntime } from '../../src/studio/pages/runtime.js'
 
 const theme = buildTheme()
 
@@ -233,6 +235,72 @@ describe('Pages Presentation adapter lifecycle', () => {
 			return (await result.get()) as unknown
 		})
 	}
+
+	it('uses full URLs throughout the browser while collection documents store only slugs', async () => {
+		const runtime = createPagesRuntime({
+			previewUrl: 'https://preview.test',
+			pages: [{ schemaType: 'page', pathnameField: 'path' }],
+			collections: [
+				{
+					name: 'journal',
+					title: 'Journal',
+					itemsTitle: 'Posts',
+					overview: { schemaType: 'page', pathname: '/journal' },
+					routePrefix: '/journal',
+					items: [{ schemaType: 'post', slugField: 'slug.current' }],
+				},
+			],
+		})
+		const dataset = [
+			{
+				_id: 'overview',
+				_type: 'page',
+				title: 'Journal overview',
+				path: '/journal',
+				_updatedAt: '2026-10-30',
+			},
+			{
+				_id: 'post',
+				_type: 'post',
+				title: 'First post',
+				slug: { current: 'first' },
+				_updatedAt: '2026-10-30',
+			},
+		]
+		native.params = { preview: '/journal/first', id: 'shared', type: 'shared' }
+		native.fetch.mockImplementation(
+			async (query, params): Promise<unknown> =>
+				(
+					await evaluate(parse(query), { dataset, params })
+				).get() as Promise<unknown>,
+		)
+		await act(async () => {
+			root.render(
+				<ThemeProvider theme={theme}>
+					<ConfiguredProvider runtime={runtime}>
+						<NativeShell />
+					</ConfiguredProvider>
+				</ThemeProvider>,
+			)
+			await Promise.resolve()
+		})
+		expect(button('First post · /journal/first')).toBeTruthy()
+		await click('Browse all posts')
+		fillSearch('/journal/first')
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 250))
+		})
+		expect(button('First post · /journal/first')).toBeTruthy()
+		await click('Toggle navigator')
+		expect(button('Choose page: First post')).toBeTruthy()
+		await click('Choose page')
+		await click('First post · /journal/first')
+		expect(native.navigate).toHaveBeenCalledWith('/journal/first', {
+			id: 'post',
+			type: 'post',
+		})
+		expect(dataset[1]).not.toHaveProperty('path')
+	})
 
 	it('finds a preview title outside the loaded collection batch, independently of the edited document', async () => {
 		collectionFixture(70)

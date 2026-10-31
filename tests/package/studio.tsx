@@ -3,6 +3,7 @@ import { defineConfig, defineType, defineField } from 'sanity'
 import {
 	pagesTool,
 	type PagesToolOptions,
+	type PageCollectionItemDefinition,
 } from '@standard-design/sanity-kit/studio'
 
 const options = {
@@ -16,7 +17,7 @@ const options = {
 			title: 'Journal',
 			overview: { schemaType: 'page', pathname: '/journal' },
 			routePrefix: '/journal',
-			items: [{ schemaType: 'post', pathnameField: 'pathname.current' }],
+			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 	],
 	excludePaths: ['/'],
@@ -33,7 +34,10 @@ export default defineConfig({
 				type: 'document',
 				fields: [
 					defineField({ name: 'title', type: 'string' }),
-					defineField({ name: 'pathname', type: 'slug' }),
+					defineField({
+						name: name === 'post' ? 'slug' : 'pathname',
+						type: 'slug',
+					}),
 				],
 			}),
 		),
@@ -44,3 +48,17 @@ export default defineConfig({
 // @ts-expect-error Pages owns the native component slots to preserve tool state.
 const unsupported: PagesToolOptions = { ...options, components: {} }
 void unsupported
+
+// @ts-expect-error A collection item must choose one stored URL representation.
+const ambiguous: PageCollectionItemDefinition = {
+	schemaType: 'post',
+	slugField: 'slug.current',
+	pathnameField: 'path',
+}
+void ambiguous
+const slugPage: PagesToolOptions['pages'][number] = {
+	schemaType: 'page',
+	// @ts-expect-error Ordinary pages still store a full pathname.
+	slugField: 'slug.current',
+}
+void slugPage

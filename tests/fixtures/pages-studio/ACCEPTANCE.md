@@ -466,6 +466,36 @@ separately; neither read depends on the newest 50 documents or loaded rows.
 The custom URL field, folder actions, advanced filtering, scale checks, and broader
 permissions/release-perspective acceptance remain later work.
 
+## Collection slug storage — October 30, 2026
+
+Collection items can opt into `slugField`, while ordinary pages, overviews, and
+existing full-path item registrations keep their current storage. This is the
+read-side contract for the forthcoming locked-prefix input, not the input itself.
+
+- `pnpm verify` passed formatting, package/declaration build, lint, typecheck,
+  and 660 tests across 27 files. The browser suite has 29 tests.
+- Query tests cover full-URL projection, search, direct stored-slug reverse
+  lookup, header identity, location links, and collisions between slug-only,
+  full-path collection, and ordinary page documents. Invalid/missing slugs do
+  not produce usable navigation URLs, but their documents stay discoverable.
+- The browser test exercises real query evaluation, recent items, full-path
+  search, picker title, and native navigation using a slug-only collection.
+- `pnpm studio:build` passed for the existing full-path fixture. Its schemas,
+  registration, and dataset documents were not changed. No live slug-only
+  dataset or input-component acceptance is claimed here.
+- `pnpm test:package` passed all five frontend profiles, the isolated Studio
+  consumer, declarations, publint, and TypeGen. The installed Studio consumer
+  uses `slugField`; type checks reject both field modes together and slug-only
+  ordinary pages. The local package contained 99 files. Nothing was published.
+- The schema and modeling guidance keeps one stored value per type and an
+  explicit choice of representation. There is no automatic migration, derived
+  full-URL write, new schema installation, or change to frontend route ownership.
+
+Remaining: the approved input/folder-picker UI, separator cleanup and authoring
+validation, collision checks before applying field edits, folder actions, and
+broader permissions/release-perspective acceptance. Existing test content was
+not migrated or cleaned up in this slice.
+
 ## Test records created
 
 The explicit seed run created the following published fixture documents with

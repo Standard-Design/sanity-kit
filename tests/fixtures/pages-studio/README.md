@@ -118,6 +118,9 @@ button; the seed script creates published fixture records explicitly.
   See [Shared live-data loading](../../../docs/pages.md#shared-live-data-loading)
   for the lifecycle, retry behavior, and periodic query cost.
 - `routes.ts` registers the fixture's page, alternate-path, and collection types.
+  It deliberately retains full-path post storage. The reusable registry also
+  supports opt-in `slugField` collection mappings; automated query/browser tests
+  and the packed Studio consumer cover those without migrating fixture content.
   Internal helpers in `src/studio/pages/` generate native resolvers and the
   browser projection from that same metadata. The compiled helpers are private implementation files beneath the new `/studio`
   entry point, not separate public imports.

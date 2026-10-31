@@ -44,6 +44,9 @@ import private compiled files.
 - `pages` lists ordinary routed document types. At least one is required.
 - `pathnameField` points to a string containing the **complete path**, such as
   `/journal/first-post`. It does not contain just `first-post`.
+- A collection item can instead use `slugField: 'slug.current'` to store just
+  `first-post`. Choose exactly one field mode per type. Ordinary pages and
+  overviews still use `pathnameField`. Neither mode creates a schema field.
 - `titleField` defaults to `title`. It supplies location-link text and the proof
   list's title; it does not replace Sanity's schema preview configuration.
 - `collections` defaults to an empty list. Each has a stable `name`, visible
@@ -53,8 +56,9 @@ import private compiled files.
   Supply the wording explicitly for irregular plurals, translations, or mixed
   document types; the kit does not guess a plural from a schema identifier.
 - `routePrefix` limits item URLs to descendants, such as `/journal/first-post`.
-  It is not automatically added to a slug or written into documents. The prefix
-  itself belongs to the overview, not an item.
+  For `pathnameField`, it only checks the boundary. For `slugField`, it is joined
+  to the stored segment when reading; the full URL is never written back. The
+  prefix itself is not an item URL; the overview is registered separately.
 - `excludePaths` lists exact app-owned URLs. With `['/']`, a page document cannot
   claim the homepage. `/about` is unaffected. There are no wildcard exclusions.
 
@@ -80,11 +84,45 @@ complete path.
 
 The generated Presentation `/*` lookup is not an application route. A dedicated
 `/journal/:slug` React Router module can use it without adopting a splat route.
-With the current registry, that module must query the full stored path (or an
-independent app-owned field). Slug-only storage with an automatically joined,
-locked prefix is planned, not provided by `routePrefix` today.
+With `pathnameField`, that module can query the full stored path. With
+`slugField`, it can query its slug parameter directly. The new storage mapping
+supports a future locked-prefix input, but that custom input is not implemented
+yet. Existing fixture posts remain full-path documents; this change does not
+migrate them.
 
-This deferral concerns the **Pages navigator**, not what the frontend can show
+### How slug-only storage reaches the browser
+
+The checked internal type records the actual `pathField`, a `pathMode` of
+`pathname` or `slug`, and the prefix for slug mode. Schema checks validate that
+the stored field resolves to a string. A common projection gives the browser a
+complete `pathname` in either mode. Recent-item lists, collection search, edited
+document reads, and preview-title lookup all use that projection. Search matches
+the displayed full URL, including its derived prefix.
+
+For reverse lookup, `pagePathFilter()` first checks the complete URL against the
+registered ownership rules. For a slug type, it removes the known prefix and
+compares the remaining segment directly to the stored field with a GROQ
+parameter. This keeps the equality lookup on a stored field, not a computed
+concatenation. The generated native resolver and header both use this filter.
+Their uniqueness checks include full-path and slug types together.
+
+Location links start with the stored field and use `storedPagePathname()` to
+derive the URL. Slug mode accepts one nonempty segment, without literal or encoded
+slashes, dot segments, query/hash delimiters, or unsafe URL characters. No
+read-time cleanup occurs. Bad or missing values yield no preview link; collection
+queries still return the document so the editor remains reachable. Slug mode
+also requires a prefix without repeated slashes. Existing full-path policy is
+unchanged; separator cleanup and the stronger authoring validation remain future
+work.
+
+Changing storage modes is a migration decision, not an automatic fallback.
+Changing a prefix changes derived URLs and must be coordinated with app routes
+and redirects. These helpers do not modify stored data or prevent duplicate
+writes. See the [consumer explanation](../../../docs/pages.md#full-paths-or-collection-slugs).
+
+### Document-free overviews remain deferred
+
+The overview deferral concerns the **Pages navigator**, not what the frontend can show
 inside Presentation. An app-owned `/journal` page with no overview document can
 still be reached through navigation inside the preview iframe. With Visual
 Editing enabled and source metadata preserved (or explicit edit targets supplied),

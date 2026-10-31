@@ -14,9 +14,21 @@ export interface PageTypeDefinition {
 	readonly schemaType: string
 	/** A string field containing the complete root-relative URL, not just a slug. */
 	readonly pathnameField: string
+	readonly slugField?: never
 	/** Used for location-link text, not a replacement for the schema's preview. */
 	readonly titleField?: string
 }
+
+/** A collection can store its full path or just one segment, never both. */
+export type PageCollectionItemDefinition =
+	| PageTypeDefinition
+	| {
+			readonly schemaType: string
+			/** A string field such as slug.current; the collection supplies the prefix. */
+			readonly slugField: string
+			readonly pathnameField?: never
+			readonly titleField?: string
+	  }
 
 export interface PageCollectionDefinition {
 	/** Stable configuration identity, independent of the visible title. */
@@ -26,10 +38,10 @@ export interface PageCollectionDefinition {
 	readonly itemsTitle?: string
 	/** An existing ordinary page is the collection's overview, not a second item. */
 	readonly overview: { readonly schemaType: string; readonly pathname: string }
-	/** Item URLs must be descendants of this path. It is never prepended for you. */
+	/** Bounds full-path items; also supplies the locked prefix for slug-only items. */
 	readonly routePrefix: string
 	/** A schema type belongs to exactly one collection, or to ordinary pages. */
-	readonly items: readonly PageTypeDefinition[]
+	readonly items: readonly PageCollectionItemDefinition[]
 }
 
 export interface PagesRouteConfig {
@@ -39,7 +51,12 @@ export interface PagesRouteConfig {
 	readonly excludePaths?: readonly string[]
 }
 
-export interface RegisteredPageType extends PageTypeDefinition {
+/** Checked internal mapping. pathField always names the actual stored string. */
+export interface RegisteredPageType {
+	readonly schemaType: string
+	readonly pathField: string
+	readonly pathMode: 'pathname' | 'slug'
+	readonly routePrefix?: string
 	readonly titleField: string
 	readonly collection?: string
 }
@@ -128,6 +145,34 @@ function descendantOf(path: string, prefix: string): boolean {
 	return path.startsWith(`${prefix}/`) && path.length > prefix.length + 1
 }
 
+/** Slugs are one exact segment. Read-time routing never trims or slugifies them. */
+export function pageSlug(value: unknown): string | undefined {
+	if (typeof value !== 'string') return undefined
+	const slug = stegaClean(value)
+	return slug && !slug.includes('/') && pagePathname(`/${slug}`)
+		? slug
+		: undefined
+}
+
+/** Convert a stored value into a full path, then apply the shared ownership rules. */
+export function storedPagePathname(
+	registry: PagesRegistry,
+	type: RegisteredPageType,
+	value: unknown,
+) {
+	if (type.pathMode === 'slug') {
+		const slug = pageSlug(value)
+		return slug
+			? registeredPathname(
+					registry,
+					type.schemaType,
+					`${type.routePrefix}/${slug}`,
+				)
+			: undefined
+	}
+	return registeredPathname(registry, type.schemaType, value)
+}
+
 /**
  * Check the app's configuration once and copy it so later caller changes cannot
  * silently change routing. pagesTool() creates this once and shares it with the
@@ -145,7 +190,11 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 	if (config.excludePaths !== undefined && !isArray(config.excludePaths))
 		throw new Error('excludePaths must be an array.')
 	const types: RegisteredPageType[] = []
-	const register = (definition: PageTypeDefinition, collection?: string) => {
+	const register = (
+		definition: PageCollectionItemDefinition,
+		collection?: string,
+		routePrefix?: string,
+	) => {
 		if (
 			!definition ||
 			typeof definition.schemaType !== 'string' ||
@@ -157,15 +206,30 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 			throw new Error(
 				`Document type "${definition.schemaType}" is registered more than once. A type cannot belong to both pages and a collection, or to multiple collections.`,
 			)
-		assertFieldPath(
-			definition.pathnameField,
-			`${definition.schemaType}.pathnameField`,
+		const slugOnly = definition.slugField !== undefined
+		if (
+			slugOnly &&
+			(collection === undefined || definition.pathnameField !== undefined)
 		)
+			throw new Error(
+				'slugField is only supported for collection items and cannot be combined with pathnameField.',
+			)
+		const pathField = slugOnly ? definition.slugField : definition.pathnameField
+		assertFieldPath(
+			pathField,
+			`${definition.schemaType}.${slugOnly ? 'slugField' : 'pathnameField'}`,
+		)
+		if (slugOnly && (!routePrefix || routePrefix.includes('//')))
+			throw new Error(
+				'Slug-only collections need a routePrefix without repeated slashes.',
+			)
 		const titleField = definition.titleField ?? 'title'
 		assertFieldPath(titleField, `${definition.schemaType}.titleField`)
-		const type = Object.freeze({
+		const type: RegisteredPageType = Object.freeze({
 			schemaType: definition.schemaType,
-			pathnameField: definition.pathnameField,
+			pathField,
+			pathMode: slugOnly ? 'slug' : 'pathname',
+			...(slugOnly ? { routePrefix: routePrefix! } : {}),
 			titleField,
 			...(collection === undefined ? {} : { collection }),
 		})
@@ -251,7 +315,16 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 				`Collection "${collection.name}" needs at least one item type.`,
 			)
 		const items = Object.freeze(
-			collection.items.map((item) => register(item, collection.name)),
+			collection.items.map((item) => {
+				const type = register(item, collection.name, routePrefix)
+				return Object.freeze({
+					schemaType: type.schemaType,
+					titleField: type.titleField,
+					...(type.pathMode === 'slug'
+						? { slugField: type.pathField }
+						: { pathnameField: type.pathField }),
+				})
+			}),
 		)
 		collections.push(
 			Object.freeze({
@@ -304,6 +377,11 @@ export function registeredPathname(
 		)
 		if (!collection || !descendantOf(path, collection.routePrefix))
 			return undefined
+		if (
+			type.pathMode === 'slug' &&
+			!pageSlug(path.slice(collection.routePrefix.length + 1))
+		)
+			return undefined
 	}
 	return path
 }
@@ -330,7 +408,7 @@ export function validatePagesSchema(
 			throw new Error(
 				`Pages type "${route.schemaType}" must be a document in the Studio schema.`,
 			)
-		for (const fieldPath of [route.pathnameField, route.titleField]) {
+		for (const fieldPath of [route.pathField, route.titleField]) {
 			let current: unknown = definition
 			for (const part of fieldPath.split('.')) {
 				if (

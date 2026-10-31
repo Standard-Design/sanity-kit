@@ -16,7 +16,9 @@ import type {
 import {
 	assertFieldPath,
 	registeredPathname,
+	storedPagePathname,
 	type PagesRegistry,
+	type RegisteredPageType,
 } from './registry.js'
 
 type NativeResolvers = NonNullable<PresentationPluginOptions['resolve']>
@@ -37,9 +39,18 @@ export function fieldExpression(path: string): string {
  * This returns query text, not fetched data; document bodies are not selected.
  */
 export function pageProjection(registry: PagesRegistry): string {
-	const select = (field: 'pathnameField' | 'titleField') =>
-		`select(${registry.types.map((type) => `_type == ${JSON.stringify(type.schemaType)} => ${fieldExpression(type[field])}`).join(', ')})`
-	return `_id, _type, "title": ${select('titleField')}, "pathname": ${select('pathnameField')}`
+	const select = (expression: (type: RegisteredPageType) => string) =>
+		`select(${registry.types.map((type) => `_type == ${JSON.stringify(type.schemaType)} => ${expression(type)}`).join(', ')})`
+	return `_id, _type, "title": ${select((type) => fieldExpression(type.titleField))}, "pathname": ${select(pagePathExpression)}`
+}
+
+/** Compute display/search paths without saving another copy in the document. */
+export function pagePathExpression(type: RegisteredPageType): string {
+	const field = fieldExpression(type.pathField)
+	if (type.pathMode === 'pathname') return field
+	// Reject empty or nested slugs in the projection too. The shared JS validator
+	// checks URL safety before navigation; this projection is not schema validation.
+	return `select(${field} != "" && count(string::split(${field}, "/")) == 1 => ${JSON.stringify(`${type.routePrefix}/`)} + ${field})`
 }
 
 /** The header and native editor must agree about which types can own a URL. */
@@ -52,7 +63,11 @@ export function pagePathFilter(registry: PagesRegistry, path: string) {
 	const filter = types
 		.map((type, index) => {
 			params[`type${index}`] = type.schemaType
-			return `(_type == $type${index} && ${fieldExpression(type.pathnameField)} == $path)`
+			if (type.pathMode === 'slug') {
+				params[`slug${index}`] = path.slice(type.routePrefix!.length + 1)
+				return `(_type == $type${index} && ${fieldExpression(type.pathField)} == $slug${index})`
+			}
+			return `(_type == $type${index} && ${fieldExpression(type.pathField)} == $path)`
 		})
 		.join(' || ')
 	return { filter, params }
@@ -69,13 +84,9 @@ export function pageLocationResolvers(
 		registry.types.map((type) => [
 			type.schemaType,
 			{
-				select: { title: type.titleField, pathname: type.pathnameField },
+				select: { title: type.titleField, pathname: type.pathField },
 				resolve: (document: Record<'title' | 'pathname', unknown> | null) => {
-					const href = registeredPathname(
-						registry,
-						type.schemaType,
-						document?.pathname,
-					)
+					const href = storedPagePathname(registry, type, document?.pathname)
 					return href
 						? {
 								locations: [

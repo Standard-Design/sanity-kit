@@ -6,7 +6,11 @@
  */
 import { defineQuery } from 'groq'
 import type { PageDocument } from './model.js'
-import { fieldExpression, pageProjection } from './resolvers.js'
+import {
+	fieldExpression,
+	pageProjection,
+	pagePathExpression,
+} from './resolvers.js'
 import type { PagesRegistry } from './registry.js'
 
 export interface NavigationDocument extends PageDocument {
@@ -70,7 +74,7 @@ export function createNavigationQueries(registry: PagesRegistry) {
 				.map(
 					(type) => `(_type == ${JSON.stringify(type.schemaType)} && (
 				count(string::split(lower(coalesce(${fieldExpression(type.titleField)}, "")), $search)) > 1 ||
-				count(string::split(lower(coalesce(${fieldExpression(type.pathnameField)}, "")), $search)) > 1
+				count(string::split(lower(coalesce(${pagePathExpression(type)}, "")), $search)) > 1
 			))`,
 				)
 				.join(' || ')

@@ -8,4 +8,5 @@ export type {
 	PagesRouteConfig,
 	PageTypeDefinition,
 	PageCollectionDefinition,
+	PageCollectionItemDefinition,
 } from './pages/registry.js'

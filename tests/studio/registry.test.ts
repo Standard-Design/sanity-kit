@@ -49,9 +49,14 @@ describe('Pages route registration', () => {
 		input.collections[0]!.overview.pathname = '/changed'
 		input.collections[0]!.items[0]!.pathnameField = 'changed'
 		input.excludePaths.push('/another')
-		expect(registry.types[0]).toEqual({ ...page, titleField: 'title' })
+		expect(registry.types[0]).toEqual({
+			schemaType: 'page',
+			pathField: page.pathnameField,
+			pathMode: 'pathname',
+			titleField: 'title',
+		})
 		expect(registry.collections[0]?.overview.pathname).toBe('/journal')
-		expect(registry.types[1]?.pathnameField).toBe('url.path')
+		expect(registry.types[1]?.pathField).toBe('url.path')
 		expect(registry.excludePaths).toEqual(['/private'])
 		for (const value of [
 			registry,
