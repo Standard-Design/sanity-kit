@@ -8,7 +8,6 @@ import { createUrlAuthoring } from '../../src/url/authoring.js'
 import { createCollectionRouting } from '../../src/url/settings/resolve.js'
 
 const routing = createCollectionRouting({
-	site: 'main',
 	pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
 	collections: [
 		{
@@ -24,7 +23,6 @@ const settings = (_id: string, prefix: string) => ({
 	_id,
 	_type: 'sanityKitCollectionRoute',
 	_rev: 'r1',
-	site: 'main',
 	collection: 'journal',
 	prefix: { _type: 'slug', current: prefix },
 })

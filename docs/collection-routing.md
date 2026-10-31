@@ -10,12 +10,16 @@ This keeps reusable content separate from the website's organization. The post
 owns its slug. A collection's routing settings own the prefix used on this site.
 An ordinary page still stores its complete pathname.
 
-The first implementation is a **private foundation**. It accepts documents that
-have already been loaded, validates them, and builds the ordinary route
-configuration used by the existing URL helpers. It is not exported from a package
-entry point yet. It does not fetch settings, cache them, write documents, publish
-changes, or add Studio controls. The existing public `PagesRouteConfig` continues
-to require string prefixes.
+This version supports one website per configured Sanity project and dataset.
+There is no separate website discriminator in the configuration or documents.
+Supporting several websites in the same dataset is deferred.
+
+The implementation is a **private foundation**. A pure resolver validates supplied
+documents and builds the ordinary route configuration used by the existing URL
+helpers. A separate loader can now read those documents from Sanity. Neither is
+exported from a package entry point yet. They do not cache settings, write
+documents, publish changes, or add Studio controls. The existing public
+`PagesRouteConfig` continues to require string prefixes.
 
 See [URL handling](url.md) for the existing storage and resolution rules, and
 [Pages design decisions](pages-design-proposals.md) for the broader editor plan.
@@ -38,7 +42,6 @@ For example, the private configuration can contain:
 
 ```ts
 const routing = createCollectionRouting({
-	site: 'main',
 	pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
 	collections: [
 		{
@@ -53,7 +56,7 @@ const routing = createCollectionRouting({
 ```
 
 This is an internal API example, not a supported package import. The returned
-`routing.documentIds` lists the published document IDs a future loader needs to
+`routing.documentIds` lists the published document IDs the loader needs to
 read. The application supplies the project and dataset when it loads them; this
 pure helper has no client or connection settings.
 
@@ -71,15 +74,13 @@ The proposed document shape is:
 	"_id": "journal-routing",
 	"_rev": "revision-from-sanity",
 	"_type": "sanityKitCollectionRoute",
-	"site": "main",
 	"collection": "journal",
 	"prefix": { "_type": "slug", "current": "/journal" }
 }
 ```
 
-`site` is a stable identifier chosen by the consuming application. `collection`
-must exactly match the registered collection name. The document type, identity,
-site, collection, revision, and prefix are checked before the prefix is used.
+`collection` must exactly match the registered collection name. The document
+type, identity, collection, revision, and prefix are checked before the prefix is used.
 The prefix must be a complete, non-root pathname with no repeated or trailing
 slashes. Invalid values are rejected rather than silently rewritten during a
 read.
@@ -135,12 +136,77 @@ by merging drafts over published identities is not the raw input this helper
 expects; a selected record whose `_originalId` disagrees with `_id` is refused.
 
 The coverage flags are a caller assertion, not proof of permissions or freshness.
-The later loader must make that assertion honestly. The helper cannot tell
+The loader or caller must make that assertion honestly. The helper cannot tell
 whether a query omitted an ID, a permission rule hid a draft, or cached data is
 stale. A failed or incomplete read should be supplied as
 `{status: 'unavailable'}`. Published-only coverage cannot be reused for a draft
 preview. A configuration with only code-fixed prefixes does not depend on any
 settings snapshot at all.
+
+## Loading settings from Sanity
+
+The private `createCollectionRoutingLoader(config, client)` combines the pure
+resolver with a small, read-only Sanity query:
+
+```ts
+const loader = createCollectionRoutingLoader(config, client)
+const result = await loader.load({
+	perspective: 'published',
+	signal: request.signal,
+})
+```
+
+It queries only the explicitly configured document IDs. Published requests read
+only published IDs, so they can use an unauthenticated client when those records
+are publicly readable. Preview requests also read the exact draft counterparts:
+
+```ts
+const result = await loader.load({
+	perspective: 'drafts',
+	draftVisibility: 'all-required-drafts',
+	signal: request.signal,
+})
+```
+
+The visibility option is an assertion by the caller: this client's permissions
+allow it to read every required draft. The loader cannot prove that from a query
+response. Without the assertion, preview returns `access-unconfirmed` without
+making a request. If credentials hide a draft despite that assertion, the loader
+cannot distinguish the hidden draft from a nonexistent one. Applications must
+establish those permissions before using this option.
+
+The query uses raw identities and projects only the document metadata and prefix
+needed by the resolver. It deliberately does not filter by document type or
+collection: a wrong value must produce a validation failure, not make the
+document disappear. An absent `_originalId` stays absent; an actual value is
+preserved so the resolver can detect a merged identity.
+
+Reads use the dated API version `2026-10-01`, `useCdn: false`, `stega: false`,
+`filterResponse: true`, and `cache: 'no-store'`. The loader derives a configured
+client without modifying the supplied client. A custom client or request wrapper
+must honor those options; the kit cannot verify a wrapper's cache or access
+behavior. This does not add a cache adapter. Every load performs a fresh query.
+With only code-fixed prefixes, the loader neither configures nor fetches a
+client, and requires no draft-visibility assertion.
+
+The supplied client determines the project and dataset for the website. Use the
+correct client, credentials, and document bindings. The kit does not infer a
+dataset from the request host or add an authorization boundary around collection
+names or document IDs.
+
+The response must be an array with unique, expected document IDs. Duplicate or
+unexpected IDs and malformed rows are rejected. At most 200 identities can be
+requested; the query includes a 201st-row limit as an overflow check. The loader
+also rejects a serialized response larger than 1 MiB. This is validation after
+the response arrives, not a network download-size limit. Existing resolver
+failures still distinguish missing settings, invalid content, and route conflicts.
+
+Additional loader failures are `request-failed`, `invalid-response`,
+`access-unconfirmed`, and `aborted`. Request errors are not exposed verbatim and
+never become a fallback prefix. The cancellation signal is passed to the client,
+and checked again after the request: a transport that ignores cancellation
+cannot return a late success. Such a transport still has to settle before the
+loader can finish.
 
 ## What resolution returns
 
@@ -187,8 +253,6 @@ to have valid settings contents.
 
 The private implementation proposes these initial bounds:
 
-- Site identifiers contain 1–64 letters, digits, underscores, or hyphens and
-  begin with a letter.
 - Settings document IDs contain 1–121 letters, digits, underscores, or hyphens;
   they cannot begin with a hyphen. The reserved identities `drafts` and
   `versions` are refused. This leaves space for the draft prefix.
@@ -203,8 +267,9 @@ not an entire dataset.
 
 ## What comes later
 
-A loader will read the configured settings IDs and supply the correct snapshot
-for the requested mode. Any cache must distinguish project, dataset, site,
+The private loader now reads the configured settings IDs and supplies the correct
+snapshot for the requested mode. Future consumer integration must use its result
+before calling the existing URL helpers. Any cache must distinguish project, dataset,
 bindings, and perspective. Draft reads must never reuse public-only coverage.
 
 Studio integration will supply the settings schema and controls. A prefix change

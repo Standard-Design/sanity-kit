@@ -72,6 +72,7 @@ for (const path of [
 	'studio/url/generate.js',
 	'studio/folders/planner.js',
 	'url/settings/resolve.js',
+	'url/settings/load.js',
 	'redirect/snapshot.js',
 ]) {
 	await assert.rejects(import(`@standard-design/sanity-kit/${path}`), {

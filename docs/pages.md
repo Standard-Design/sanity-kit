@@ -627,8 +627,8 @@ folder decisions on October 30 and 31. Earlier sketches are preserved, but the
 following decisions describe the selected direction. Explicitly marked proposals still
 need agreement before implementation. This section records design intent, not
 additional working APIs. The navigator is partly implemented; the custom URL
-field, persistent folders, and dynamic collection prefixes are not implemented
-yet. The first [shared frontend URL helper](url.md), for fixed-prefix
+field and persistence/editor controls for folders and collection prefixes are
+not implemented yet. The first [shared frontend URL helper](url.md), for fixed-prefix
 registration, is implemented locally and approved. The separate
 [internal authoring preparation](url.md#authoring-preparation-internal) is now
 implemented and approved; it does not yet add the Studio field or save candidates.
@@ -639,7 +639,9 @@ yet installed on any Studio field.
 Private [folder plans](folders.md), [collection-settings resolution](collection-routing.md),
 and [redirect validation](redirects.md) are also approved. Their UI and persistence
 integrations are still pending. The [Studio generation bridge](url.md#studio-generation-context-internal)
-is the next private slice under review.
+is also approved as a private foundation.
+The [collection-settings loader](collection-routing.md#loading-settings-from-sanity)
+now reads and validates settings for review; it is not connected to Studio controls.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -794,7 +796,7 @@ The private preparation layer now follows the Sanity-compatible generation rules
 agreed October 31 and described in the [URL guide](url.md#generate-follows-sanity-defaults):
 native transliteration, symbol conversion, and truncation, plus async custom
 generators that bypass the default length limit. The private Studio bridge now
-binds native source and slugify context for review and discards invalidated async
+binds native source and slugify context and discards invalidated async
 results. It prepares candidates without writing them. The Generate button and
 replacement confirmation UI are not implemented yet.
 

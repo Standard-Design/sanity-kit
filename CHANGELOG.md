@@ -2,6 +2,13 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add a private collection-settings loader with exact-ID reads, explicit draft
+  visibility, bounded responses, and cancellation. Bypass CDN and inherited fetch
+  caching; preserve client configuration. Keep fixed-only routes independent of
+  network access. No public export, cache adapter, or editor integration yet.
+  Remove the separate `site` identifier from collection configuration and settings;
+  the configured Sanity project/dataset now selects the website.
+
 - Add a private Studio generation bridge using native source and slugify context.
   Preserve the selected prefix, mark replacements for confirmation, honor evaluated
   read-only state, and discard cancelled or invalidated async results. Return

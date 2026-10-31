@@ -19,8 +19,8 @@ checks. There are no Studio, React, or React Router runtime imports. The helper
 does not fetch documents, load settings, mutate content, or choose an app route.
 This public resolver accepts fixed collection prefixes. A private
 [collection-settings layer](collection-routing.md), now approved, resolves
-loaded settings into that same configuration. Settings loading, editor controls,
-and the custom URL field are later work.
+loaded settings into that same configuration. Its private read-only loader is
+now under review; editor controls and the custom URL field are later work.
 
 ## Register once, reuse in the app and Studio
 
@@ -242,14 +242,14 @@ though a native custom slugifier can return arbitrary strings. A custom generato
 can return a safe percent-encoded Unicode segment when desired.
 
 This private helper always returns a promise. The Studio bridge below now binds
-source selection and native callback arguments for review. The Generate button,
+source selection and native callback arguments. The Generate button,
 replacement dialog, and saving workflow remain future work. Ordinary title edits
 must not trigger automatic URL changes.
 
 ### Studio generation context (internal)
 
 `src/studio/url/generate.ts` connects the existing generator to a Studio field's
-compiled schema and current document. It is private, implemented for review, and
+compiled schema and current document. It is private, approved, and
 not installed in the fixture. It adds no React controls or document writes.
 
 Create one `createUrlGeneration(routes)` controller per mounted field. Supply

@@ -11,7 +11,6 @@ import {
 } from '../../src/url/settings/resolve.js'
 
 const config = {
-	site: 'main',
 	pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
 	collections: [
 		{
@@ -38,7 +37,6 @@ function settings(prefix = '/journal', id = 'journal-routing') {
 		_id: id,
 		_rev: 'revision-1',
 		_type: COLLECTION_ROUTE_TYPE,
-		site: 'main',
 		collection: 'journal',
 		prefix: { _type: 'slug', current: prefix },
 	}
@@ -274,7 +272,6 @@ describe('private collection routing settings', () => {
 
 	it.each([
 		{ _type: 'other' },
-		{ site: 'other' },
 		{ collection: 'news' },
 		{ _rev: '' },
 		{ prefix: '/blog' },
@@ -427,15 +424,6 @@ describe('private collection routing settings', () => {
 			}),
 		).toThrow('non-dotted published document ID')
 	})
-
-	it.each(['', 'site.with.dots', 'two words', '1site', 'a'.repeat(65)])(
-		'rejects unstable site identifier %j',
-		(site) => {
-			expect(() => createCollectionRouting({ ...config, site })).toThrow(
-				'stable site identifier',
-			)
-		},
-	)
 
 	it('rejects duplicate settings bindings and invalid shared registry configuration', () => {
 		expect(() =>

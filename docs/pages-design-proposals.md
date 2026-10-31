@@ -26,7 +26,7 @@ The integration tests exercise the shared route configuration across these
 foundations without writing to Sanity.
 
 The private [Studio generation bridge](url.md#studio-generation-context-internal)
-is implemented for review. It binds native source and slugify callbacks, returns
+is implemented and approved. It binds native source and slugify callbacks, returns
 candidates, and discards invalidated async results. The field UI must still clear
 displayed candidates, confirm replacement, check conflicts, and apply changes.
 
@@ -218,8 +218,8 @@ see [its guide](url.md) for the implemented scope and exact failure reasons.
 
 The successful inner `{pathname, prefix, slug}` shape is agreed. The result
 wrapper and fixed-prefix reason codes are approved and implemented, not yet
-released. Private settings-backed resolution is now approved; settings loading
-and editor/publication controls remain future work.
+released. Private settings-backed resolution is now approved. Its read-only
+loader is implemented for review; editor/publication controls remain future work.
 
 ## Creation contract
 

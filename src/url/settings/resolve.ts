@@ -34,7 +34,6 @@ export interface CollectionRoutingConfig extends Omit<
 	PagesRouteConfig,
 	'collections'
 > {
-	readonly site: string
 	readonly collections?: readonly SettingsCollectionDefinition[]
 }
 
@@ -127,16 +126,8 @@ function routeConfig(registry: PagesRegistry): PagesRouteConfig {
  * those placeholders never escape into results or become document URLs.
  */
 export function createCollectionRouting(config: CollectionRoutingConfig) {
-	if (
-		typeof config.site !== 'string' ||
-		!/^[A-Za-z][A-Za-z0-9_-]{0,63}$/u.test(config.site)
-	)
-		throw new Error(
-			'Collection routing needs a stable site identifier (1–64 characters).',
-		)
 	if (config.collections !== undefined && !Array.isArray(config.collections))
 		throw new Error('collections must be an array.')
-	const site = config.site
 	const definitions: readonly SettingsCollectionDefinition[] =
 		config.collections ?? []
 	const bindings = new Map<string, string>()
@@ -287,7 +278,6 @@ export function createCollectionRouting(config: CollectionRoutingConfig) {
 				if (
 					(originalId !== undefined && originalId !== own(document, '_id')) ||
 					own(document, '_type') !== COLLECTION_ROUTE_TYPE ||
-					own(document, 'site') !== site ||
 					own(document, 'collection') !== collection.name ||
 					typeof revision !== 'string' ||
 					!revision.trim() ||

@@ -52,7 +52,7 @@ Its guide also covers approved private candidate cleanup and slug generation,
 plus the approved internal conflict-checking/native `isUnique` adapter.
 These layers do not yet add Studio controls or document writes.
 The [Studio generation bridge](url.md#studio-generation-context-internal) is now
-under review: native source/context options, explicit candidate preparation, and
+approved: native source/context options, explicit candidate preparation, and
 discarding stale asynchronous results.
 
 [Folders](folders.md) explains the approved private registry planner: saved
@@ -62,8 +62,9 @@ separate work.
 
 [Collection routing settings](collection-routing.md) covers the approved private
 prefix resolver. It selects published or draft settings and produces the
-same route configuration the existing URL helpers already use. It does not yet
-load settings or connect Studio controls.
+same route configuration the existing URL helpers already use. A private loader
+is now under review: it reads the configured settings IDs and checks the response
+before resolving routes. Studio controls remain later work.
 
 [Redirects](redirects.md) covers approved private snapshot validation and lookup.
 The broader [redirect design](redirects-design.md) still describes future
