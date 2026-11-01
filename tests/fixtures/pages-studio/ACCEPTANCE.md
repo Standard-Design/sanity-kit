@@ -524,7 +524,75 @@ controls.
 - Creation through editor controls and cross-editor persistence acceptance
   remain with the editing slice.
 
-## Test records created
+## Draft URL field — October 31, 2026
+
+The first custom URL field is installed on Proof page and Proof post in the
+fixture, using the private factory. The alternate-path schema keeps its native
+string field. Existing storage was not migrated.
+
+- In the real Studio, the published Journal page displayed its complete URL,
+  disabled editing controls, and explained that live URL changes need the later
+  reviewed workflow.
+- Created an unpublished **URL field proof** document through the native Create
+  page action, with ID `drafts.62aa3263-74af-4208-bb72-4e6cc6f4cdc5`.
+- Generate proposed `url-field-proof` from its title without saving the URL.
+- The indented picker opened the New subfolder modal. The Nest inside control
+  opened a separate popover and defaulted to site root. Creating
+  `url-field-test/team` saved `/url-field-test` and `/url-field-test/team`, then
+  selected the latter while the document still had no saved URL.
+- Apply URL saved `/url-field-test/team/url-field-proof` through native draft
+  autosave. The draft remained unpublished and the saved URL survived the Studio
+  reload. The preview's fixture link list included the new URL.
+- Automated tests cover native validation, both storage modes, read-only/liveEdit
+  restrictions, duplicate checks, stale async work, folder creation and failure,
+  unknown-write reconciliation, and the complete input/picker interaction.
+  `pnpm verify` passed 1,351 tests across 47 files, plus formatting, build, lint,
+  and typecheck. The proof Studio production build also passed.
+
+No published URL was changed, and no redirect or publication action was invoked.
+Real concurrent-editor mutation races, custom filtered ACLs, dynamic prefixes,
+and release editing remain outside this initial field acceptance.
+
+## URL autosave — November 1, 2026
+
+This supersedes the explicit Apply URL interaction recorded above.
+
+- Removed Apply URL. Valid edits wait for a 500 ms typing pause, then check access,
+  URL conflicts, and folder persistence before emitting the native draft patch.
+- In the live Studio, changed the proof draft's final segment to
+  `url-field-autosave-proof`. The field showed “Saving URL…” and saved
+  `/url-field-test/team/url-field-autosave-proof` without another click. The new
+  URL survived a Studio reload and appeared in the preview's fixture links.
+- Entering `bad/segment` kept the text visible with a “Not saved” explanation;
+  the last saved URL remained unchanged. Restored the valid saved slug afterward.
+- Tests cover debounce timing, failed checks and explicit retry, cancellation,
+  newer typing surviving an earlier native patch, and folder creation waiting
+  for an earlier autosave check to finish. Opening existing content does not
+  automatically clean its stored URL. A new empty field requires an explicit
+  homepage choice before saving `/`.
+- `pnpm verify` passed 1,369 tests across 48 files, with formatting, build, lint,
+  and typecheck passing. The draft remains unpublished.
+
+## URL field polish — November 1, 2026
+
+- Generate now sits at the trailing end of the input row and replaces the slug
+  directly, without a confirmation dialog. Tests cover both changed and identical
+  generated slugs; an identical stored slug produces no new patch.
+- The resolved path and Copy URL share the next row. Copy feedback crossfades to
+  “Copied!” for 2.5 seconds and back, retaining the same button width. Verified
+  the temporary feedback in the live Studio.
+- In New subfolder, the nesting picker fills the modal's content width, and the
+  nested-path description appears above the name input. Inspected this layout
+  in the live Studio, then canceled without creating any folder.
+
+- New subfolder uses Sanity’s native plus icon in the picker’s upper-right
+  corner, with a native-style tooltip. It opens the existing creation modal.
+- Verified the responsive field in a narrow document pane: the folder selector
+  fills the first row, with the slug input and Generate button together on the
+  second row. The URL preview and Copy URL sit below. No content or folder
+  records changed.
+
+## Earlier fixture records created
 
 The explicit seed run created the following published fixture documents with
 Sanity-generated IDs. It did not replace existing records or create drafts.

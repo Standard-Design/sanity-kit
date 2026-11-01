@@ -41,27 +41,34 @@ can use the framework-independent helpers without adopting the router adapter.
 native Presentation, and the approved navigator and URL-field designs. It is
 separate from the released subsystems above: local builds now include `/studio`,
 but the current npm release does not. Consumers keep their own Studio installation.
-The guide distinguishes the working navigator and routing foundation from
-planned URL editing, folder actions, and other features.
+The guide distinguishes the working navigator, routing foundation, and private
+draft URL field from remaining folder actions and publication work.
 
 [Shared URL resolution](url.md) describes the local-build `/url` entry point:
 derive `{pathname, prefix, slug}` from the same registration without loading
-Studio. Fixed-prefix resolution is implemented; the input field remains future
-work. This entry is not in the current npm release.
+Studio. Fixed-prefix resolution is implemented. This entry is not in the current
+npm release.
 Its guide also covers approved private candidate cleanup and slug generation,
 plus the approved internal conflict-checking/native `isUnique` adapter.
-These layers do not yet add Studio controls or document writes.
+These helpers remain separate from the input that calls them.
 The [Studio generation bridge](url.md#studio-generation-context-internal) is now
 approved: native source/context options, explicit candidate preparation, and
 discarding stale asynchronous results.
+
+[URL field](url-field.md) explains the new private Studio input: choose a folder,
+edit or generate a slug, and let the field check and autosave the draft URL. It also
+explains the New subfolder modal, read-only behavior, access checks, and why live
+URL changes are blocked until the reviewed redirect workflow exists. The fixture
+uses the internal factory; there is no public field export or release yet.
 
 [Folders](folders.md) explains the approved private registry planner: saved
 folder records, explicit adoption from existing URLs, and empty-only removal.
 The planner returns proposed changes. Its approved read layer loads registry
 records and raw document versions for planning. The approved private writer for
 creation and explicit synchronization saves only new folder records and preserves
-existing metadata. Navigator support for displaying saved folders is now under
-review. Creation controls, removal, and rename remain separate work.
+existing metadata. Navigator support for displaying saved folders is approved.
+The private draft URL field now adds folder creation controls. Removal and rename
+remain separate work.
 
 [Collection routing settings](collection-routing.md) covers the approved private
 prefix resolver. It selects published or draft settings and produces the

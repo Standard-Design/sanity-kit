@@ -2,6 +2,17 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add a private draft URL field using shared route registration. Show folder and
+  final-segment controls, Generate with replacement confirmation, checked draft
+  autosave after a typing pause or folder selection, and an indented folder picker
+  with a New subfolder modal. Keep invalid or failed edits visibly unsaved and
+  provide a retry action; require explicit homepage selection instead of treating
+  cleared text as `/`. Preserve native
+  slug storage and validation. Check document access, versions, URL conflicts,
+  and required folder records before offering a native form patch. Published,
+  release, and live-edit URL changes remain blocked pending reviewed routing and
+  redirect workflows. Fixed prefixes only; no public field export or release yet.
+
 - Display saved folders alongside folders inferred from page URLs. Keep empty
   folders visible, share registry refreshes across the navigator and picker, and
   let page browsing continue when folder metadata cannot be loaded. Opening the
@@ -9,8 +20,8 @@
 
 - Add private folder creation and explicit synchronization writes. Preserve
   existing metadata, guard against registry changes, and distinguish uncertain
-  write outcomes from confirmed saves. No folder removal, page URL changes, or
-  Studio controls are added.
+  write outcomes from confirmed saves. That writer alone adds no folder removal or page URL changes; the draft field
+  above now calls it from explicit editor actions.
 
 - Add private folder reads for registry metadata and raw document inventories.
   Require explicit visibility, detect overflow, and preserve malformed URL evidence
@@ -86,7 +97,7 @@
   perspective-isolated sessions, cancellation, reconnect/retry handling, periodic
   reconciliation, and lazy tree/collection resources. Preserve last-good rows
   during refresh and reread loaded collection depth after changes.
-- Keep the custom URL field, folder actions, and broader release
+- Keep reviewed live URL changes, navigator folder actions, and broader release
   acceptance as later work. No version bump or publication is included here.
 - Connect the first navigator UI: inferred folders, actual-title index children,
   native version indicators, five recent collection items, and debounced

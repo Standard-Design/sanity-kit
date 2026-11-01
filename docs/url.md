@@ -20,7 +20,8 @@ does not fetch documents, load settings, mutate content, or choose an app route.
 This public resolver accepts fixed collection prefixes. A private
 [collection-settings layer](collection-routing.md), now approved, resolves
 loaded settings into that same configuration. Its private read-only loader is
-now approved; editor controls and the custom URL field are later work.
+now approved. The new private [URL field](url-field.md) uses fixed routes for
+draft editing; settings-backed field controls remain later work.
 
 ## Register once, reuse in the app and Studio
 
@@ -116,9 +117,9 @@ Calling the resolver with ordinary missing or invalid query data gives
 | `noncanonical-path` | An otherwise allowed full path has repeated or trailing slashes.                             |
 
 The resolver never changes `/about//team/` into `/about/team`. That could produce
-a link different from the app's exact lookup. The future input will handle
-authoring cleanup. Existing Studio navigation still makes legacy noncanonical
-paths reachable for editing; this new helper refuses to construct URL parts from
+a link different from the app's exact lookup. The private input handles cleanup
+only for an editor's changed value, before checked draft autosave. Existing
+Studio navigation still makes legacy noncanonical paths reachable for editing; this new helper refuses to construct URL parts from
 them. Root `/` is valid and is the only success with an empty slug.
 
 Settings are not loaded in this version, so there is no “routing settings
@@ -160,9 +161,9 @@ Reading a URL and editing a URL are different jobs. The public resolver never
 changes stored data. The new private authoring layer can prepare a candidate for
 an explicit editor action, without applying that candidate to a document.
 
-This is the engine for the forthcoming URL field, not the field itself. Nothing
-is connected to Studio inputs yet. These helpers are not public exports, and
-consumers should not import their compiled paths.
+This is the preparation engine used by the new private [URL field](url-field.md).
+The helper itself proposes values without saving them. These helpers and the field
+factory are not public exports; consumers should not import their compiled paths.
 
 ### What a candidate contains
 
@@ -191,6 +192,8 @@ An empty final segment is accepted only for the homepage at `/`. To create an
 index page at `/about`, the later folder action can prepare the complete value
 `/about`; its canonical parts are prefix `/` and slug `about`. Clearing the final
 segment of an ordinary child page does not silently turn it into an index page.
+The input also requires **Use as homepage** before saving an empty root-level
+segment as `/`; merely clearing text does not create a homepage.
 
 ### Separator cleanup
 
@@ -204,9 +207,11 @@ separators, query strings, hashes, whitespace, and invalid escapes. It does not
 invent a leading slash, decode a path, or trim malformed path text. Root `/`
 stays `/`.
 
-This cleanup does not run when viewing documents and does not migrate existing
-content. The future field must display the candidate and check conflicts before
-applying it.
+This cleanup does not patch documents on view and does not migrate existing
+content. The field displays the candidate and checks conflicts before saving
+it to an eligible draft. Typing pauses for 500 ms before autosave begins; folder
+selection and slug generation also save automatically. Invalid values or
+failed checks remain local and visibly unsaved. See [the field workflow](url-field.md#what-an-editor-does).
 
 ### Generate follows Sanity defaults
 
@@ -242,15 +247,14 @@ though a native custom slugifier can return arbitrary strings. A custom generato
 can return a safe percent-encoded Unicode segment when desired.
 
 This private helper always returns a promise. The Studio bridge below now binds
-source selection and native callback arguments. The Generate button,
-replacement dialog, and saving workflow remain future work. Ordinary title edits
-must not trigger automatic URL changes.
+source selection and native callback arguments. The private input now adds the
+Generate button and checked draft autosave. Clicking Generate starts the save; ordinary title edits do not regenerate URLs.
 
 ### Studio generation context (internal)
 
 `src/studio/url/generate.ts` connects the existing generator to a Studio field's
-compiled schema and current document. It is private, approved, and
-not installed in the fixture. It adds no React controls or document writes.
+compiled schema and current document. It is private and approved. The new fixture
+input calls it, while the bridge itself adds no React controls or document writes.
 
 Create one `createUrlGeneration(routes)` controller per mounted field. Supply
 already resolved routes, including any selected collection-settings prefix.
@@ -289,10 +293,10 @@ results, and authoring errors have distinct reasons; no number is silently added
 to resolve a collision.
 
 Success returns `{ok: true, value: candidate, requiresConfirmation}`. The candidate
-contains the existing `{url, fieldPath, storedValue}` shape. Confirmation is
-required when a nonempty current value would change. An identical value needs no
-replacement confirmation. The flag does not display a dialog or grant permission
-to save. Native read-only state prevents generation, as does a static read-only
+contains the existing `{url, fieldPath, storedValue}` shape. The `requiresConfirmation` flag identifies a nonempty value that would change;
+an identical value leaves it false. The current input treats an explicit Generate
+click as the editor’s request to replace that value, so it does not open a dialog.
+The flag does not grant permission to save. Native read-only state prevents generation, as does a static read-only
 schema. Conditional read-only evaluation belongs to Studio, not this helper.
 
 Starting another generation makes older pending results unusable. The input must
@@ -303,11 +307,10 @@ Stale successes and failures return `superseded`; a cancelled request returns
 `aborted`. Cancellation does not forcibly stop application callbacks or their
 network work: a pending callback must settle before this helper returns.
 
-Invalidation cannot revoke a candidate already returned to the caller. The future
-input must clear displayed candidates on those same changes, recheck read-only
-state and URL conflicts before applying, and obtain confirmation when needed.
-This slice neither performs uniqueness reads nor issues patches. The bridge
-itself makes no network requests, though application callbacks can use the native
+Invalidation cannot revoke a candidate already returned to the caller. The input
+clears displayed candidates on those same changes, rechecks read-only state and
+URL conflicts before saving. The bridge
+neither performs uniqueness reads nor issues patches. It makes no network requests, though application callbacks can use the native
 `getClient` context. Callback side effects remain application responsibility.
 
 See `tests/studio/url-generation.test.ts` for source/context behavior, collection
@@ -319,22 +322,25 @@ A valid candidate is not permission to write. The field must still enforce
 read-only state and permissions, check full-path occupancy across registered
 types, and preserve the agreed folder metadata. Published URL changes also need
 the reviewed redirect/publication workflow. Authoring preparation performs none of
-those checks or writes. The next layer below adds conflict reads, not a uniqueness
-guarantee or permission to save.
+those checks or writes. The conflict layer below adds reads, not a uniqueness
+guarantee or permission to save. The private input coordinates these checks,
+preserves folder records, and only then emits a draft form patch. Published,
+release, and live-edit URLs are blocked pending the reviewed change workflow.
 
 The private implementation is `src/url/authoring.ts`; its tests are in
-`tests/url/authoring.test.ts`. The public resolver and existing Studio navigation
-are unchanged. The public `/url` entry does not import the authoring module.
+`tests/url/authoring.test.ts`. The public resolver is unchanged. The public `/url`
+entry does not import the authoring module or the Studio field.
 
 The [Pages design decisions](pages-design-proposals.md) describe the broader
-field/settings/folder direction. This helper does not implement those workflows.
+field/settings/folder direction. This helper remains separate from the input and
+other workflows that use it.
 
 ## URL conflict checks and native validation (internal)
 
 A well-formed URL can still belong to another page. This layer checks that separate
-question before the future field offers a change. It is implemented and approved,
-but not connected to the fixture or exported from the package. No existing Studio
-field behaves differently yet, and no documents are changed.
+question before the field offers a change. It is implemented and approved, and
+the new private fixture field now calls it. The checker is not a public export
+and does not itself change documents.
 
 ### Use Sanity's existing validation system
 
@@ -354,7 +360,7 @@ finds one. It throws a descriptive error when the check cannot finish, rather
 than reporting a network failure as a duplicate or a successful check. It checks
 that the native field path matches the registered slug object, including nested
 objects. Arrays and unrelated slug fields are not supported. Required-value and
-format rules remain separate field-factory responsibilities.
+format rules are separate responsibilities of the new private field factory.
 
 ### What counts as a conflict
 
@@ -408,12 +414,14 @@ bypass permissions: the client must be able to see every relevant document versi
 and an empty result cannot prove that it has that access.
 
 There is no result cache. Cancellation is forwarded to Sanity and checked again
-after the response; the future input must also discard obsolete checks when its
-value changes. Folder persistence, publication permissions, reviewed URL moves,
-redirects, dynamic prefixes, and write coordination remain later work.
+after the response; the input also discards obsolete checks when its value
+changes. The private draft field now coordinates automatic saving of editor
+changes and folder persistence. Reviewed live URL moves, redirects, dynamic prefixes, and broader
+write coordination remain later work.
 
 Implementation: `src/studio/url/conflicts.ts` performs the read;
 `src/studio/url/is-unique.ts` adapts it to Sanity. Tests in
 `tests/studio/url-conflicts.test.ts` evaluate the generated GROQ against offline
 documents, including native version matching. Neither module is loaded by the
-public `/url` resolver or the current Pages UI.
+public `/url` resolver. The private URL field imports them; ordinary navigator
+reads do not run conflict checks.

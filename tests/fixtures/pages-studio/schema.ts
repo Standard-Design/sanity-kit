@@ -1,5 +1,7 @@
 import { DocumentIcon } from '@sanity/icons/Document'
 import { defineField, defineType, type SchemaTypeDefinition } from 'sanity'
+import { defineSanityUrlField } from '../../../src/studio/url/field.js'
+import { proofRoutes } from './routes.js'
 
 /** Fixture-owned types: no app schema is injected or changed by the future plugin. */
 export const schemaTypes: SchemaTypeDefinition[] = [
@@ -30,11 +32,12 @@ export const schemaTypes: SchemaTypeDefinition[] = [
 						description:
 							'Full path; proves that pathname.current is not required.',
 					})
-				: defineField({
+				: defineSanityUrlField({
+						routes: proofRoutes,
 						name: 'pathname',
-						type: 'slug',
-						description:
-							'Full path, such as /about/team. Leave empty to test incomplete drafts.',
+						title: 'URL',
+						options: { source: 'title' },
+						description: 'Choose a folder and final segment.',
 					}),
 			defineField({ name: 'body', type: 'text' }),
 			defineField({

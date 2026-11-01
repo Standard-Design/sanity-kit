@@ -7,9 +7,11 @@ Presentation tool.
 **This is not part of the released package.** The repository currently contains
 a reusable `pagesTool()` foundation under `@standard-design/sanity-kit/studio`.
 Local builds include that entry point; the existing npm release does not. Its
-browser now includes the first folder tree and collection browsing slice. Folder
-actions, the URL field, advanced filtering, and broader release acceptance are
-still pending; this is not the finished Pages feature set.
+browser includes saved folders and collection browsing. A private
+[URL field](url-field.md) now connects draft editing and folder creation in the
+fixture. Navigator folder actions, reviewed live URL changes, advanced filtering,
+and broader release acceptance are still pending; this is not the finished Pages
+feature set.
 
 ## Add the plugin to your Studio
 
@@ -360,8 +362,9 @@ titles: those still follow the registered `titleField` mapping.
 
 This is the first browsing UI slice, not the full release gate. Sort choices,
 query-side status filters, virtualization of long lists, contextual creation,
-folder/index actions, the custom URL field, and reviewed folder rename are still
-pending. No dead rename/create-folder buttons imply those writes already work.
+folder/index actions, and reviewed folder rename are still pending. No dead
+rename/create-folder buttons imply those navigator actions already work. The
+private [URL field](url-field.md) has its own explicit folder-creation flow.
 
 ## Shared live-data loading
 
@@ -639,26 +642,27 @@ The interface choices were approved on October 28, 2026, with further field and
 folder decisions on October 30 and 31. Earlier sketches are preserved, but the
 following decisions describe the selected direction. Explicitly marked proposals still
 need agreement before implementation. This section records design intent, not
-additional working APIs. The navigator is partly implemented; the custom URL
-field and editor controls for folders and collection prefixes are
-not implemented yet. The first [shared frontend URL helper](url.md), for fixed-prefix
+additional public APIs. The navigator and saved-folder display are implemented.
+The new private [URL field](url-field.md) connects draft editing and folder
+creation in the fixture; collection-prefix controls and reviewed live URL changes
+remain future work. The [shared frontend URL helper](url.md), for fixed-prefix
 registration, is implemented locally and approved. The separate
 [internal authoring preparation](url.md#authoring-preparation-internal) is now
-implemented and approved; it does not yet add the Studio field or save candidates.
-The next [internal conflict-checking layer](url.md#url-conflict-checks-and-native-validation-internal)
-is implemented and approved, including a native `options.isUnique` adapter. It is not
-yet installed on any Studio field.
+implemented and approved; it proposes values without saving them. The approved
+[internal conflict-checking layer](url.md#url-conflict-checks-and-native-validation-internal)
+and native `options.isUnique` adapter are now called by the private field.
 
 Private [folder plans](folders.md), [collection-settings resolution](collection-routing.md),
-and [redirect validation](redirects.md) are also approved. Their UI and persistence
-integrations are still pending. The [Studio generation bridge](url.md#studio-generation-context-internal)
+and [redirect validation](redirects.md) are also approved. Folder creation is now
+connected to the private field; settings and redirect editor integration remain
+pending. The [Studio generation bridge](url.md#studio-generation-context-internal)
 is also approved as a private foundation.
 The [collection-settings loader](collection-routing.md#loading-settings-from-sanity)
 is approved and reads and validates settings; it is not connected to Studio controls.
 A private [folder writer](folders.md) for creation and explicit synchronization
 is approved. It adds folder records without changing page URLs. Read-only saved
-folder display is now under review; creation controls, removal, and rename remain
-future work.
+folder display is also approved. The field's draft-editing workflow is under
+review; navigator removal and rename actions remain future work.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -792,14 +796,14 @@ example, creating `company/team` inside `/about` selects
 `/about/company/team`; a final segment of `leadership` produces
 `/about/company/team/leadership`.
 
-The picker does not rename folders. Collection fields are intended to show their
-centrally configured prefix as locked, with a single editable slug segment. The
-`slugField` routing contract now supports that storage shape, but the custom
-input and folder-creation controls are still pending. The private persistence
-functions are implemented separately. The current fixture's
-existing collection documents retain their full-path registration and data.
+The new private [URL field](url-field.md) implements this picker for eligible
+draft documents. It does not rename folders. Slug-only collection fields show
+their registered fixed prefix as locked, with a single editable slug segment.
+The same factory also supports full-path page storage. Existing fixture
+collection documents retain their full-path registration and data; this slice
+does not migrate them or add settings-backed prefix editing.
 
-The planned field includes a **Generate** button that derives the final slug
+The field includes a **Generate** button that derives the final slug
 segment from the document's configured name/title source. Generation keeps the
 chosen prefix; it does not generate a new folder path. The source must be
 configurable because consumers do not all name their title field the same way.
@@ -815,25 +819,33 @@ agreed October 31 and described in the [URL guide](url.md#generate-follows-sanit
 native transliteration, symbol conversion, and truncation, plus async custom
 generators that bypass the default length limit. The private Studio bridge now
 binds native source and slugify context and discards invalidated async
-results. It prepares candidates without writing them. The Generate button and
-replacement confirmation UI are not implemented yet.
+results. It prepares candidates without writing them. The input now provides the
+Generate button that replaces the final segment directly. Editing saves automatically after
+a 500 ms typing pause; choosing a folder or generating a slug also
+starts a save. Checks and folder persistence finish before the input emits a
+native form patch. It does not publish the document. Invalid values, conflicts,
+and failed reads stay local with an unsaved notice; network failures offer
+**Retry saving URL** instead of silent retry loops. Navigating away before the
+pause or checks finish drops the local edit.
 
-Support a read-only setting for the entire field, in addition to locking only
+The field supports a read-only setting for the entire field, in addition to locking only
 the prefix. Whole-field read-only disables slug editing, generation, folder
 selection, and folder creation from this field. The resolved URL remains visible
 and copyable. This is an editor-interface restriction, not dataset-level write
-protection. The field and these controls are not implemented yet.
+protection. This first input also blocks published, release, and live-edit URL
+changes until the reviewed routing and redirect workflow is available. Its
+factory remains private and is installed only in the proof fixture.
 
-### Persistent folders — agreed October 30, editor integration pending
+### Persistent folders — saved display approved, draft editing under review
 
 Explicitly created folders should persist even when no pages use them. Removing
 or moving the last page must not remove an explicitly created folder from the
-navigator. The navigator will need to combine saved folder records with folders
+navigator. The approved navigator combines saved folder records with folders
 inferred from page URLs, without showing duplicates. An empty folder is
 organizational metadata; it does not create a website page or occupy its index
-URL. The private creation/synchronization writer is approved; read-only saved
-folder display is now under review. Schema registration, creation controls, and
-removal/rename operations remain future work.
+URL. The private creation/synchronization writer and read-only saved-folder
+display are approved. The new private URL field adds explicit folder creation.
+Schema registration and removal/rename operations remain future work.
 
 Approved October 31: use one internal, authenticated-only folder-registry document
 per project/dataset, with stable record identifiers and paths. Its fixed ID is
@@ -846,9 +858,9 @@ Editors see one folder system, without inferred/persisted labels. Initial
 synchronization is a developer setup task;
 imports and external writers should invoke it as maintenance. Kit-managed folder
 creation and URL changes must save the required records as part of normal editing,
-including existing and destination ancestors. That URL-write integration is still
-pending. Once adopted, inferred and explicitly created folders share the same
-lifecycle.
+including existing and destination ancestors. The private draft URL field now
+preserves those records before applying an ordinary page URL. Once adopted,
+inferred and explicitly created folders share the same lifecycle.
 
 Approved safety fallback: Pages should check after initialization and when newly
 loaded paths reveal missing folders, then save missing folder records only when
@@ -876,14 +888,14 @@ different bulk URL-change operation, not simple folder removal. It can create
 conflicting paths and affect published URLs. It is not part of the approved
 empty-folder removal workflow.
 
-### URL cleanup — agreed October 29, field integration pending
+### URL cleanup — explicit draft editing
 
-The internal preparation layer can now propose separator cleanup, but it is not
-connected to Studio yet. The planned URL field will clean up mistakes when an
-editor finishes editing: collapse repeated slashes and remove trailing slashes, while preserving
-the site root `/`. For example, `/about//team/` becomes `/about/team`. Show the
-resulting value in the field and check for a conflicting page URL before applying
-the change. This does not allow nested slugs in collection fields: those still
+The private URL field uses the preparation layer to propose separator cleanup:
+collapse repeated slashes and remove trailing slashes while preserving the site
+root `/`. For example, `/about//team/` becomes `/about/team`. Show the resulting
+value and check for a conflicting URL before automatic draft saving. Clearing
+the final segment does not automatically save `/`: **Use as homepage** makes
+that intent explicit and runs the same checks. This does not allow nested slugs in collection fields: those still
 accept a single segment beneath their locked prefix.
 
 Cleanup belongs in the authoring field, not the navigator. The navigator must

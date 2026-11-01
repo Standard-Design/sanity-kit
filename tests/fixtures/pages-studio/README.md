@@ -8,9 +8,10 @@ Nothing in this directory is published. The reusable plugin now lives under `src
 `/studio`; the fixture itself is never packed. Consumers supply their own Studio
 installation. Studio-only runtime packages are optional peers. The browser now
 renders the folder tree and collection view, including saved folder records when
-available. Creation/synchronization writers exist internally, but the fixture
-does not call them or seed folders on startup. Folder editing controls, advanced
-filters, the URL field, and full release acceptance are still pending.
+available. The private URL field now uses the internal folder writer during
+editor actions, but the fixture does not call it or seed folders on startup.
+Navigator folder actions, advanced filters, and full release acceptance remain
+pending.
 
 The plugin uses a shared internal route registry. See
 [the routing foundation](ROUTING.md) for its configuration, validation,
@@ -111,6 +112,33 @@ is uncertain, inspect the registry before retrying. Open the page picker or
 navigator and expand **Empty-folder-test** to see “No pages in this folder.”
 Studio startup and automated tests never run this script.
 
+## Try the private URL field
+
+Proof page and Proof post now use the draft URL field from source. The alternate
+path type deliberately keeps its ordinary string field. Existing records keep
+their storage; this schema change does not migrate or publish anything.
+
+Create a new Proof page, enter a title, and choose **Generate** in its URL field.
+Choose a folder, or use **New subfolder** to open the creation modal. Its **Nest
+inside** control is a popover. Folder creation saves metadata immediately; the
+selected folder then starts checked URL autosave. Typing saves after a 500 ms
+pause, and generating a slug also starts a save. There is no Apply button.
+Wait for the save indicator to clear before changing documents: navigating away
+before the pause or checks finish discards the local edit. Leave the document
+unpublished for continued testing.
+
+Invalid values, conflicts, and failed reads remain local with an unsaved notice.
+Correct the value, or use **Retry saving URL** after a network failure. Clearing a
+root-level segment must not silently save the homepage: choose **Use as homepage**
+to make that intent explicit. This still runs the usual access and conflict checks.
+
+Existing published documents show their URLs but disable editing in this first
+slice. The reviewed live-URL/redirect workflow, dynamic collection settings,
+folder rename/removal, and automatic synchronization are separate work. This
+factory is private and is not available through the package's `/studio` export.
+See [the URL-field guide](../../../docs/url-field.md) for access requirements,
+storage behavior, and concurrency limits.
+
 ## How the pieces fit together
 
 - `src/studio/pages/plugin.tsx` installs the unstable header and navigator slots.
@@ -210,9 +238,9 @@ successful build or mocked test as a substitute for an unchecked live item.
 
 A2 now provides the reusable plugin and opt-in `/studio` boundary in local
 builds. A3/A4 now include the first path hierarchy, collection search/incremental
-loading, and native version indicators. Folder actions, query-side sort/status
-filters, long-list virtualization, schema previews,
-permission-aware template choices, and the URL field remain pending.
+loading, native version indicators, and the private draft URL field. Navigator
+folder actions, query-side sort/status filters, long-list virtualization, schema
+previews, and permission-aware template choices remain pending.
 A5 adds the full compatibility/distribution checks and release
 documentation. No version bump, commit, publication, or deployment is implied
 by this fixture.

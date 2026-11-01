@@ -3,23 +3,20 @@
 Prepared October 30, 2026; approvals updated October 31. The folder-storage and
 synchronization direction, reviewed folder-rename policy, collection-prefix
 preview/publication lifecycle, and the field/helper/creation behavior described
-below are now approved. **They are not implemented features or finalized public
-APIs.** The initial fixed-prefix [URL resolver](url.md) is now implemented and
-approved locally; the editor and persistence workflows below are not. The private
-[authoring preparation](url.md#authoring-preparation-internal) is implemented and
-approved, with Sanity-compatible generation. The next private
-[conflict-checking layer](url.md#url-conflict-checks-and-native-validation-internal)
-is implemented and approved. It uses a native `options.isUnique` adapter and excludes
-all versions of the current document, following Sanity. The field UI and write
-safeguards remain future work. Remaining
-proposals are explicitly identified. See also
+below are approved directions. **They are not all implemented features or
+finalized public APIs.** The fixed-prefix [URL resolver](url.md), private
+authoring preparation, native generation bridge, and conflict checks are approved
+locally. The new private [draft URL field](url-field.md) now connects those pieces
+to editor controls and guarded folder persistence; this implementation is under
+review. Reviewed live-URL moves and the broader publication workflows remain
+future work. Remaining proposals are explicitly identified. See also
 [the Pages guide](pages.md#design-decisions-and-remaining-work).
 
 The private [folder validation and planning](folders.md) foundation is approved.
 [Collection-settings resolution](collection-routing.md) is also approved.
-These layers do not yet add schema registration, persistence, editor
-controls, or publication actions. Their guides explain the exact behavior and
-limits of each slice.
+These foundation layers do not themselves register schemas or publication
+actions. Their guides distinguish the helpers from the writer and field that now
+use them, and explain the exact behavior and limits of each slice.
 
 [Redirect snapshot validation](redirects.md) is also approved.
 The integration tests exercise the shared route configuration across these
@@ -33,21 +30,27 @@ The published redirect reader is also approved.
 
 The private folder writer for creation and explicit synchronization is approved.
 It adds records using guarded writes; it does not remove or rename folders or
-change page URLs. Read-only navigator support for saved folders is now under
-review. Creation controls remain future work. See [Folders](folders.md) for the
-write results, display behavior, and recovery limits.
+change page URLs. Read-only navigator support for saved folders is also approved.
+The private draft URL field adds creation controls and prepares native URL patches.
+See [Folders](folders.md) for write results, display behavior, and recovery limits.
 
 The private [Studio generation bridge](url.md#studio-generation-context-internal)
 is implemented and approved. It binds native source and slugify callbacks, returns
-candidates, and discards invalidated async results. The field UI must still clear
-displayed candidates, confirm replacement, check conflicts, and apply changes.
+candidates, and discards invalidated async results. The new field UI clears stale
+proposals, generates slugs directly, checks conflicts, and autosaves
+eligible draft edits. A 500 ms typing pause, folder selection, or accepted
+generation starts the checked save. There is no Apply button for ordinary URL
+edits. Invalid values and failed checks stay local and visibly unsaved; network
+failures offer a retry action without silent retry loops. Leaving before the
+pause or checks complete discards the local edit.
 
 ## Folder storage
 
 Approved October 31: private internal metadata, one registry document per dataset,
 immediate organizational changes, no frontend dependency, and path-derived page
-placement. Exact schema fields, limits, and concurrent-write mechanisms still
-need implementation review.
+placement. The private planner, bounded reader, and additive writer are now
+approved. Schema registration, background synchronization, and destructive folder
+operations still need implementation review.
 
 Use one internal folder-registry document, `sanityKit.folders`, in the configured
 Sanity project/dataset. It
@@ -216,8 +219,8 @@ see [its guide](url.md) for the implemented scope and exact failure reasons.
 
 - **One field factory:** resolve the storage mode and prefix source from shared
   type/collection registration. Do not configure the prefix independently in the
-  schema, navigator, and frontend. The exact factory and registration names remain
-  open; no example here is an exported API.
+  schema, navigator, and frontend. The private `defineSanityUrlField()` factory is
+  now under implementation review; it is not an exported API.
 - **Existing storage:** preserve native slug-shaped fields such as
   `pathname.current` and `slug.current`, with explicit field mappings. Do not
   silently migrate existing strings or introduce a three-value stored URL object.
@@ -240,7 +243,9 @@ see [its guide](url.md) for the implemented scope and exact failure reasons.
   approved wrapper is `{ok: true, value: {pathname, prefix, slug}}`.
   For `/about`, use `{pathname: '/about', prefix: '/', slug: 'about'}`. For the
   homepage, use `{pathname: '/', prefix: '/', slug: ''}`; empty collection
-  item slugs remain invalid.
+  item slugs remain invalid. The input requires **Use as homepage** to save an
+  empty root-level segment as `/`, so clearing text cannot create a homepage
+  accidentally.
 - **Unsuccessful result:** distinguish missing values, invalid values, and
   unavailable routing. The approved wrapper is `{ok: false, reason: ...}`.
   Do not fabricate a URL. Reverse lookup must also distinguish not-found from
@@ -275,16 +280,16 @@ implementation. Ordinary document IDs remain Sanity-generated.
 
 ## Remaining review items
 
-- Exact folder schema, supported size limits, and
-  concurrency/synchronization protocols. The singleton and immediate lifecycle
-  are decided; their implementation is not.
+- Folder schema registration, background synchronization, and removal/rename
+  coordination. The singleton, bounded reads, additive writer, and saved-folder
+  display are implemented and approved; the draft field integration is under review.
 - Settings registration/schema and any optional overview shortcut. Draft preview
   followed by reviewed publication is decided; action and cache coordination need
   implementation design.
-- Field/settings API names, their failure codes, template parameters, and native
-  source/context integration. The fixed-prefix resolver API, root value,
-  Sanity-compatible generation behavior, configurable sources, and chooser
-  behavior are decided.
+- Public field/settings APIs, their failure codes, and creation template parameters.
+  The private field factory is under review. The fixed-prefix resolver, root value,
+  native source/context integration, Sanity-compatible generation, and chooser
+  direction are decided.
 - Publication/redirect/cache integration and its acceptance gates. The separate
   [redirect design](redirects-design.md) now covers this subsystem; acknowledging
   that design is not approval of every proposed status, query, or failure default.

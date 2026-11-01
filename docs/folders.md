@@ -11,10 +11,11 @@ proposed change. The read layer can fetch the evidence needed by those plans.
 The approved **private additive writer** in `src/studio/folders/write.ts`
 connects reads and plans to explicit create and synchronize actions.
 It can save new folder records but cannot remove folders or change page URLs.
-None of these modules registers a Studio schema or adds editing controls. There
-is no public package export for these functions yet. A separate, read-only
-navigator integration is now under review; it displays saved folders alongside
-folders inferred from page URLs.
+None of these foundation modules registers a Studio schema. There is no public
+package export for these functions yet. The approved read-only navigator
+integration displays saved folders alongside folders inferred from page URLs.
+The new private [URL field](url-field.md) calls the writer from explicit folder
+creation and draft URL changes; it is being reviewed in the fixture.
 
 The broader editor behavior is described in [Pages](./pages.md) and the
 [Pages design decisions](./pages-design-proposals.md). The shared route
@@ -31,9 +32,9 @@ The intended workflow is for the developer to synchronize existing paths during
 setup, then have kit-managed folder creation and URL changes save the necessary
 records as part of those actions. Imports and external writers should synchronize
 after their changes. Inference remains a fallback that keeps pages discoverable;
-it is not an editor task to resolve. The URL-field write integration is still
-pending, so that automatic persistence is a requirement for the finished workflow,
-not a claim about today's native fixture fields.
+it is not an editor task to resolve. The private draft URL field now preserves
+the old and destination folders before emitting a URL patch. This applies only to edits through that input; native
+fields, imports, and API writers still need explicit synchronization.
 
 The approved safety fallback is a background check after Pages initializes and
 when newly loaded paths reveal missing folders. In the normal workflow it should
@@ -79,14 +80,15 @@ ordinary page documents continue to use their own Sanity-generated IDs.
 The root `/` is implicit and never saved as a folder. Every saved folder must have
 its ordinary ancestors in the registry. Paths use the shared safe-path rules and
 must already be canonical: no repeated slashes or trailing slash. Invalid saved
-values are refused rather than silently repaired. The future URL field's cleanup
-is a separate editing behavior.
+values are refused rather than silently repaired. The URL field's candidate
+cleanup is a separate editing behavior.
 
 The dotted document ID is intended for authenticated organizational metadata.
 Hiding a schema from menus is not access control. This slice installs no schema,
 or permission policy. The writer uses the supplied client's credentials; Sanity
-enforces its write permissions. Studio access and schema integration still need
-implementation and verification. Its lifecycle is immediate organizational updates,
+enforces its write permissions. The private URL field checks effective dataset
+access before calling the writer. Schema registration and broader permission
+acceptance remain separate work. The registry receives immediate updates,
 without drafts or publication. Frontend rendering does not need this registry.
 
 ## Collections and ordinary folders
@@ -128,8 +130,8 @@ fallback under the policy above. A page at `/about/company/team` contributes
 the parent folders `/about` and `/about/company`; it does not alone establish
 `/about/company/team` as a folder. Once adopted, those parents remain saved even
 if the page later moves away. Removing them requires a separate empty-folder
-action. A future kit-managed URL writer must preserve both the old and destination
-folders as part of its workflow.
+action. The private draft URL field preserves both the old and destination
+folders before automatically saving a valid edited URL.
 
 Results are either `{ok: false, reason}` or `{ok: true, value}`. A successful plan
 contains:
@@ -349,7 +351,30 @@ actual GROQ and the native client against local fixtures to exercise additive
 adoption, metadata preservation, and concurrent registry changes. These are
 offline tests, not live dataset acceptance.
 
-## What remains before editor integration
+## How the draft URL field uses folders
+
+Opening the [URL field](url-field.md) reads folder metadata and document versions;
+it does not save anything. Choosing a folder changes the local proposal and
+starts checked URL autosave. **New subfolder** is an explicit save: it adds the requested path and any missing
+ancestors through the guarded writer. The new folder remains even if the editor
+cancels the proposed URL change.
+
+Before URL autosave emits a native form patch, the field ensures that the old
+and destination folders are saved. These are separate operations, not a combined
+transaction with the document patch. A failed or canceled URL change can therefore
+leave harmless empty folders. Unknown folder-write outcomes block blind retries.
+The input checks effective all-document read access before supplying the loader's
+visibility assertion; Sanity still enforces mutation permissions. While those
+checks are pending, the field shows that the URL edit is not yet saved. A failed
+check keeps it local; network failures offer **Retry saving URL**, without silent
+retry loops.
+
+The field currently supports fixed routes and draft-only URL changes. It refuses
+published, release, and live-edit cases pending the reviewed URL-change workflow.
+It adds no automatic synchronization on initialization and no **Sync folders**
+menu action. Those remain the approved next safety fallback.
+
+## What remains before the finished folder workflow
 
 A registry revision check only protects the registry. It does not stop another
 writer from creating a page in a folder after the occupancy check. The persistence
@@ -358,8 +383,8 @@ checks, and a policy for external writers. This slice does not claim database-wi
 uniqueness or race-free empty-folder removal. For this reason the writer has no
 remove action, even though the pure planner can describe one.
 
-Folder rename, moving descendants, redirect creation, UI actions, private-schema
-registration, and live acceptance tests remain separate work. These planners use
-the supplied route registration. A separate private collection-settings loader
+Folder rename, moving descendants, redirect creation, navigator folder actions,
+private-schema registration, and broader live acceptance remain separate work.
+These planners use the supplied route registration. A separate private collection-settings loader
 is now approved. Coordinating settings changes with folder operations remains
 future work.

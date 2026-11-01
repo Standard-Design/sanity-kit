@@ -154,6 +154,22 @@ and require an editorial decision.
 
 Integrate with publication, not every field keystroke:
 
+For a single page, normal URL edits autosave into its draft, including when a
+published version exists. The live URL stays unchanged until publication. This
+editor experience was agreed November 1; implementation is still pending.
+When Publish is clicked and an existing live URL has changed, show a small
+dialog with the old and new URLs, Cancel and Publish buttons, and a checked
+“Redirect the old URL to the new URL” checkbox. Editors can uncheck it to
+publish without creating a redirect. New pages and edits that leave the live
+URL unchanged keep the normal Publish behavior. The option belongs in this
+publication dialog, not in the URL field.
+
+The absence of a redirect means this operation will not forward the old URL; it
+does not guarantee that the old URL will return a 404, because the application
+or another route may handle it. Do not require the bulk-change review modal
+merely to edit a single page's draft. The steps below describe coordinated live
+changes; their full review modal remains appropriate for bulk operations.
+
 1. Compare the previous published URL with the intended published URL using the
    shared URL resolver. New documents and draft-only changes create no live rules.
 2. Expand a folder rename or collection-prefix change into its affected existing
@@ -185,9 +201,11 @@ that claims the same path. Coordination between kit writers, publication hooks,
 and eventual-query-consistency tests is an implementation gate, not a solved
 guarantee. See [Sanity transactions](https://www.sanity.io/docs/content-lake/transactions).
 
-For the fixture, retain an explicit no-redirect mode. For production, propose
-redirects enabled by default for supported published moves, with an explicit,
-authorized opt-out warning. This is a recommendation, not an approved policy.
+For the fixture, retain an explicit no-redirect mode. An explicit editor option
+to omit a redirect is also part of the agreed single-page publication behavior.
+Redirects are enabled by default in the agreed single-page publication dialog,
+with a brief explanation of the effect when opting out. Consumer permission
+policy and bulk-change controls remain subject to implementation review.
 
 ## Frontend request handling
 
