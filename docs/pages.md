@@ -9,7 +9,9 @@ a reusable `pagesTool()` foundation under `@standard-design/sanity-kit/studio`.
 Local builds include that entry point; the existing npm release does not. Its
 browser includes saved folders and collection browsing. A private
 [URL field](url-field.md) now connects draft editing and folder creation in the
-fixture. Navigator folder actions, reviewed live URL changes, advanced filtering,
+fixture. A private publication integration now pairs published-page draft URL
+edits with an optional redirect at publication. Navigator folder actions, bulk
+URL changes, advanced filtering,
 and broader release acceptance are still pending; this is not the finished Pages
 feature set.
 

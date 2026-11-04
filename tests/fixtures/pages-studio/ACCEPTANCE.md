@@ -618,3 +618,138 @@ On October 26, native creation also saved the unpublished draft
 | Post 7           | `3eL1TgPV2dOrTeGog7ZAlW` |
 | Post 8           | `3l1HxcLUM0txp4sT1SNGi4` |
 | Alternate path   | `XCVfQiHlQYx1rGNar3Cuau` |
+
+## November 1 — single-page URL publication integration
+
+Live acceptance passed in project `ha9kep4l`, dataset `development`, after Austin
+explicitly authorized publication of dedicated test pages with and without
+redirects. The earlier Journal draft check restored `/journal` without publishing
+it. The initial approval block is resolved by that explicit authorization.
+
+The live checks exposed two issues, both fixed before final acceptance:
+
+- Creating the first draft could reset a locally typed URL when another field
+  changed before URL autosave finished. Input state now follows the logical
+  document identity across the published-to-draft transition. Rapid URL and Body
+  edits survived together in both final tests.
+- A plugin-only action wrapper could run before Sanity supplied native Publish,
+  silently leaving that action unwrapped. The first dedicated redirect-fixture
+  publication exposed this: it moved `-before` to `-after` with no review or
+  redirect. The fixture now uses `withUrlPublication` at the workspace root.
+  Final resolved actions are checked before editing is enabled; real Sanity
+  configuration-resolution tests cover plugin order and later overrides.
+
+After those fixes:
+
+1. **Cancel:** Publish showed the old and new URLs with the redirect option
+   checked. Cancel closed the dialog and preserved the draft.
+2. **Without redirect:** Unchecking the option and publishing moved
+   `/url-publication-skip-before` to `/url-publication-skip-after`. The reviewed
+   Body edit published too. No redirect was created, and the draft was removed.
+3. **With redirect:** Leaving the default option checked moved
+   `/url-publication-redirect-after` to `/url-publication-redirect-final`. The Body
+   edit published too. A published, enabled 301 rule with `origin: "url-change"`
+   points from the old path to the new one. The page and redirect share transaction
+   revision `a189442b-ecdf-46e8-bc18-089adb34f7ee`; no draft remains.
+4. **Stored evidence:** Authenticated raw reads confirmed both published pages,
+   the one generated redirect, and matching private publication receipts. The
+   no-redirect receipt has `createRedirect: false` and no redirect ID.
+
+| Evidence                | ID                                     |
+| ----------------------- | -------------------------------------- |
+| Redirect test page      | `Jx6lfu4xtZI4KDdJjQdbDc`               |
+| No-redirect test page   | `qYwqdjLMEwpIXYm6Fl7kFA`               |
+| Generated redirect      | `3fb90015-5768-46ba-bd1d-25a93b948702` |
+| Redirect transaction    | `a189442b-ecdf-46e8-bc18-089adb34f7ee` |
+| No-redirect transaction | `05d09016-4f2d-4daa-ad6c-7dc1ea269103` |
+
+Automated tests additionally cover validation and sync gates, revision failures,
+redirect graph conflicts, and uncertain-response reconciliation. We did not
+simulate a dropped live transaction response or concurrent external writes.
+
+The publication integration creates redirect records only. The fixture's HTTP
+server does not yet follow them; redirect delivery and cache acceptance belong to
+that later slice. These dedicated test records remain available for inspection.
+
+## November 1 — repeated URL changes
+
+The publication dialog now lists older redirects that point to the page and
+shows their current and proposed destinations. The checkbox controls only the
+new rule from the current URL. Existing rules shown in the review update even
+when the checkbox is off.
+
+Live acceptance used the separate `URL publication proof: skip` page
+(`qYwqdjLMEwpIXYm6Fl7kFA`) so Austin's pending change on the original redirect
+fixture stayed intact:
+
+- Moved `/url-publication-skip-after` to `/url-publication-skip-repeated` with a
+  new redirect, establishing the first historical URL.
+- Moved again to `/url-publication-skip-final` with the checkbox off. The dialog
+  displayed the existing redirect update. Publication reused redirect
+  `792d62de-d483-4d5d-b615-aa79d75c14b7`, pointed it directly to the final URL, and
+  created no rule from the intermediate URL. Page and rule shared revision
+  `0c75980e-31b6-483d-9cca-8d6d133f8781`.
+- Moved once more to `/url-publication-skip-verified` with the checkbox on. The
+  existing redirect and new rule `df950a89-440a-43de-99db-f7120da46232` both point
+  directly to the latest URL. Both rules and the page share revision
+  `cbb8b96a-941f-4728-ac60-3b4a2bfa28a5`. No test-page or redirect draft remained.
+
+An Actions API dry run also attempted two guarded draft creations for the same
+published redirect in one batch. Sanity rejected the second with HTTP 409 and
+stored no changes. This verifies the safeguard against publishing another
+editor's concurrently created redirect draft, beyond the automated mock tests.
+
+Automated coverage includes preserved manual/temporary redirect fields, stale
+revisions, pending drafts/releases, atomic rollback, uncertain-response receipts,
+and inventory/request limits. A separate review found and fixed a byte-boundary
+case: planning now reserves metadata headroom for each changed redirect so a
+near-limit operation does not casually exceed the next snapshot's byte budget.
+HTTP delivery remains outside this acceptance check.
+
+## November 2 — publication recovery feedback
+
+A temporary, development-only controller simulation exercised the real dialog
+without sending publication writes. On the existing redirect proof page:
+
+- The unconfirmed result appears in a warning panel above the URL review.
+- **Close** dismisses the dialog. The document action becomes **Check publication
+  result**, which reopens the same review with its original redirect choice.
+- A simulated successful receipt check closes the review and shows a native green
+  **Page published** notification containing the destination URL.
+
+The simulation does not establish real network-failure behavior or change the
+page's published state. Automated tests cover exact receipt matching, restoring
+recovery after controller recreation and same-tab reload, project/dataset/document
+isolation, unavailable or corrupt browser storage, and preventing a second write.
+They also cover dismissing while a result check is pending and showing success
+when that check completes. Temporary simulation files are not part of the slice.
+
+The blocked-conflict simulation also shows a native red error card identifying
+`/about`, its owning page “Pages proof: About,” and the published version. Its
+**Open page** link was followed and verified to open that exact document and URL
+in the Structure editor. This conflict is simulated; no duplicate URL was saved.
+
+## November 4 — final notice review and simulation cleanup
+
+Austin reviewed and accepted the publish dialog's loading, publishing, recovery,
+access, conflict, release, invalid-redirect, and limit notices. The notices explain
+what prevents this URL change and what the editor can do next. Limit notices show
+the measured count or size and the supported limit. Conflict notices identify the
+page or redirect with a clickable row.
+
+The page-conflict row now opens the document in the current Pages editor while
+keeping the website preview in place. This supersedes the earlier Structure-link
+behavior recorded above. The final recovery action is labeled **Check publish
+status**. Successful recovery shows the native **Page published** notification.
+
+The temporary simulation module and Vite transform were removed after review.
+After restarting the fixture Studio, the real review for the original redirect
+proof page loaded successfully: it showed the published and draft URLs, the
+checked optional redirect control, and one existing redirect to update. No publish
+write was submitted during this cleanup; Austin's pending draft remains intact.
+
+Final automated checks passed: formatting, build, lint, typechecking, and 1,667
+tests across 55 files. The fixture Studio production build and packed-package
+checks also passed, including all five frontend dependency configurations, the
+Studio consumer, and the sibling-workspace TypeGen check. These checks complement the earlier live atomic-write acceptance; simulated errors are
+not evidence of live network failures, restricted-role behavior, or large datasets.

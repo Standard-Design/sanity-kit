@@ -486,6 +486,32 @@ describe('private collection routing settings', () => {
 		).toEqual(['/blog', '/_sanity-kit-settings-0'])
 	})
 
+	it('carries prefix reservations through resolved collection settings', () => {
+		const routing = createCollectionRouting({
+			...config,
+			reservedPathPrefixes: ['/account', '/blog/private'],
+		})
+		const result = success(
+			routing.resolve(snapshot([settings('/blog')]), 'published'),
+		)
+		expect(result.routes.reservedPathPrefixes).toEqual([
+			'/account',
+			'/blog/private',
+		])
+		expect(
+			result.resolveUrl({
+				_type: 'page',
+				pathname: { current: '/account/settings' },
+			}),
+		).toEqual({ ok: false, reason: 'disallowed-path' })
+		expect(
+			result.resolveUrl({ _type: 'post', slug: { current: 'private' } }),
+		).toEqual({ ok: false, reason: 'disallowed-path' })
+		expect(
+			result.resolveUrl({ _type: 'post', slug: { current: 'private-story' } })
+				.ok,
+		).toBe(true)
+	})
 	it('snapshots configuration and returns immutable contexts independent of later document changes', () => {
 		const mutable = structuredClone(config)
 		const routing = createCollectionRouting(mutable)

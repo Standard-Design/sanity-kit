@@ -60,7 +60,12 @@ import private compiled files.
   to the stored segment when reading; the full URL is never written back. The
   prefix itself is not an item URL; the overview is registered separately.
 - `excludePaths` lists exact app-owned URLs. With `['/']`, a page document cannot
-  claim the homepage. `/about` is unaffected. There are no wildcard exclusions.
+  claim the homepage. `/about` is unaffected.
+- `reservedPathPrefixes` reserves entire app-owned sections. `['/account']`
+  covers `/account` and `/account/settings`, but not `/accounting`. It applies
+  to page URL resolution, URL editing, and publishing/redirect-source checks.
+  Use canonical paths without trailing slashes; `/` reserves everything. These
+  are segment prefixes, not wildcard patterns.
 
 The fixture intentionally keeps its CMS-owned homepage, so its exclusion list is
 empty. Standard Stack's planned page-only configuration would exclude `/`, which

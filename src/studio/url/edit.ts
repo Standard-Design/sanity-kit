@@ -1,8 +1,9 @@
 /**
  * Prepare a URL change for the native form. Page patches stay with the input;
  * this controller reads access/version evidence and preserves folder metadata.
- * Only unpublished documents without release versions are editable in this first
- * field slice. Reviewed live moves and redirects are a separate workflow.
+ * Published pages may have their drafts edited when the Studio has installed
+ * the publication integration. This controller never changes a live URL; the
+ * paired Publish action coordinates that change and any redirect later.
  */
 import { getPublishedId } from 'sanity'
 import { createUrlAuthoring, type UrlCandidate } from '../../url/authoring.js'
@@ -16,6 +17,7 @@ import type { FolderRecord } from '../folders/planner.js'
 import { createFolderWriter } from '../folders/write.js'
 import type { PagesClient } from '../pages/data-source.js'
 import { createUrlConflictChecker } from './conflicts.js'
+import { checkUrlReadAccess, type UrlAccessIssue } from './access.js'
 
 export interface UrlEditDocument extends Record<string, unknown> {
 	readonly _id: string
@@ -27,9 +29,15 @@ export interface UrlEditRequest {
 	readonly readOnly: boolean
 }
 
+export interface UrlEditOptions {
+	/** Enable only alongside the kit's URL-aware publication integration. */
+	readonly allowPublishedDrafts?: boolean
+}
+
 export type UrlEditBlocked = {
 	readonly status: 'blocked'
 	readonly reason: string
+	readonly accessIssues?: readonly UrlAccessIssue[]
 }
 export type UrlEditLoadResult =
 	| UrlEditBlocked
@@ -61,24 +69,6 @@ function fieldValue(document: Record<string, unknown>, path: string) {
 }
 
 /**
- * Accept only explicitly unconditional read grants. An empty GROQ result is not
- * proof of visibility. Custom filtered grants need a future reviewed evaluator;
- * this first integration refuses them rather than guessing about their coverage.
- */
-function hasCompleteReadAccess(input: unknown): boolean {
-	return (
-		Array.isArray(input) &&
-		input.some(
-			(grant: unknown) =>
-				record(grant) &&
-				(grant.filter === 'true' || grant.filter === '_id in path("**")') &&
-				Array.isArray(grant.permissions) &&
-				grant.permissions.includes('read'),
-		)
-	)
-}
-
-/**
  * One controller belongs to one mounted field. invalidate() stops stale actions,
  * but never forgets an uncertain folder mutation. A fresh read must confirm its
  * exact keys/paths before another mutation can be attempted by this controller.
@@ -86,7 +76,11 @@ function hasCompleteReadAccess(input: unknown): boolean {
 export function createUrlEditController(
 	routes: PagesRouteConfig,
 	client: PagesClient,
+	options: UrlEditOptions = {},
 ) {
+	// Capture configuration with the controller, rather than allowing a caller to
+	// change its publication policy during an in-flight edit.
+	const allowPublishedDrafts = options.allowPublishedDrafts === true
 	const registry = createPagesRegistry(routes)
 	const authoring = createUrlAuthoring(routes)
 	const resolve = createSanityUrlResolver(routes)
@@ -149,7 +143,9 @@ export function createUrlEditController(
 			return blocked(signal.aborted ? 'aborted' : 'access-unavailable')
 		}
 		if (signal.aborted) return blocked('aborted')
-		if (!hasCompleteReadAccess(grants)) return blocked('unknown-read-access')
+		const access = checkUrlReadAccess(routes, grants, 'edit')
+		if (!access.ok)
+			return { ...blocked('unknown-read-access'), accessIssues: access.issues }
 		const loaded = await loadFolders(
 			{ readAccess: 'all-registered-versions' },
 			signal,
@@ -195,7 +191,8 @@ export function createUrlEditController(
 			)
 				continue
 			if (value._id.startsWith('versions.')) return 'release-version'
-			if (!value._id.startsWith('drafts.')) return 'published-document'
+			if (!value._id.startsWith('drafts.') && !allowPublishedDrafts)
+				return 'published-document'
 		}
 	}
 
@@ -312,8 +309,8 @@ export function createUrlEditController(
 				)!
 				if (!type.collection) {
 					const prefixes = new Set([candidate.value.url.prefix])
-					// Preserve both the form's current folder and the latest stored draft
-					// folder. They can differ while native form edits are still syncing.
+					// Preserve the form, stored draft, and published folders. The draft
+					// can move while the live page stays at its old URL until publication.
 					for (const previousDocument of [
 						document,
 						...snapshot.inventory.documents,
@@ -339,7 +336,7 @@ export function createUrlEditController(
 				}
 				// Folder additions can outlive a cancelled page edit, which is harmless:
 				// empty folders are persistent by design. Recheck after those writes so
-				// a newly published/released page or newly occupied URL is not ignored.
+				// new protected versions or a newly occupied URL are not ignored.
 				const latest = await evidence(op.signal)
 				if (op.stopped()) return blocked('aborted')
 				if ('status' in latest) return latest

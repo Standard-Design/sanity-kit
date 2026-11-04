@@ -105,6 +105,24 @@ describe('native URL field definition', () => {
 		])
 			expect(await validate(value)).toEqual([])
 	})
+
+	it('preserves prefix reservations through the native field configuration snapshot', async () => {
+		const { validate } = fixture({
+			routes: { ...routes, reservedPathPrefixes: ['/account'] },
+		})
+		for (const path of ['/account', '/account/settings'])
+			expect(await validate(document('page', 'pathname', path))).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({
+						message:
+							'This URL is outside the paths allowed for this document type.',
+					}),
+				]),
+			)
+		expect(await validate(document('page', 'pathname', '/accounting'))).toEqual(
+			[],
+		)
+	})
 	it('leaves an absent value optional and composes an app-required rule', async () => {
 		expect(await fixture().validate(document('page', 'pathname'))).toEqual([])
 		const required = fixture({ validation: (rule) => rule.required() })

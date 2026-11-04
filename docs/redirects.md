@@ -2,8 +2,9 @@
 
 Status: the private snapshot foundation was approved on October 31, 2026. The
 private Sanity loader described below is also approved. This is
-not a public package entry point, a working Studio feature, or an installed
-website redirect system. The names, record shape, and bounds below describe
+not a public package entry point or an installed website redirect system.
+A separate private [Studio publication integration](url-field.md#editing-published-pages)
+can now create a redirect with a single-page URL change. The names, record shape, and bounds below describe
 these internal slices; they are not a public API contract. The broader
 [redirect design](redirects-design.md) still describes the later work.
 
@@ -16,8 +17,10 @@ produces a redirect decision for `/about/team`, but not for `/about/team/alex`.
 
 The companion loader reads those rules from Sanity and passes them through the
 same checks. Neither helper creates or edits rules, publishes content, sends an
-HTTP response, caches anything, or moves pages. Those operations belong to later
-Studio, router, cache, and Pages integration slices.
+HTTP response, caches anything, or moves pages. The separate publication
+integration owns generated-rule creation and reviewed destination updates for
+older redirects when a page moves again; HTTP handling, cache adapters, and
+general redirect management remain later work.
 
 ## One complete snapshot for the configured dataset
 
@@ -76,7 +79,7 @@ Before it builds an index, it rejects the whole snapshot if it finds:
 - A chain, such as A → B → C. A later reviewed operation may flatten a chain;
   runtime lookup does not silently rewrite it or change a temporary rule's meaning.
 - A source reserved by the app or already occupied by a published page, according
-  to the exact path lists supplied in configuration.
+  to the exact path lists and reserved prefixes supplied in configuration.
 - A destination missing from the supplied known-destination list.
 
 Consumers that cannot provide destination knowledge must explicitly select
@@ -84,10 +87,18 @@ Consumers that cannot provide destination knowledge must explicitly select
 an arbitrary URL exists. A successful known-list check proves only membership in
 that supplied list, not that the running website will serve the destination.
 
-Reserved and occupied path lists are copied at compilation. They are exact paths,
-not patterns: reserving `/api` does not reserve `/api/anything`. The future request
-adapter must apply the application's full endpoint policy before loading rules.
-These lists do not themselves implement an authorization or route-matching layer.
+Reserved and occupied path lists are copied at compilation. `reservedPaths`
+and `occupiedPaths` match exact paths. `reservedPathPrefixes` reserves a path
+and every segment below it: `/account` covers `/account/settings`, but not
+`/accounting`. Prefixes must be canonical paths with no repeated or trailing
+slashes; `/` reserves every path. Matching is case-sensitive, with no wildcards
+or decoding. Redirect destinations may still point into reserved sections.
+
+The loader accepts the same options and copies them before fetching. The Studio
+publishing integration takes prefixes from the shared Pages route configuration,
+so page fields and redirect checks use the same reservations. Standalone redirect
+loaders must receive that same policy from the consumer. These rules do not
+discover frontend routes or implement authorization.
 
 Disabled records never enter the index or participate in chains. They may retain
 obsolete source/destination/status values for history, but their identity,
@@ -128,7 +139,7 @@ Matching returns:
 
 - `{kind: 'redirect', location, status}` for an exact rule.
 - `{kind: 'none'}` for a valid pathname with no rule.
-- `{kind: 'bypass', reason: 'reserved-path'}` for an exact reserved path.
+- `{kind: 'bypass', reason: 'reserved-path'}` for an exact reserved path or a path covered by a reserved prefix.
 - `{kind: 'invalid-path'}` for malformed or noncanonical input.
 
 Passing a full URL with a query is not supported. Later request handling must

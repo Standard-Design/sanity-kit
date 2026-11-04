@@ -2,8 +2,11 @@
 
 Status: proposed on October 31, 2026. **Not released.** A private
 [snapshot validator and lookup](redirects.md) is implemented and approved. A private
-published-rule loader is also approved; caching, HTTP handling, Studio controls,
-and publication coordination remain future work. All API
+published-rule loader is also approved. A private
+[single-page publication integration](url-field.md#editing-published-pages) is
+implemented and under review; live acceptance passed with and without redirects.
+Caching, HTTP handling, general Studio management, and bulk publication
+coordination remain future work. All API
 names and configuration examples below are candidates for review, not exports
 that consumers can import today. This document does not approve the other open
 [Pages design proposals](pages-design-proposals.md).
@@ -135,9 +138,12 @@ constraint; imports and external API writes can bypass it.
 ## Repeated moves and redirect chains
 
 If A moved to B and B now moves to C, the review should propose A → C and B → C,
-not make visitors follow A → B → C. Update compatible permanent aliases in the same
-operation, with revision checks. A manual temporary rule or independently edited
-rule is a conflict to review, not something the planner silently overwrites.
+not make visitors follow A → B → C. The single-page publication dialog now lists
+existing redirects that point to B and proposes changing their destination to C.
+It preserves each rule’s 301/302 status and other fields; manual rules are shown
+for review too. Pending draft/release edits block the operation. All reviewed
+updates use revision checks and commit with the page. Unchecking the new-redirect
+option omits B → C but still applies the displayed A → C update.
 
 For the first version, reject newly activated redirect-to-redirect destinations
 unless the review explicitly flattens them to their terminal destination. Validate
@@ -156,7 +162,8 @@ Integrate with publication, not every field keystroke:
 
 For a single page, normal URL edits autosave into its draft, including when a
 published version exists. The live URL stays unchanged until publication. This
-editor experience was agreed November 1; implementation is still pending.
+editor experience was agreed November 1 and now has a private implementation
+under review; live publication acceptance passed on November 1.
 When Publish is clicked and an existing live URL has changed, show a small
 dialog with the old and new URLs, Cancel and Publish buttons, and a checked
 “Redirect the old URL to the new URL” checkbox. Editors can uncheck it to
@@ -169,6 +176,8 @@ does not guarantee that the old URL will return a 404, because the application
 or another route may handle it. Do not require the bulk-change review modal
 merely to edit a single page's draft. The steps below describe coordinated live
 changes; their full review modal remains appropriate for bulk operations.
+Ordinary single-page publication publishes the reviewed document draft, including
+its other edits. The URL-only restriction below applies to bulk routing actions.
 
 1. Compare the previous published URL with the intended published URL using the
    shared URL resolver. New documents and draft-only changes create no live rules.
@@ -377,6 +386,23 @@ require the same checks as manual edits. Block unsupported publishing paths from
 claiming safety; duplicate generation and conflicts must also be detected at
 runtime for writes that bypass the kit.
 
+### Future option: update a live redirect while preserving its draft
+
+Keep the current publication block when an affected redirect has a draft or
+release version. In the redirect-management slice, allow an editor to explicitly
+approve updating only the published redirect, leaving its draft unchanged and
+unpublished. Show the proposed live change and identify the pending work before
+asking for approval.
+
+This option needs protection at the later redirect publication step: a draft
+could otherwise restore the old destination. Record which published revision the
+draft was reviewed against, detect subsequent changes to the live rule, and
+require a fresh review before publishing the draft. Recheck redirect validity and
+conflicts, and guard the write against concurrent changes. Release publication
+needs equivalent protection before release versions can use this option.
+Explicit approval of the live update alone is not enough. This option is deferred;
+the current single-page publication slice does not offer an override.
+
 Preview should favor editing current draft locations, not force public historical
 redirects. Default to bypassing runtime redirects in preview. A separate Studio
 test mode may inspect a draft rule set without emitting a permanent HTTP redirect
@@ -426,3 +452,13 @@ no-store HTTP responses; 60-second application-cache TTL with stale serving off;
 controlled errors rather than silent fallback; and redirects enabled for supported
 published moves. Final names, payload bounds, publication coordination, and cache
 conformance requirements need an implementation review, not consumer assumptions.
+
+### Deferred release-aware URL changes
+
+Release-aware handling remains deferred until a consumer needs it. The current
+single-page flow blocks a live URL change when that page has a release version;
+ordinary content edits with an unchanged valid URL still use native publishing.
+The notice explains this implementation limitation and suggests retaining the
+live URL or completing the planned release before retrying. Removing a page from
+a release is an option only when its inclusion is no longer needed, not a
+recommended shortcut around the block.

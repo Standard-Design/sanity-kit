@@ -52,6 +52,7 @@ export function readNavigationFolders(
 				})),
 			collections: registry.collections,
 			excludePaths: registry.excludePaths,
+			reservedPathPrefixes: registry.reservedPathPrefixes,
 		},
 	})
 	const checked = planner.validateRegistry(input)

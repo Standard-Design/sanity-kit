@@ -249,6 +249,27 @@ describe('URL authoring candidates', () => {
 		})
 	})
 
+	it('rejects reserved sections after cleanup for page paths and collection slugs', () => {
+		const prepare = createUrlAuthoring({
+			...config,
+			reservedPathPrefixes: ['/account', '/journal/private'],
+		})
+		for (const path of ['/account/', '/account//settings/'])
+			expect(prepare.prepareStored('page', path)).toEqual({
+				ok: false,
+				reason: 'disallowed-path',
+			})
+		expect(
+			prepare.prepareParts('post', { prefix: '/journal', slug: 'private' }),
+		).toEqual({ ok: false, reason: 'disallowed-path' })
+		expect(prepare.prepareStored('page', '/accounting').ok).toBe(true)
+		expect(
+			prepare.prepareParts('post', {
+				prefix: '/journal',
+				slug: 'private-story',
+			}).ok,
+		).toBe(true)
+	})
 	it('distinguishes missing and invalid inputs', () => {
 		for (const value of [undefined, null, ''])
 			expect(authoring.prepareStored('page', value)).toEqual({

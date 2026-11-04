@@ -34,10 +34,12 @@ import {
 	type PagesRouteConfig,
 } from '../../url/registry.js'
 import { createUrlGeneration } from './generate.js'
+import { formatUrlAccessIssues, UrlAccessNotice } from './access-notice.js'
 import { createUrlEditController } from './edit.js'
 import { FolderPicker } from './folder-picker.js'
 import { useUrlAutosave } from './autosave.js'
 import { useUrlFieldError } from './validation.js'
+import { useUrlPublicationState } from './publication-state.js'
 
 // Studio's document-saving indicator uses the sync symbol with a one-second
 // eased rotation. Use the public icon rather than importing its private status
@@ -160,14 +162,16 @@ function CopyUrlButton({
 	)
 }
 
-/** Kept private while the fixed-prefix, draft-only field is accepted in Studio. */
+/** Kept private while the full field and publication integration are accepted. */
 export interface SanityUrlInputProps extends SlugInputProps {
 	routes: PagesRouteConfig
+	/** Paired with the kit's publication action; never a live URL write. */
+	allowPublishedDrafts?: boolean
 }
 
 function message(reason: string): string {
 	if (reason.includes('published'))
-		return 'This page is published. Changing its URL needs the reviewed URL-change workflow, which is not available yet.'
+		return 'This page is published. To edit its URL, enable the URL-change publishing workflow in this Studio.'
 	if (reason.includes('release'))
 		return 'This document has a release version. URL changes are not available here yet.'
 	if (reason === 'url-in-use')
@@ -208,12 +212,30 @@ function canRetrySave(reason: string): boolean {
 }
 
 export function SanityUrlInput(props: SanityUrlInputProps) {
-	const { routes, value, schemaType, path, readOnly, onChange, elementProps } =
-		props
+	const {
+		routes,
+		allowPublishedDrafts,
+		value,
+		schemaType,
+		path,
+		readOnly,
+		onChange,
+		elementProps,
+	} = props
 	const errorId = useId()
 	const document = useFormValue([]) as SanityDocument
 	const client = useClient({ apiVersion: '2026-10-01' })
 	const workspace = useWorkspace()
+	// Sanity starts from the published document and assigns the drafts. prefix
+	// when another field creates its first draft. That is still the same editor
+	// session: keep an unsaved local URL proposal through that transition. Release
+	// versions, other document types, and other datasets remain separate identities.
+	const documentIdentity = JSON.stringify([
+		workspace.projectId,
+		workspace.dataset,
+		document?._type,
+		document?._id?.replace(/^drafts\./u, ''),
+	])
 	const schema = useSchema()
 	const currentUser = useCurrentUser()
 	const documentSchema = schema.get(document?._type)
@@ -225,8 +247,11 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 	const authoring = useMemo(() => createUrlAuthoring(routes), [routes])
 	const generation = useMemo(() => createUrlGeneration(routes), [routes])
 	const editor = useMemo(
-		() => createUrlEditController(routes, client),
-		[routes, client],
+		() =>
+			createUrlEditController(routes, client, {
+				allowPublishedDrafts: allowPublishedDrafts === true,
+			}),
+		[routes, client, allowPublishedDrafts],
 	)
 	const registered = registry.types.find(
 		(type) => type.schemaType === document?._type,
@@ -263,7 +288,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 	const editSequence = useRef(0)
 	const submitted = useRef(new Map<string, number>())
 	const lastSubmitted = useRef<string | undefined>(undefined)
-	const previousIdentity = useRef(document?._id)
+	const previousIdentity = useRef(documentIdentity)
 	const latest = useRef({
 		document,
 		readOnly,
@@ -300,6 +325,17 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 			: prefix !== initialPrefix ||
 				slug !== initialSlug ||
 				fullPath !== undefined)
+	// The local proposal is not yet part of Sanity's draft while it is being
+	// checked, or when it fails validation. Keep Publish blocked until the native
+	// form echoes the accepted URL, so it cannot publish the previous saved URL.
+	useUrlPublicationState(
+		{
+			projectId: workspace.projectId,
+			dataset: workspace.dataset,
+			documentId: document?._id,
+		},
+		allowPublishedDrafts === true && (dirty || busy),
+	)
 	const resolvedPath =
 		candidate.ok && (touched || !!stored)
 			? candidate.value.url.pathname
@@ -310,8 +346,8 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 	// A remote URL edit resets the local proposal. Any document/context change
 	// invalidates pending async work, including pending slug generation.
 	useEffect(() => {
-		const sameDocument = previousIdentity.current === document?._id
-		previousIdentity.current = document?._id
+		const sameDocument = previousIdentity.current === documentIdentity
+		previousIdentity.current = documentIdentity
 		const echoedEdit =
 			stored === undefined ? undefined : submitted.current.get(stored)
 		if (stored !== undefined) submitted.current.delete(stored)
@@ -335,7 +371,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 		)
 	}, [
 		stored,
-		document?._id,
+		documentIdentity,
 		initialPrefix,
 		initialSlug,
 		initial.ok,
@@ -367,7 +403,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 				}
 			})
 		return () => abort.abort()
-	}, [editor, document?._id, document?._type, refresh])
+	}, [editor, documentIdentity, refresh])
 
 	function changed() {
 		editSequence.current += 1
@@ -456,7 +492,11 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 			: autosave.status === 'error'
 				? (autosave.reason ?? 'request-failed')
 				: undefined
-	const errorMessage = errorReason ? message(errorReason) : undefined
+	const errorMessage = errorReason
+		? autosave.status === 'error' && autosave.accessIssues?.length
+			? formatUrlAccessIssues(autosave.accessIssues)
+			: message(errorReason)
+		: undefined
 	useUrlFieldError(errorMessage)
 	// Use the same TextInput validity API as Sanity's own slug/string inputs.
 	// Local proposals have not been patched, so their errors belong here rather
@@ -509,7 +549,12 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 					message: 'The document changed. Reload folders before continuing.',
 				}
 			if (result.status !== 'saved')
-				return { ok: false as const, message: message(result.reason) }
+				return {
+					ok: false as const,
+					message: result.accessIssues?.length
+						? formatUrlAccessIssues(result.accessIssues)
+						: message(result.reason),
+				}
 			setLoaded((previous) =>
 				previous?.status === 'loaded'
 					? { ...previous, folders: [...previous.folders, { pathname }] }
@@ -658,7 +703,11 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 			{loaded?.status === 'blocked' ||
 			(loaded?.status === 'loaded' && !loaded.editable) ? (
 				<Stack gap={2}>
-					<Text size={1}>{message(loaded.reason ?? 'unavailable')}</Text>
+					{loaded.status === 'blocked' && loaded.accessIssues?.length ? (
+						<UrlAccessNotice issues={loaded.accessIssues} />
+					) : (
+						<Text size={1}>{message(loaded.reason ?? 'unavailable')}</Text>
+					)}
 					<Button
 						text="Reload URL information"
 						mode="ghost"

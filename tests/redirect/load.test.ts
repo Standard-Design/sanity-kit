@@ -347,15 +347,45 @@ describe('private redirect Sanity loader', () => {
 		const config = {
 			destinations: ['/new'],
 			reservedPaths: ['/api'],
+			reservedPathPrefixes: ['/account'],
 			occupiedPaths: ['/page'],
 		}
 		const operation = loadRedirectSnapshot(io.client, config)
 		config.destinations.length = 0
 		config.reservedPaths.push('/old')
+		config.reservedPathPrefixes.push('/old')
 		config.occupiedPaths.push('/old')
 		pending.resolve([rule()])
 		const result = await operation
 		expect(result.ok && result.value.destinationsVerified).toBe(true)
+	})
+
+	it('forwards prefix reservations to snapshot compilation and matching', async () => {
+		const config = { ...options, reservedPathPrefixes: ['/account'] }
+		const blocked = await loadRedirectSnapshot(
+			transport([rule('reserved', '/account/settings')]).client,
+			config,
+		)
+		expect(blocked).toEqual({
+			ok: false,
+			reason: 'invalid-snapshot',
+			snapshotReason: 'reserved-source',
+			recordId: 'reserved',
+		})
+		const allowed = await loadRedirectSnapshot(
+			transport([rule('allowed', '/accounting', '/account/settings')]).client,
+			config,
+		)
+		expect(allowed.ok).toBe(true)
+		if (!allowed.ok) return
+		expect(allowed.value.match('/accounting')).toMatchObject({
+			kind: 'redirect',
+			location: '/account/settings',
+		})
+		expect(allowed.value.match('/account/settings')).toEqual({
+			kind: 'bypass',
+			reason: 'reserved-path',
+		})
 	})
 
 	it('loads again on each call and never shares a mutable lookup', async () => {

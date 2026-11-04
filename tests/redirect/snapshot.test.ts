@@ -270,8 +270,60 @@ describe('private redirect snapshot foundation', () => {
 		).toThrow('known destinations')
 	})
 
+	it('reserves sections at segment boundaries without restricting destinations', () => {
+		const config = { ...options, reservedPathPrefixes: ['/account'] }
+		for (const source of [
+			'/account',
+			'/account/settings',
+			'/account/settings/profile',
+		])
+			expect(
+				compileRedirectSnapshot(envelope([rule('reserved', source)]), config),
+			).toMatchObject({
+				ok: false,
+				reason: 'reserved-source',
+				recordId: 'reserved',
+			})
+		const index = compiled(
+			[rule('allowed', '/accounting', '/account/settings')],
+			config,
+		)
+		expect(index.match('/account')).toEqual({
+			kind: 'bypass',
+			reason: 'reserved-path',
+		})
+		expect(index.match('/account/settings')).toEqual({
+			kind: 'bypass',
+			reason: 'reserved-path',
+		})
+		expect(index.match('/accounting')).toEqual({
+			kind: 'redirect',
+			location: '/account/settings',
+			status: 301,
+		})
+	})
+
+	it('treats the root prefix as reserving every path', () => {
+		const config = { ...options, reservedPathPrefixes: ['/'] }
+		expect(compileRedirectSnapshot(envelope(), config)).toMatchObject({
+			ok: false,
+			reason: 'reserved-source',
+		})
+		const index = compiled([], config)
+		for (const path of ['/', '/account', '/account/settings'])
+			expect(index.match(path)).toEqual({
+				kind: 'bypass',
+				reason: 'reserved-path',
+			})
+	})
+
 	it('rejects noncanonical policy paths', () => {
-		for (const field of ['reservedPaths', 'occupiedPaths', 'destinations'])
+		for (const field of [
+			'reservedPaths',
+			'reservedPathPrefixes',
+			'occupiedPaths',
+			'destinations',
+		])
 			expect(() =>
 				compileRedirectSnapshot(envelope(), { ...options, [field]: ['/old/'] }),
 			).toThrow('canonical')

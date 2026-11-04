@@ -4,6 +4,7 @@
  * checked candidate and lets the native form save it. See docs/url-field.md.
  */
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { UrlAccessIssue } from './access.js'
 import type { UrlCandidate } from '../../url/authoring.js'
 import type { createUrlEditController, UrlEditDocument } from './edit.js'
 
@@ -24,6 +25,7 @@ export interface UrlAutosaveOptions {
 export interface UrlAutosaveState {
 	readonly status: 'idle' | 'waiting' | 'checking' | 'error'
 	readonly reason?: string
+	readonly accessIssues?: readonly UrlAccessIssue[]
 }
 
 /**
@@ -96,7 +98,14 @@ export function useUrlAutosave(
 						if (result.status === 'ready') {
 							setState({ status: 'idle' })
 							latest.current.onReady(result.candidate)
-						} else setState({ status: 'error', reason: result.reason })
+						} else
+							setState({
+								status: 'error',
+								reason: result.reason,
+								...(result.accessIssues
+									? { accessIssues: result.accessIssues }
+									: {}),
+							})
 					} catch {
 						if (current())
 							setState({ status: 'error', reason: 'request-failed' })

@@ -11,6 +11,9 @@ importers:
       '@sanity/asset-utils':
         specifier: ^2.3.0
         version: 2.3.0
+      groq-js:
+        specifier: 2.0.1
+        version: 2.0.1
       speakingurl:
         specifier: ^14.0.1
         version: 14.0.1
@@ -66,9 +69,6 @@ importers:
       groq:
         specifier: ^5.1.0
         version: 5.31.2
-      groq-js:
-        specifier: 2.0.1
-        version: 2.0.1
       jsdom:
         specifier: ^29.1.1
         version: 29.1.1(@noble/hashes@2.4.0)

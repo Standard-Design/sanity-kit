@@ -107,9 +107,7 @@ export function createUrlConflictChecker(
 		}
 
 		const pathname = prepared.value.url.pathname
-		const params: Record<string, unknown> = {
-			publishedId,
-		}
+		const params: Record<string, unknown> = { publishedId, pathname }
 		// Do not reuse the navigator's ownership-filtered lookup. Even a document
 		// stored under the wrong overview type can occupy the proposed URL. Compare
 		// every full-path type, plus each collection whose slug could produce it.
@@ -128,9 +126,16 @@ export function createUrlConflictChecker(
 		})
 		// Follow native slug uniqueness: all versions of this identity are self,
 		// not competing pages. Release-related write restrictions belong elsewhere.
-		const query = defineQuery(`*[(${clauses.join(' || ')})
-			&& ($publishedId == null || !sanity::versionOf($publishedId))
-		] | order(_id asc)[0...${CONFLICT_LIMIT + 1}] {_id, _type, _rev}`)
+		// Active redirect sources occupy URLs too. Their published record remains
+		// authoritative while a draft changes or disables the rule. Self-exclusion
+		// applies only to pages: a redirect must never be mistaken for this page.
+		const query = defineQuery(`*[
+			((${clauses.join(' || ')}) && ($publishedId == null || !sanity::versionOf($publishedId)))
+			|| (_type == "sanityKitRedirect" && enabled == true && source == $pathname
+				&& !(_id in path("drafts.**")) && !(_id in path("versions.**")))
+		] | order(_id asc)[0...${CONFLICT_LIMIT + 1}] {
+			_id, _type, _rev, _type == "sanityKitRedirect" => {source, enabled}
+		}`)
 
 		let rows: unknown
 		try {
@@ -157,15 +162,30 @@ export function createUrlConflictChecker(
 		for (const row of rows as unknown[]) {
 			if (!row || typeof row !== 'object' || Array.isArray(row))
 				return { status: 'unavailable', reason: 'invalid-response' }
-			const { _id, _type, _rev } = row as Record<string, unknown>
+			const {
+				_id,
+				_type,
+				_rev,
+				source: redirectSource,
+				enabled,
+			} = row as Record<string, unknown>
+			const redirect = _type === 'sanityKitRedirect'
 			if (
 				!validId(_id) ||
 				typeof _type !== 'string' ||
-				!registry.types.some((type) => type.schemaType === _type) ||
+				(!redirect &&
+					!registry.types.some((type) => type.schemaType === _type)) ||
 				typeof _rev !== 'string' ||
 				!_rev ||
 				seen.has(_id) ||
-				(publishedId !== null && getPublishedId(_id) === publishedId)
+				(!redirect &&
+					publishedId !== null &&
+					getPublishedId(_id) === publishedId) ||
+				(redirect &&
+					(_id.startsWith('drafts.') ||
+						_id.startsWith('versions.') ||
+						enabled !== true ||
+						redirectSource !== pathname))
 			)
 				return { status: 'unavailable', reason: 'invalid-response' }
 			seen.add(_id)

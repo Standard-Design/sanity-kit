@@ -20,6 +20,10 @@ import { createSanityUrlResolver } from '../../url/resolve.js'
 import { SanityUrlInput } from './input.js'
 import { createUrlIsUnique } from './is-unique.js'
 import { UrlValidationField } from './validation.js'
+import {
+	useUrlPublicationEnabled,
+	urlPublicationConfigKey,
+} from './publication-context.js'
 
 export interface SanityUrlFieldDefinition extends Omit<
 	SlugDefinition,
@@ -40,6 +44,7 @@ export interface SanityUrlFieldDefinition extends Omit<
 export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 	const { routes, validation, options, ...native } = definition
 	const registry = createPagesRegistry(routes)
+	const publicationKey = urlPublicationConfigKey(routes)
 	// Take a copy so input, native validation, and uniqueness cannot disagree if
 	// an application later mutates its original configuration object.
 	const snapshot: PagesRouteConfig = Object.freeze({
@@ -56,6 +61,7 @@ export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 		),
 		collections: registry.collections,
 		excludePaths: registry.excludePaths,
+		reservedPathPrefixes: registry.reservedPathPrefixes,
 	})
 	// Fail during schema setup for configurations unsafe to author. Other route
 	// types may still use string fields; only this input requires a slug object.
@@ -66,7 +72,14 @@ export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 		throw new Error('The URL field supplies its own shared uniqueness check.')
 	const resolve = createSanityUrlResolver(snapshot)
 	function Input(props: SlugInputProps) {
-		return <SanityUrlInput {...props} routes={snapshot} />
+		const allowPublishedDrafts = useUrlPublicationEnabled(publicationKey)
+		return (
+			<SanityUrlInput
+				{...props}
+				routes={snapshot}
+				allowPublishedDrafts={allowPublishedDrafts}
+			/>
+		)
 	}
 	function Field(props: ObjectFieldProps<SlugValue>) {
 		return (

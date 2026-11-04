@@ -15,12 +15,20 @@ import { createPageResolvers } from './resolvers.js'
 
 export const pagesTool = definePlugin<PagesToolOptions>((options) => {
 	const runtime = createPagesRuntime(options)
-	const { pages, collections, excludePaths, create, resolve, ...native } =
-		options
+	const {
+		pages,
+		collections,
+		excludePaths,
+		reservedPathPrefixes,
+		create,
+		resolve,
+		...native
+	} = options
 	// Route metadata stays in the provider, not in Presentation's options.
 	void pages
 	void collections
 	void excludePaths
+	void reservedPathPrefixes
 	void create
 	return {
 		name: 'sanity-kit-pages',

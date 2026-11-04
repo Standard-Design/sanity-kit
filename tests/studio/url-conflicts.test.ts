@@ -49,6 +49,15 @@ const post = (_id: string, slug = 'story') => ({
 	_rev: 'rev-2',
 	slug: { current: slug },
 })
+const redirect = (_id: string, source = '/journal/story', enabled = true) => ({
+	_id,
+	_type: 'sanityKitRedirect',
+	_rev: 'redirect-1',
+	source,
+	destination: '/new',
+	status: 301,
+	enabled,
+})
 
 /** Evaluate the real generated GROQ, including Sanity's versionOf function. */
 function transport(dataset: object[] = []) {
@@ -78,6 +87,56 @@ const request: UrlConflictRequest = {
 }
 
 describe('URL occupancy checks', () => {
+	it('reserves active published redirect sources, ignoring disabled, draft, and release-only rules', async () => {
+		const { check } = transport([
+			redirect('active'),
+			redirect('drafts.active', '/planned', false),
+			redirect('disabled', '/journal/story', false),
+			redirect('drafts.new'),
+			redirect('versions.release.future'),
+			redirect('different', '/other'),
+		])
+		expect(await check(request)).toMatchObject({
+			status: 'checked',
+			conflicts: [
+				{
+					documentId: 'active',
+					schemaType: 'sanityKitRedirect',
+					revision: 'redirect-1',
+					version: 'published',
+				},
+			],
+		})
+	})
+	it('checks full redirect paths for collection slugs and does not exempt redirect records as self', async () => {
+		const { check } = transport([redirect('same')])
+		expect(
+			await check({
+				schemaType: 'post',
+				storedValue: 'story',
+				documentId: 'drafts.same',
+			}),
+		).toMatchObject({
+			status: 'checked',
+			conflicts: [{ documentId: 'same', schemaType: 'sanityKitRedirect' }],
+		})
+	})
+	it.each([
+		redirect('drafts.rule'),
+		redirect('versions.release.rule'),
+		redirect('disabled', '/journal/story', false),
+		redirect('mismatched', '/other'),
+	])(
+		'rejects an unexpected redirect result rather than trusting a malformed adapter',
+		async (row) => {
+			const { check, fetch } = transport()
+			fetch.mockResolvedValueOnce([row])
+			expect(await check(request)).toEqual({
+				status: 'unavailable',
+				reason: 'invalid-response',
+			})
+		},
+	)
 	it('finds the same URL across full-path types and slug-only collections', async () => {
 		const { check } = transport([
 			page('a'),
@@ -275,7 +334,7 @@ describe('URL occupancy checks', () => {
 			tag: 'sanity-kit.url-conflicts',
 			signal: controller.signal,
 		})
-		expect(fetch.mock.calls[0]![0]).toContain('{_id, _type, _rev}')
+		expect(fetch.mock.calls[0]![0]).toContain('_id, _type, _rev,')
 		expect(fetch.mock.calls[0]![0]).not.toContain('body')
 	})
 
@@ -426,6 +485,12 @@ function nativeContext(
 }
 
 describe('native slug isUnique adapter', () => {
+	it('prevents native publication of a new page onto an active redirect source', async () => {
+		const { client } = transport([redirect('rule')])
+		expect(
+			await createUrlIsUnique(config)('/journal/story', nativeContext(client)),
+		).toBe(false)
+	})
 	it('rejects missing document context and unregistered types before fetching', async () => {
 		const { client, fetch } = transport()
 		const context = nativeContext(client)

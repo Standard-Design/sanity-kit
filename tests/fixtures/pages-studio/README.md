@@ -127,14 +127,22 @@ Wait for the save indicator to clear before changing documents: navigating away
 before the pause or checks finish discards the local edit. Leave the document
 unpublished for continued testing.
 
-Invalid values, conflicts, and failed reads remain local with an unsaved notice.
+Invalid values, conflicts, and failed reads remain local with native validation
+feedback beside the field label.
 Correct the value, or use **Retry saving URL** after a network failure. Clearing a
 root-level segment must not silently save the homepage: choose **Use as homepage**
 to make that intent explicit. This still runs the usual access and conflict checks.
 
-Existing published documents show their URLs but disable editing in this first
-slice. The reviewed live-URL/redirect workflow, dynamic collection settings,
-folder rename/removal, and automatic synchronization are separate work. This
+The fixture wraps its workspace config with the private `withUrlPublication`
+helper, so Publish is finalized after all plugin actions. Existing published
+pages allow normal draft URL edits; clicking Publish for a changed live URL opens
+the old/new URL dialog with an optional redirect checkbox. The final Publish
+button publishes the whole reviewed draft and its optional new redirect in one
+transaction. If older redirects point to the page, the dialog lists them and
+updates their destinations directly to the new URL in that same transaction.
+Turning off the checkbox skips only the new rule, not those reviewed updates. The fixture frontend does not yet serve these rules as HTTP
+redirects. Dynamic collection settings, folder rename/removal, redirect delivery,
+and automatic synchronization are separate work. This
 factory is private and is not available through the package's `/studio` export.
 See [the URL-field guide](../../../docs/url-field.md) for access requirements,
 storage behavior, and concurrency limits.

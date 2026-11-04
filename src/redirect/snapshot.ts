@@ -4,6 +4,7 @@
  * This module validates and matches data only. See docs/redirects.md.
  */
 import { pagePathname } from '../url/registry.js'
+import { isReservedPath } from '../url/reservations.js'
 
 /** Proposed first-version bounds, not a claim that all sites fit one snapshot. */
 export const REDIRECT_MAX_RECORDS = 1_000
@@ -12,6 +13,8 @@ export const REDIRECT_MAX_BYTES = 1_048_576
 export interface RedirectSnapshotOptions {
 	/** Exact app endpoints that redirects must never claim. Not route patterns. */
 	readonly reservedPaths?: readonly string[]
+	/** App-owned sections, matching the prefix itself and whole path segments below it. */
+	readonly reservedPathPrefixes?: readonly string[]
 	/** Current published page URLs, supplied by the application/publication review. */
 	readonly occupiedPaths?: readonly string[]
 	/** Acknowledge unknown destinations explicitly; never infer existence by fetching. */
@@ -151,7 +154,10 @@ export function compileRedirectSnapshot(
 	input: unknown,
 	options: RedirectSnapshotOptions,
 ): RedirectSnapshotResult {
-	const reserved = pathSet(options.reservedPaths, 'reservedPaths')
+	const reserved = [...pathSet(options.reservedPaths, 'reservedPaths')]
+	const reservedPrefixes = [
+		...pathSet(options.reservedPathPrefixes, 'reservedPathPrefixes'),
+	]
 	const occupied = pathSet(options.occupiedPaths, 'occupiedPaths')
 	if (
 		options.destinations !== 'unverified' &&
@@ -236,7 +242,7 @@ export function compileRedirectSnapshot(
 			return { ok: false, reason: 'self-redirect', recordId: _id }
 		if (rules.has(source))
 			return { ok: false, reason: 'duplicate-source', recordId: _id }
-		if (reserved.has(source))
+		if (isReservedPath(source, reserved, reservedPrefixes))
 			return { ok: false, reason: 'reserved-source', recordId: _id }
 		if (occupied.has(source))
 			return { ok: false, reason: 'occupied-source', recordId: _id }
@@ -274,7 +280,7 @@ export function compileRedirectSnapshot(
 			destinationsVerified: destinations !== undefined,
 			match(pathname: unknown): RedirectMatch {
 				if (!canonical(pathname)) return { kind: 'invalid-path' }
-				if (reserved.has(pathname))
+				if (isReservedPath(pathname, reserved, reservedPrefixes))
 					return { kind: 'bypass', reason: 'reserved-path' }
 				const rule = rules.get(pathname)
 				return rule

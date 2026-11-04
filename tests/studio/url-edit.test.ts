@@ -1,7 +1,10 @@
 import { evaluate, parse } from 'groq-js'
 import { describe, expect, it, vi } from 'vitest'
 import type { PagesClient } from '../../src/studio/pages/data-source.js'
-import { createUrlEditController } from '../../src/studio/url/edit.js'
+import {
+	createUrlEditController,
+	type UrlEditOptions,
+} from '../../src/studio/url/edit.js'
 
 const routes = {
 	pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
@@ -30,7 +33,10 @@ const savedRegistry = () => ({
 })
 
 /** Use the real GROQ and mutation shapes, so the test observes persisted paths. */
-function transport(initial: Record<string, unknown>[] = [page()]) {
+function transport(
+	initial: Record<string, unknown>[] = [page()],
+	options: UrlEditOptions = {},
+) {
 	const dataset = structuredClone(initial)
 	let grants: unknown = [
 		{ filter: '_id in path("**")', permissions: ['read', 'create', 'update'] },
@@ -99,7 +105,7 @@ function transport(initial: Record<string, unknown>[] = [page()]) {
 		mutations,
 		fetch,
 		request,
-		controller: createUrlEditController(routes, client),
+		controller: createUrlEditController(routes, client, options),
 		setGrants(value: unknown) {
 			grants = value
 		},
@@ -146,8 +152,55 @@ describe('URL input edit preparation', () => {
 		expect(await io.controller.load(page())).toEqual({
 			status: 'blocked',
 			reason: 'unknown-read-access',
+			accessIssues: expect.any(Array) as unknown,
 		})
 		expect(io.fetch).not.toHaveBeenCalled()
+	})
+
+	it('accepts additive custom grants for every registered type and version without requiring redirect access', async () => {
+		const io = transport()
+		io.setGrants([
+			{
+				filter:
+					'_type in ["page", "post"] && !(_id in path("drafts.**")) && !(_id in path("versions.**"))',
+				permissions: ['read'],
+			},
+			{
+				filter: '_type in ["page", "post"] && _id in path("drafts.**")',
+				permissions: ['read'],
+			},
+			{
+				filter: '_type in ["page", "post"] && _id in path("versions.**")',
+				permissions: ['read'],
+			},
+			{ filter: '_id == "sanityKit.folders"', permissions: ['read'] },
+		])
+		expect(await io.controller.load(page())).toMatchObject({
+			status: 'loaded',
+			editable: true,
+		})
+		expect(io.fetch).toHaveBeenCalledOnce()
+		expect(io.mutations).toEqual([])
+	})
+
+	it('identifies missing collection access and unverified folder access before reading an incomplete inventory', async () => {
+		const io = transport()
+		io.setGrants([{ filter: '_type == "page"', permissions: ['read'] }])
+		expect(await io.controller.load(page())).toMatchObject({
+			status: 'blocked',
+			reason: 'unknown-read-access',
+			accessIssues: expect.arrayContaining([
+				expect.objectContaining({ key: 'post:published', status: 'missing' }),
+				expect.objectContaining({ key: 'post:drafts', status: 'missing' }),
+				expect.objectContaining({ key: 'post:releases', status: 'missing' }),
+				expect.objectContaining({
+					key: 'folder-registry',
+					status: 'unverified',
+				}),
+			]) as unknown,
+		})
+		expect(io.fetch).not.toHaveBeenCalled()
+		expect(io.mutations).toEqual([])
 	})
 
 	it.each([
@@ -201,6 +254,118 @@ describe('URL input edit preparation', () => {
 			original,
 		)
 		expect(io.mutations).toHaveLength(2)
+	})
+
+	it('prepares edits to a published page draft only with publication integration, preserving every existing folder', async () => {
+		const published = page('page-1', '/live/team')
+		const draft = page('drafts.page-1', '/stored/team')
+		const io = transport([published, draft], { allowPublishedDrafts: true })
+		expect(await io.controller.load(draft)).toMatchObject({
+			status: 'loaded',
+			editable: true,
+		})
+		expect(
+			await io.controller.prepare({
+				document: page('drafts.page-1', '/local/team'),
+				storedValue: '/new/team',
+				readOnly: false,
+			}),
+		).toMatchObject({
+			status: 'ready',
+			candidate: { storedValue: '/new/team' },
+		})
+		const saved = io.dataset.find((item) => item._id === 'sanityKit.folders')!
+		expect(
+			(saved.folders as { pathname: string }[])
+				.map((item) => item.pathname)
+				.sort(),
+		).toEqual(['/live', '/local', '/new', '/stored'])
+		// Native draft autosave applies the returned candidate separately. Preparing
+		// it cannot change the live URL or publish any draft content.
+		expect(io.dataset.find((item) => item._id === published._id)).toEqual(
+			published,
+		)
+		expect(io.dataset.find((item) => item._id === draft._id)).toEqual(draft)
+	})
+
+	it('allows the draft to return to its own live URL without treating its published version as a conflict', async () => {
+		const io = transport([page('page-1', '/live/team'), page()], {
+			allowPublishedDrafts: true,
+		})
+		expect(
+			await io.controller.prepare({
+				document: page(),
+				storedValue: '/live/team',
+				readOnly: false,
+			}),
+		).toMatchObject({ status: 'ready' })
+	})
+
+	it('still rejects another document at the proposed URL when published-draft editing is enabled', async () => {
+		const io = transport([page(), page('page-1'), page('other', '/new/team')], {
+			allowPublishedDrafts: true,
+		})
+		expect(
+			await io.controller.prepare({
+				document: page(),
+				storedValue: '/new/team',
+				readOnly: false,
+			}),
+		).toEqual({ status: 'blocked', reason: 'url-in-use' })
+		expect(io.mutations).toEqual([])
+	})
+
+	it('allows creating an empty destination folder while editing a published page draft', async () => {
+		const io = transport([page(), page('page-1')], {
+			allowPublishedDrafts: true,
+		})
+		expect(
+			await io.controller.createFolder({
+				document: page(),
+				pathname: '/future/team',
+				readOnly: false,
+			}),
+		).toEqual({ status: 'saved' })
+		expect(io.dataset.find((item) => item._id === 'page-1')).toEqual(
+			page('page-1'),
+		)
+	})
+
+	it('keeps release versions protected even when published-draft editing is enabled', async () => {
+		const io = transport(
+			[page(), page('page-1'), page('versions.release.page-1')],
+			{ allowPublishedDrafts: true },
+		)
+		expect(await io.controller.load(page())).toMatchObject({
+			status: 'loaded',
+			editable: false,
+			reason: 'release-version',
+		})
+		expect(
+			await io.controller.prepare({
+				document: page(),
+				storedValue: '/new/team',
+				readOnly: false,
+			}),
+		).toEqual({ status: 'blocked', reason: 'release-version' })
+		expect(io.mutations).toEqual([])
+	})
+
+	it('rechecks for a newly created release before returning a draft URL candidate', async () => {
+		const io = transport([page(), page('page-1')], {
+			allowPublishedDrafts: true,
+		})
+		io.afterMutation(() => {
+			if (!io.dataset.some((item) => item._id === 'versions.release.page-1'))
+				io.dataset.push(page('versions.release.page-1'))
+		})
+		expect(
+			await io.controller.prepare({
+				document: page(),
+				storedValue: '/new/team',
+				readOnly: false,
+			}),
+		).toEqual({ status: 'blocked', reason: 'release-version' })
 	})
 
 	it('checks full URL occupancy across different storage modes', async () => {

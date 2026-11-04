@@ -43,12 +43,14 @@ describe('Pages route registration', () => {
 				},
 			],
 			excludePaths: ['/private'],
+			reservedPathPrefixes: ['/account'],
 		}
 		const registry = createPagesRegistry(input)
 		input.pages[0]!.pathnameField = 'changed'
 		input.collections[0]!.overview.pathname = '/changed'
 		input.collections[0]!.items[0]!.pathnameField = 'changed'
 		input.excludePaths.push('/another')
+		input.reservedPathPrefixes.push('/settings')
 		expect(registry.types[0]).toEqual({
 			schemaType: 'page',
 			pathField: page.pathnameField,
@@ -58,6 +60,7 @@ describe('Pages route registration', () => {
 		expect(registry.collections[0]?.overview.pathname).toBe('/journal')
 		expect(registry.types[1]?.pathField).toBe('url.path')
 		expect(registry.excludePaths).toEqual(['/private'])
+		expect(registry.reservedPathPrefixes).toEqual(['/account'])
 		for (const value of [
 			registry,
 			registry.types,
@@ -67,6 +70,7 @@ describe('Pages route registration', () => {
 			registry.collections[0]?.overview,
 			registry.collections[0]?.items,
 			registry.excludePaths,
+			registry.reservedPathPrefixes,
 		])
 			expect(Object.isFrozen(value)).toBe(true)
 	})
@@ -132,6 +136,29 @@ describe('Pages route registration', () => {
 			expect(() => createPagesRegistry(input)).toThrow(message)
 		},
 	)
+
+	it.each([
+		'/account/',
+		'/account//settings',
+		'account',
+		'/account?query',
+		'/account#hash',
+	])('rejects noncanonical reserved prefix %s', (prefix) => {
+		expect(() =>
+			createPagesRegistry({ ...config, reservedPathPrefixes: [prefix] }),
+		).toThrow()
+	})
+	it('rejects malformed prefix configuration and reserved collection overviews', () => {
+		expect(() =>
+			createPagesRegistry({
+				...config,
+				reservedPathPrefixes: '/account' as unknown as string[],
+			}),
+		).toThrow('must be an array')
+		expect(() =>
+			createPagesRegistry({ ...config, reservedPathPrefixes: ['/journal'] }),
+		).toThrow('excluded overview')
+	})
 	it('rejects one item type used by two collections', () => {
 		expect(() =>
 			createPagesRegistry({
@@ -257,6 +284,34 @@ describe('Pages pathname policy', () => {
 		expect(registeredPathname(registry, 'page', '/about')).toBe('/about')
 		expect(registeredPathname(registry, 'shared', '/about')).toBeUndefined()
 		expect(registeredPathname(registry, 'page', null)).toBeUndefined()
+	})
+
+	it('reserves complete sections with segment boundaries and supports root', () => {
+		const registry = createPagesRegistry({
+			...config,
+			reservedPathPrefixes: ['/account', '/journal/private'],
+		})
+		for (const path of [
+			'/account',
+			'/account/settings',
+			'/account/settings/profile',
+		])
+			expect(registeredPathname(registry, 'page', path)).toBeUndefined()
+		expect(registeredPathname(registry, 'page', '/accounting')).toBe(
+			'/accounting',
+		)
+		expect(
+			registeredPathname(registry, 'post', '/journal/private/story'),
+		).toBeUndefined()
+		expect(registeredPathname(registry, 'post', '/journal/private-story')).toBe(
+			'/journal/private-story',
+		)
+		const root = createPagesRegistry({
+			pages: [page],
+			reservedPathPrefixes: ['/'],
+		})
+		expect(registeredPathname(root, 'page', '/')).toBeUndefined()
+		expect(registeredPathname(root, 'page', '/anything')).toBeUndefined()
 	})
 	it('limits collection items to descendants and reserves overview paths', () => {
 		const registry = createPagesRegistry({

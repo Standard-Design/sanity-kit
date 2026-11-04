@@ -117,6 +117,7 @@ function routeConfig(registry: PagesRegistry): PagesRouteConfig {
 		),
 		collections: registry.collections,
 		excludePaths: registry.excludePaths,
+		reservedPathPrefixes: registry.reservedPathPrefixes,
 	})
 }
 
@@ -199,6 +200,9 @@ export function createCollectionRouting(config: CollectionRoutingConfig) {
 			...(config.excludePaths === undefined
 				? {}
 				: { excludePaths: config.excludePaths }),
+			...(config.reservedPathPrefixes === undefined
+				? {}
+				: { reservedPathPrefixes: config.reservedPathPrefixes }),
 		}),
 	)
 	const documentIds = Object.freeze([...bindings.values()])

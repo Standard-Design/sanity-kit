@@ -87,6 +87,9 @@ export async function loadRedirectSnapshot(
 		...(options.reservedPaths
 			? { reservedPaths: [...options.reservedPaths] }
 			: {}),
+		...(options.reservedPathPrefixes
+			? { reservedPathPrefixes: [...options.reservedPathPrefixes] }
+			: {}),
 		...(options.occupiedPaths
 			? { occupiedPaths: [...options.occupiedPaths] }
 			: {}),

@@ -2,16 +2,30 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add private published-page draft URL editing with a paired Publish action.
+  Review old/new URLs at publication and optionally create a permanent redirect
+  in the same transaction. Wait for local URL checks, native saving, and validation;
+  recheck routing evidence and document revisions. Reconcile uncertain responses
+  through a private operation receipt. Let editors dismiss an unconfirmed result,
+  resume its check after navigation or same-tab reload, and see a success
+  notification when publication is confirmed. Show existing incoming redirects in the
+  dialog and update them directly to the new URL in the same transaction, without
+  publishing unrelated redirect drafts. Release/live-edit and external
+  publication paths remain unsupported.
+  Redirect HTTP delivery and caching are still separate work.
+  Share scoped read-access checks with URL editing, accept provable custom-role
+  grants, and identify missing or unverified requirements in the editor notices.
+
 - Add a private draft URL field using shared route registration. Show folder and
-  final-segment controls, Generate with replacement confirmation, checked draft
+  final-segment controls, inline Generate, checked draft
   autosave after a typing pause or folder selection, and an indented folder picker
   with a New subfolder modal. Keep invalid or failed edits visibly unsaved and
   provide a retry action; require explicit homepage selection instead of treating
   cleared text as `/`. Preserve native
   slug storage and validation. Check document access, versions, URL conflicts,
-  and required folder records before offering a native form patch. Published,
-  release, and live-edit URL changes remain blocked pending reviewed routing and
-  redirect workflows. Fixed prefixes only; no public field export or release yet.
+  and required folder records before offering a native form patch. Published-page
+  draft editing requires the paired publication integration; release and live-edit
+  URL changes remain blocked. Fixed prefixes only; no public field export or release yet.
 
 - Display saved folders alongside folders inferred from page URLs. Keep empty
   folders visible, share registry refreshes across the navigator and picker, and

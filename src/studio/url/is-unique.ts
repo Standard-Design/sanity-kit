@@ -33,6 +33,7 @@ export function createUrlIsUnique(
 			})),
 		collections: registry.collections,
 		excludePaths: registry.excludePaths,
+		reservedPathPrefixes: registry.reservedPathPrefixes,
 	}
 	return async (value, context) => {
 		const document = context.document

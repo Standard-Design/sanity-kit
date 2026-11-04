@@ -9,6 +9,7 @@
  * registry implementation stays private. This is not React Router route matching.
  */
 import { stegaClean } from '@sanity/client/stega'
+import { isReservedPath } from './reservations.js'
 
 export interface PageTypeDefinition {
 	readonly schemaType: string
@@ -49,6 +50,8 @@ export interface PagesRouteConfig {
 	readonly collections?: readonly PageCollectionDefinition[]
 	/** Exact app-owned paths, e.g. ['/']. Documents stay editable without a preview. */
 	readonly excludePaths?: readonly string[]
+	/** App-owned sections, including the prefix itself and every descendant URL. */
+	readonly reservedPathPrefixes?: readonly string[]
 }
 
 /** Checked internal mapping. pathField always names the actual stored string. */
@@ -65,6 +68,7 @@ export interface PagesRegistry {
 	readonly types: readonly RegisteredPageType[]
 	readonly collections: readonly PageCollectionDefinition[]
 	readonly excludePaths: readonly string[]
+	readonly reservedPathPrefixes: readonly string[]
 }
 
 const identifier = /^[A-Za-z_][A-Za-z0-9_]*$/u
@@ -189,6 +193,11 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 		throw new Error('collections must be an array.')
 	if (config.excludePaths !== undefined && !isArray(config.excludePaths))
 		throw new Error('excludePaths must be an array.')
+	if (
+		config.reservedPathPrefixes !== undefined &&
+		!isArray(config.reservedPathPrefixes)
+	)
+		throw new Error('reservedPathPrefixes must be an array.')
 	const types: RegisteredPageType[] = []
 	const register = (
 		definition: PageCollectionItemDefinition,
@@ -245,6 +254,18 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 		),
 	])
 	const collections: PageCollectionDefinition[] = []
+	const reservedPathPrefixes = Object.freeze([
+		...new Set(
+			(config.reservedPathPrefixes ?? []).map((value) => {
+				const path = requiredPath(value, 'reservedPathPrefixes entry')
+				if (path.includes('//') || (path !== '/' && path.endsWith('/')))
+					throw new Error(
+						'reservedPathPrefixes entries must not contain repeated or trailing slashes.',
+					)
+				return path
+			}),
+		),
+	])
 	for (const collection of config.collections ?? []) {
 		if (
 			!collection ||
@@ -283,7 +304,7 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 			overview.pathname,
 			`${collection.name}.overview.pathname`,
 		)
-		if (excludePaths.includes(pathname))
+		if (isReservedPath(pathname, excludePaths, reservedPathPrefixes))
 			throw new Error(
 				`Collection "${collection.name}" cannot use an excluded overview path.`,
 			)
@@ -343,6 +364,7 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 		types: Object.freeze(types),
 		collections: Object.freeze(collections),
 		excludePaths,
+		reservedPathPrefixes,
 	})
 }
 
@@ -362,7 +384,12 @@ export function registeredPathname(
 ): string | undefined {
 	const type = registry.types.find((entry) => entry.schemaType === schemaType)
 	const path = pagePathname(value)
-	if (!type || !path || registry.excludePaths.includes(path)) return undefined
+	if (
+		!type ||
+		!path ||
+		isReservedPath(path, registry.excludePaths, registry.reservedPathPrefixes)
+	)
+		return undefined
 	const owner = registry.collections.find(
 		(collection) => collection.overview.pathname === path,
 	)

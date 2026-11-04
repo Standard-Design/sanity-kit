@@ -31,12 +31,12 @@ vi.mock('sanity', () => ({
 	setIfMissing: (value: unknown) => ({ type: 'setIfMissing', value }),
 }))
 vi.mock('../../src/studio/url/edit.js', () => ({
-	createUrlEditController: () => ({
+	createUrlEditController: vi.fn(() => ({
 		load: native.load,
 		prepare: native.prepare,
 		createFolder: native.createFolder,
 		invalidate: native.invalidate,
-	}),
+	})),
 }))
 // Folder modal interactions have their own real-UI tests. Keep this harness
 // focused on native patches, generation, and stale asynchronous field actions.
@@ -56,6 +56,8 @@ vi.mock('../../src/studio/url/folder-picker.js', () => ({
 	),
 }))
 import { SanityUrlInput } from '../../src/studio/url/input.js'
+import { createUrlEditController } from '../../src/studio/url/edit.js'
+import { getUrlPublicationBlocked } from '../../src/studio/url/publication-state.js'
 
 async function flush(action: () => void) {
 	await act(async () => {
@@ -77,6 +79,11 @@ const routes = {
 	],
 }
 const theme = buildTheme()
+const publicationScope = {
+	projectId: 'project',
+	dataset: 'test',
+	documentId: 'page1',
+}
 describe('URL input draft workflow', () => {
 	let host: HTMLDivElement
 	let root: Root
@@ -282,7 +289,7 @@ describe('URL input draft workflow', () => {
 		expect(button('Generate').disabled).toBe(true)
 		expect(host.textContent).toContain('draft-based documents only')
 	})
-	it('explains why published URLs are not editable yet', async () => {
+	it('explains why published URL editing needs the publication integration', async () => {
 		native.load.mockResolvedValue({
 			status: 'loaded',
 			folders: [],
@@ -291,7 +298,143 @@ describe('URL input draft workflow', () => {
 		})
 		await render()
 		expect(button('Generate').disabled).toBe(true)
-		expect(host.textContent).toContain('reviewed URL-change workflow')
+		expect(host.textContent).toContain('URL-change publishing workflow')
+		expect(createUrlEditController).toHaveBeenLastCalledWith(
+			routes,
+			native.client,
+			{ allowPublishedDrafts: false },
+		)
+	})
+	it('opts into draft editing and invalidates an in-flight save when publication integration is removed', async () => {
+		props = { ...props, allowPublishedDrafts: true }
+		let finish!: (value: unknown) => void
+		native.prepare.mockReturnValue(
+			new Promise((resolve) => {
+				finish = resolve
+			}),
+		)
+		await render()
+		expect(createUrlEditController).toHaveBeenLastCalledWith(
+			routes,
+			native.client,
+			{ allowPublishedDrafts: true },
+		)
+		await type('leadership')
+		await save()
+		props = { ...props, allowPublishedDrafts: false }
+		await render()
+		expect(createUrlEditController).toHaveBeenLastCalledWith(
+			routes,
+			native.client,
+			{ allowPublishedDrafts: false },
+		)
+		await flush(() =>
+			finish({
+				status: 'ready',
+				candidate: { storedValue: '/about/leadership' },
+			}),
+		)
+		expect(native.onChange).not.toHaveBeenCalled()
+	})
+	it('blocks publishing from the first local edit until the accepted URL appears in native form state', async () => {
+		props = { ...props, allowPublishedDrafts: true }
+		await render()
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(false)
+		await type('leadership')
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(true)
+		await save()
+		expect(native.onChange).toHaveBeenCalledOnce()
+		// The server check has finished, but the action still must not publish the
+		// previous draft value while the native patch is waiting to echo back.
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(true)
+		props = {
+			...props,
+			value: { _type: 'slug', current: '/about/leadership' },
+		}
+		native.document = {
+			...native.document,
+			pathname: { current: '/about/leadership' },
+		}
+		await render()
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(false)
+	})
+	it('keeps a local URL proposal when another field creates the published page’s first draft', async () => {
+		props = { ...props, allowPublishedDrafts: true }
+		native.document = { ...native.document, _id: 'page1' }
+		await render()
+		await type('leadership')
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(true)
+		// Body/title edits create the native draft before the URL debounce finishes.
+		// The stored URL is unchanged, so this must not discard the local proposal.
+		native.document = {
+			...native.document,
+			_id: 'drafts.page1',
+			_rev: 'draft-created',
+			body: 'New draft body',
+		}
+		await render()
+		expect(host.querySelector('input')!.value).toBe('leadership')
+		expect(host.querySelector('input')!.readOnly).toBe(false)
+		expect(native.load).toHaveBeenCalledOnce()
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(true)
+		await save()
+		expect(native.prepare).toHaveBeenLastCalledWith(
+			{
+				document: native.document,
+				storedValue: '/about/leadership',
+				readOnly: false,
+			},
+			expect.any(AbortSignal),
+		)
+		expect(native.onChange).toHaveBeenCalledWith([
+			{ type: 'setIfMissing', value: { _type: 'slug' } },
+			{ type: 'set', value: '/about/leadership', path: ['current'] },
+		])
+	})
+	it('still replaces a local proposal when the stored URL changes during first-draft creation', async () => {
+		props = { ...props, allowPublishedDrafts: true }
+		native.document = { ...native.document, _id: 'page1' }
+		await render()
+		await type('leadership')
+		native.document = {
+			...native.document,
+			_id: 'drafts.page1',
+			pathname: { current: '/company/remote' },
+		}
+		props = { ...props, value: { _type: 'slug', current: '/company/remote' } }
+		await render()
+		expect(host.querySelector('input')!.value).toBe('remote')
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(false)
+		await save()
+		expect(native.onChange).not.toHaveBeenCalled()
+	})
+	it('discards the local URL proposal when navigating to a different document with the same stored URL', async () => {
+		props = { ...props, allowPublishedDrafts: true }
+		await render()
+		await type('leadership')
+		native.document = { ...native.document, _id: 'drafts.page2' }
+		await render()
+		expect(host.querySelector('input')!.value).toBe('team')
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(false)
+		expect(
+			getUrlPublicationBlocked({ ...publicationScope, documentId: 'page2' }),
+		).toBe(false)
+		await save()
+		expect(native.onChange).not.toHaveBeenCalled()
+	})
+	it('keeps invalid local proposals from publishing, then clears the block on correction or unmount', async () => {
+		props = { ...props, allowPublishedDrafts: true }
+		await render()
+		await type('not a slug')
+		await save()
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(true)
+		expect(native.onChange).not.toHaveBeenCalled()
+		await type('team')
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(false)
+		await type('another invalid slug')
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(true)
+		await flush(() => root.render(null))
+		expect(getUrlPublicationBlocked(publicationScope)).toBe(false)
 	})
 	it('replaces the slug directly and autosaves when Generate is clicked', async () => {
 		await render()
@@ -435,6 +578,72 @@ describe('URL input draft workflow', () => {
 		expect(host.textContent).not.toContain('Retry saving URL')
 		expect(native.onChange).not.toHaveBeenCalled()
 		await type('unique-team')
+		await save()
+		expect(input.validity.customError).toBe(false)
+		expect(host.querySelector('[role="alert"]')).toBeNull()
+		expect(native.onChange).toHaveBeenCalledOnce()
+	})
+	it('shows specific access requirements on load and clears them after reloading', async () => {
+		native.load.mockResolvedValueOnce({
+			status: 'blocked',
+			reason: 'unknown-read-access',
+			accessIssues: [
+				{
+					key: 'folders',
+					label: 'Read the folder registry',
+					status: 'missing',
+				},
+				{
+					key: 'pages:releases',
+					label: 'Read all page documents — release versions',
+					status: 'unverified',
+				},
+			],
+		})
+		await render()
+		const alert = host.querySelector('[role="alert"]')
+		expect(alert?.getAttribute('data-tone')).toBe('critical')
+		expect(alert?.textContent).toContain('Missing read access')
+		expect(alert?.textContent).toContain('Read the folder registry')
+		expect(alert?.textContent).toContain('Read access could not be verified')
+		expect(alert?.textContent).toContain(
+			'Read all page documents — release versions',
+		)
+		expect(native.onChange).not.toHaveBeenCalled()
+		await click('Reload URL information')
+		expect(host.querySelector('[role="alert"]')).toBeNull()
+		await type('leadership')
+		await save()
+		expect(native.onChange).toHaveBeenCalledOnce()
+	})
+	it('preserves access details in native field validation and clears them after the next successful check', async () => {
+		native.prepare.mockResolvedValueOnce({
+			status: 'blocked',
+			reason: 'unknown-read-access',
+			accessIssues: [
+				{
+					key: 'pages:drafts',
+					label: 'Read all page documents — drafts',
+					status: 'unverified',
+				},
+			],
+		})
+		await render()
+		await type('leadership')
+		await save()
+		const input = host.querySelector('input')!
+		expect(input.validationMessage).toContain(
+			'Read access could not be verified: Read all page documents — drafts',
+		)
+		expect(input.validationMessage).toContain(
+			'Contact someone who manages project permissions',
+		)
+		expect(host.querySelector('[role="alert"]')?.textContent).toContain(
+			input.validationMessage,
+		)
+		expect(host.textContent).not.toContain('Retry saving URL')
+		expect(native.onChange).not.toHaveBeenCalled()
+		await type('leadership-team')
 		await save()
 		expect(input.validity.customError).toBe(false)
 		expect(host.querySelector('[role="alert"]')).toBeNull()

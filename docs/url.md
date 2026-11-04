@@ -142,8 +142,28 @@ resolution, not missing document data.
 Two documents can both resolve to the same pathname. This helper does not prove
 uniqueness or that the website serves the URL. The private conflict checker below
 performs a separate dataset read; resolution itself remains pure. Reverse lookup
-and reserved app routes are also separate responsibilities. `excludePaths` handles
-exact exclusions, not route patterns.
+and frontend route matching remain separate responsibilities. `excludePaths`
+handles exact app-owned URLs. `reservedPathPrefixes` reserves entire sections;
+these ownership checks apply to URL resolution, authoring, and Studio publishing.
+
+For example, use the same route configuration for the URL field, Pages tool,
+resolver, and publishing integration:
+
+```ts
+const routes = {
+	pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
+	excludePaths: ['/login'],
+	reservedPathPrefixes: ['/account', '/api'],
+}
+```
+
+`/account` and `/account/settings` are reserved, while `/accounting` remains
+available. Prefixes must be canonical root-relative paths; trailing or repeated
+slashes are rejected rather than silently repaired. `/` reserves every URL.
+Matching is case-sensitive and segment-based, not a wildcard or React Router
+pattern. Consumers declare these reservations; the kit does not inspect their
+frontend route files. Redirect sources obey the same prefix policy, while
+redirect destinations can still lead into an app-owned section.
 
 ## Implementation and tests
 
@@ -370,6 +390,9 @@ not just the current type or the five recent rows in the navigator. Thus:
 - `/company/team` and `/leadership/team` can coexist.
 - A full-path page and a slug-only post cannot both claim `/journal/story`.
 - Root `/` is checked like any other pathname.
+- An enabled published redirect also occupies its source URL. A new page cannot
+  reuse that address through native URL validation until the redirect is retired.
+  Draft, release, and disabled redirect records do not claim live sources.
 - A stored match on a registered type is reported even if that type is not an
   allowed owner of the path in the navigator. Bad ownership must not hide a match.
 
@@ -377,7 +400,8 @@ The query uses the authenticated Studio client, bypasses the API CDN, and explic
 uses the `raw` perspective. This sees published documents, drafts, and release
 versions side by side instead of hiding one behind another. It follows Sanity's
 native self-exclusion: `getPublishedId()` and `sanity::versionOf()` exclude every
-version of the current document. Versions of other documents still count.
+version of the current page document. Versions of other documents still count;
+redirect source checks do not apply page self-exclusion.
 See [Sanity perspectives](https://www.sanity.io/docs/content-lake/perspectives).
 
 A release version of the current document is not a uniqueness conflict with
