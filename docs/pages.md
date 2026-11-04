@@ -646,8 +646,8 @@ following decisions describe the selected direction. Explicitly marked proposals
 need agreement before implementation. This section records design intent, not
 additional public APIs. The navigator and saved-folder display are implemented.
 The new private [URL field](url-field.md) connects draft editing and folder
-creation in the fixture; collection-prefix controls and reviewed live URL changes
-remain future work. The [shared frontend URL helper](url.md), for fixed-prefix
+creation in the fixture. Reviewed single-page URL publishing is implemented;
+collection-prefix controls and bulk folder moves remain future work. The [shared frontend URL helper](url.md), for fixed-prefix
 registration, is implemented locally and approved. The separate
 [internal authoring preparation](url.md#authoring-preparation-internal) is now
 implemented and approved; it proposes values without saving them. The approved
@@ -663,8 +663,9 @@ The [collection-settings loader](collection-routing.md#loading-settings-from-san
 is approved and reads and validates settings; it is not connected to Studio controls.
 A private [folder writer](folders.md) for creation and explicit synchronization
 is approved. It adds folder records without changing page URLs. Read-only saved
-folder display is also approved. The field's draft-editing workflow is under
-review; navigator removal and rename actions remain future work.
+folder display is also approved. The field's draft-editing workflow is implemented. Pages now supplies automatic
+folder synchronization and manual recovery; navigator removal and rename actions
+remain future work.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -704,7 +705,7 @@ coexist; two documents must not claim `/company/team`. Slug-only queries need
 type or collection scope. Current reverse lookup refuses ambiguous matches;
 the new internal checker compares registered storage fields across raw document
 versions. It excludes all versions of the current document, following Sanity's
-native slug validation. Connecting it to the field is still future work. Neither
+native slug validation. The field calls it before saving a URL proposal. Neither
 read-time check is a database-level uniqueness guarantee.
 
 ### Collection prefix ownership
@@ -875,8 +876,9 @@ menu provides an out-of-the-way manual fallback.
 This deliberately replaces the earlier no-writes-on-open policy. Background sync
 may add organizational metadata; it never changes page content or URLs, publishes
 documents, renames folders, or removes anything. It does not run while Studio is
-closed. The current display implementation remains read-only; the coordinator
-and menu action are not implemented yet.
+closed. The coordinator and menu action are now implemented in local builds.
+See [automatic synchronization and recovery](folders.md#automatic-synchronization-and-manual-recovery)
+for timing, access checks, and failure behavior.
 
 The approved first removal workflow is **Remove folder** in the navigator, only
 for an empty folder: no index page, descendant pages, or saved subfolders. It

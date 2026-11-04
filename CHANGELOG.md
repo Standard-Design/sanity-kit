@@ -2,6 +2,13 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add a background folder-sync fallback and **Sync folders** recovery action in
+  the Pages options menu. Share one throttled coordinator across the navigator,
+  picker, and perspectives. Check current scoped read access and complete raw
+  inventory, preserve uncertain write evidence, and pause automatic checks after
+  failures. Sync only adds missing organizational records; it never changes page
+  URLs or publishes content.
+
 - Add private published-page draft URL editing with a paired Publish action.
   Review old/new URLs at publication and optionally create a permanent redirect
   in the same transaction. Wait for local URL checks, native saving, and validation;
@@ -29,8 +36,8 @@
 
 - Display saved folders alongside folders inferred from page URLs. Keep empty
   folders visible, share registry refreshes across the navigator and picker, and
-  let page browsing continue when folder metadata cannot be loaded. Opening the
-  tool performs no folder writes.
+  let page browsing continue when folder metadata cannot be loaded. The separate
+  synchronization fallback above can now save missing records when the tool opens.
 
 - Add private folder creation and explicit synchronization writes. Preserve
   existing metadata, guard against registry changes, and distinguish uncertain

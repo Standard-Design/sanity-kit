@@ -753,3 +753,20 @@ tests across 55 files. The fixture Studio production build and packed-package
 checks also passed, including all five frontend dependency configurations, the
 Studio consumer, and the sibling-workspace TypeGen check. These checks complement the earlier live atomic-write acceptance; simulated errors are
 not evidence of live network failures, restricted-role behavior, or large datasets.
+
+## November 4 — folder synchronization fallback
+
+Opened **Choose page → … → Sync folders** in the live Standard Stack proof
+Studio. The picker closed and the separate sync dialog stayed open. The real
+service completed its checks and reported **Folders are up to date**. The preview
+URL and edited document stayed unchanged; no page publish was submitted.
+
+This confirms the connected manual action and no-op result. Automated tests
+exercise actual additive writer requests against mocked transport, current access
+checks, retries, exact-key reconciliation after uncertain writes, throttling,
+hidden-navigator startup, perspective changes, and legacy navigation configuration.
+This live check did not deliberately inject an access failure or network failure,
+or create a new import solely to exercise the automatic write path.
+
+Final checks passed: formatting, package build, lint, typechecking, 1,701 tests
+across 57 files, and the proof Studio production build.

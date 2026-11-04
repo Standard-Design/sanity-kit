@@ -49,8 +49,8 @@ pause or checks complete discards the local edit.
 Approved October 31: private internal metadata, one registry document per dataset,
 immediate organizational changes, no frontend dependency, and path-derived page
 placement. The private planner, bounded reader, and additive writer are now
-approved. Schema registration, background synchronization, and destructive folder
-operations still need implementation review.
+approved. Background synchronization is now connected to Pages. Schema registration and
+destructive folder operations still need implementation review.
 
 Use one internal folder-registry document, `sanityKit.folders`, in the configured
 Sanity project/dataset. It
@@ -112,8 +112,9 @@ as a recovery fallback, not routine work for editors.
   is closed.
 
 This supersedes the earlier “opening Pages never writes” policy and the proposal
-to omit a synchronization menu action. The current display slice still performs
-no writes; the background coordinator and menu action require implementation.
+to omit a synchronization menu action. The background coordinator and menu action
+are now implemented; see [Folders](folders.md#automatic-synchronization-and-manual-recovery)
+for the current timing, access, and recovery contract.
 Folder creation controls, setup/import maintenance, and automatic URL-write
 integration remain part of the intended workflow.
 

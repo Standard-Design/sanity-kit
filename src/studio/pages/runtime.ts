@@ -55,6 +55,18 @@ export function createPagesRuntime(options: PagesToolOptions) {
 		name,
 		title,
 		registry,
+		routes: Object.freeze({
+			pages: registry.types
+				.filter((type) => !type.collection)
+				.map((type) => ({
+					schemaType: type.schemaType,
+					pathnameField: type.pathField,
+					titleField: type.titleField,
+				})),
+			collections: registry.collections,
+			excludePaths: registry.excludePaths,
+			reservedPathPrefixes: registry.reservedPathPrefixes,
+		}),
 		create: create ? Object.freeze({ ...create }) : undefined,
 		model: createBrowserModel(registry),
 	})

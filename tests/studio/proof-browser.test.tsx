@@ -8,6 +8,16 @@ import { buildTheme } from '@sanity/ui/theme'
 import type { PreviewHeaderProps } from 'sanity/presentation'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+interface TestRequest {
+	url: string
+	method?: string
+	body?: {
+		mutations: {
+			patch: { insert: { items: { _key: string; pathname: string }[] } }
+		}[]
+	}
+}
+
 const native = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	intent: vi.fn(),
@@ -21,7 +31,7 @@ const native = vi.hoisted(() => ({
 		>(),
 	listen: vi.fn(),
 	mutate: vi.fn(),
-	request: vi.fn(),
+	request: vi.fn<(options: TestRequest) => Promise<unknown>>(),
 	unsubscribe: vi.fn(),
 	perspective: ['drafts'],
 	observer: undefined as
@@ -36,6 +46,7 @@ vi.mock('sanity', () => {
 		mutate: native.mutate,
 		request: native.request,
 		withConfig: () => client,
+		config: () => ({ projectId: 'testproject', dataset: 'test' }),
 	}
 	return {
 		definePlugin: (factory: unknown) => factory,
@@ -96,6 +107,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 	let root: Root
 	beforeEach(() => {
 		vi.clearAllMocks()
+		native.request.mockReset()
 		native.params = { preview: '/about', id: 'shared', type: 'kitProofShared' }
 		native.perspective = ['drafts']
 		native.observer = undefined
@@ -270,6 +282,207 @@ describe('Pages Presentation adapter lifecycle', () => {
 		)
 		return { folders, dataset }
 	}
+
+	async function openFolderSync() {
+		await click('Pages options')
+		await act(async () => {
+			const item = [
+				...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+			].find((element) => element.textContent === 'Sync folders')
+			expect(item).toBeTruthy()
+			item!.click()
+			await Promise.resolve()
+		})
+	}
+	function syncDialog() {
+		return (
+			document.querySelector('[data-ui="Dialog"][id="pages-folder-sync"]') ??
+			[...document.querySelectorAll('[role="dialog"]')].find((element) =>
+				element.textContent?.includes('Sync folders'),
+			)
+		)
+	}
+	function readableFolderFixture() {
+		const fixture = savedFolderFixture(['/about'])
+		for (const value of fixture.dataset)
+			Object.assign(value, { _rev: 'fixture-revision' })
+		native.request.mockResolvedValue([
+			{ filter: 'true', permissions: ['read'] },
+		])
+		return fixture
+	}
+
+	it('runs Sync folders from the navigator and reports an up-to-date list without a mutation', async () => {
+		readableFolderFixture()
+		await render()
+		await openFolderSync()
+		expect(syncDialog()?.textContent).toContain('Folders are up to date.')
+		expect(native.request).toHaveBeenCalledOnce()
+		expect(native.request.mock.calls[0]![0].url).toContain('/acl')
+		expect(native.mutate).not.toHaveBeenCalled()
+		await click('Close')
+		expect(syncDialog()).toBeUndefined()
+		expect(button('About · /about').disabled).toBe(false)
+	})
+
+	it('closes the page picker while keeping its requested folder-sync dialog mounted', async () => {
+		readableFolderFixture()
+		let allowAccess!: (value: unknown) => void
+		native.request.mockReturnValueOnce(
+			new Promise((resolve) => {
+				allowAccess = resolve
+			}),
+		)
+		await render()
+		await click('Toggle navigator')
+		await click('Choose page')
+		expect(button('Choose page').getAttribute('aria-expanded')).toBe('true')
+		await openFolderSync()
+		expect(button('Choose page').getAttribute('aria-expanded')).toBe('false')
+		expect(syncDialog()?.textContent).toContain('Checking folders…')
+		await act(async () => {
+			allowAccess([{ filter: 'true', permissions: ['read'] }])
+			await Promise.resolve()
+		})
+		expect(syncDialog()?.textContent).toContain('Folders are up to date.')
+		expect(native.request).toHaveBeenCalledOnce()
+		expect(native.navigate).not.toHaveBeenCalled()
+	})
+
+	it('explains missing access without mutating, then retries within the same dialog', async () => {
+		readableFolderFixture()
+		native.request.mockResolvedValueOnce([])
+		await render()
+		await openFolderSync()
+		expect(syncDialog()?.textContent).toContain('Folder sync needs attention')
+		expect(syncDialog()?.textContent).toContain(
+			'Read the folder registry (not granted)',
+		)
+		expect(native.request).toHaveBeenCalledOnce()
+		expect(
+			native.request.mock.calls.every(([options]) => options.method !== 'POST'),
+		).toBe(true)
+		expect(native.mutate).not.toHaveBeenCalled()
+		await click('Retry')
+		expect(syncDialog()?.textContent).toContain('Folders are up to date.')
+		expect(native.request).toHaveBeenCalledTimes(2)
+		expect(
+			native.request.mock.calls.every(([options]) => options.method !== 'POST'),
+		).toBe(true)
+	})
+
+	it('keeps one sync operation when the document perspective changes during its access check', async () => {
+		readableFolderFixture()
+		let allowAccess!: (value: unknown) => void
+		native.request.mockReturnValueOnce(
+			new Promise((resolve) => {
+				allowAccess = resolve
+			}),
+		)
+		await render()
+		await openFolderSync()
+		native.perspective = ['published']
+		await render()
+		expect(syncDialog()?.textContent).toContain('Checking folders…')
+		expect(native.request).toHaveBeenCalledOnce()
+		await act(async () => {
+			allowAccess([{ filter: 'true', permissions: ['read'] }])
+			await Promise.resolve()
+		})
+		expect(syncDialog()?.textContent).toContain('Folders are up to date.')
+		expect(native.request).toHaveBeenCalledOnce()
+	})
+
+	it('reports saved folders and refreshes the navigator after an explicit sync', async () => {
+		const fixture = readableFolderFixture()
+		fixture.dataset.push({
+			_id: 'new-page',
+			_type: 'kitProofPage',
+			_rev: 'new-revision',
+			title: 'New page',
+			pathname: { current: '/new-folder/child' },
+		})
+		native.request.mockImplementation((options) => {
+			if (options.url.endsWith('/acl'))
+				return Promise.resolve([{ filter: 'true', permissions: ['read'] }])
+			const patch = options.body!.mutations[0]!.patch
+			fixture.folders.folders.push(...patch.insert.items)
+			fixture.folders._rev = 'saved-revision'
+			return Promise.resolve({
+				transactionId: 'saved-folders',
+				results: [{ id: 'sanityKit.folders', operation: 'update' }],
+			})
+		})
+		await render()
+		await openFolderSync()
+		expect(syncDialog()?.textContent).toContain('1 folder saved.')
+		expect(button('Collapse New-folder')).toBeTruthy()
+		expect(
+			native.request.mock.calls.filter(
+				([options]) => options.method === 'POST',
+			),
+		).toHaveLength(1)
+		expect(native.mutate).not.toHaveBeenCalled()
+	})
+
+	it('checks folders after startup even when the navigator and picker are closed', async () => {
+		readableFolderFixture()
+		await render()
+		await click('Toggle navigator')
+		expect(button('Choose page').getAttribute('aria-expanded')).toBe('false')
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 1100))
+		})
+		expect(native.request).toHaveBeenCalledOnce()
+		expect(native.request.mock.calls[0]![0].url).toContain('/acl')
+		expect(syncDialog()).toBeUndefined()
+		expect(native.mutate).not.toHaveBeenCalled()
+		expect(
+			native.request.mock.calls.every(([options]) => options.method !== 'POST'),
+		).toBe(true)
+	})
+
+	it('keeps legacy navigation usable when its collection paths cannot be saved as folders', async () => {
+		const runtime = createPagesRuntime({
+			previewUrl: 'https://preview.test',
+			pages: [
+				{ schemaType: 'kitProofPage', pathnameField: 'pathname.current' },
+			],
+			collections: [
+				{
+					name: 'journal',
+					title: 'Journal',
+					overview: { schemaType: 'kitProofPage', pathname: '/journal/' },
+					routePrefix: '/journal',
+					items: [
+						{ schemaType: 'kitProofPost', pathnameField: 'pathname.current' },
+					],
+				},
+			],
+		})
+		await act(async () => {
+			root.render(
+				<ThemeProvider theme={theme}>
+					<ConfiguredProvider runtime={runtime}>
+						<NativeShell />
+					</ConfiguredProvider>
+				</ThemeProvider>,
+			)
+			await Promise.resolve()
+		})
+		expect(button('About · /about').disabled).toBe(false)
+		await click('About · /about')
+		expect(native.navigate).toHaveBeenCalledWith('/about', {
+			id: 'about',
+			type: 'kitProofPage',
+		})
+		await openFolderSync()
+		expect(syncDialog()?.textContent).toContain(
+			'This Pages configuration can be browsed, but is not ready to save folders.',
+		)
+		expect(native.request).not.toHaveBeenCalled()
+		expect(native.mutate).not.toHaveBeenCalled()
+	})
 
 	it('shows saved empty folders without inventing a page or navigating when expanded', async () => {
 		savedFolderFixture(['/empty'])

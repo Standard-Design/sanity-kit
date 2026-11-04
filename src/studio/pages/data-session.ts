@@ -204,11 +204,13 @@ export interface PagesDataSession {
 		search?: string,
 	) => PagesDataResource<CollectionData>
 	retry: () => void
+	refreshFolders: () => void
 }
 
 export function createPagesDataSession(
 	runtime: PagesRuntime,
 	source: PagesDataSource,
+	onPathsChanged?: () => void,
 ): PagesDataSession {
 	const queries = createNavigationQueries(runtime.registry)
 	const resources = new Set<ResourceControl>()
@@ -314,6 +316,7 @@ export function createPagesDataSession(
 		signal.throwIfAborted()
 		return readNavigationFolders(runtime.registry, input)
 	})
+	let pathSignature: string | undefined
 	const pages = resource<{
 		documents: NavigationDocument[]
 		tree: ReturnType<typeof buildNavigationTree>
@@ -323,6 +326,13 @@ export function createPagesDataSession(
 			(plan, abort) => source.fetch(plan, abort),
 			signal,
 		)
+		const signature = JSON.stringify(
+			documents.map((document) => [document._id, document.pathname]),
+		)
+		if (pathSignature !== signature) {
+			pathSignature = signature
+			onPathsChanged?.()
+		}
 		return { documents, tree: buildNavigationTree(runtime.registry, documents) }
 	})
 	const recent = new Map<
@@ -332,6 +342,7 @@ export function createPagesDataSession(
 	const collections = new Map<string, DataResource<CollectionData>>()
 	return {
 		folders,
+		refreshFolders: () => folders.reconcile(),
 		identity(plan) {
 			const key = JSON.stringify(plan ?? null)
 			if (!identities.has(key))

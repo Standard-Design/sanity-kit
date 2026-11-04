@@ -39,7 +39,7 @@ const savedFolders = (pathname: string) => ({
 	folders: [{ _key: 'saved-folder', pathname }],
 })
 
-function harness(initial = [doc(0)]) {
+function harness(initial = [doc(0)], onPathsChanged?: () => void) {
 	let dataset: object[] = initial
 	const fetchFolderRegistry = vi.fn(
 		(_signal: AbortSignal): Promise<unknown> => {
@@ -67,7 +67,7 @@ function harness(initial = [doc(0)]) {
 			fetch(plan, signal) as Promise<T>,
 		listen,
 	}
-	const session = createPagesDataSession(runtime, source)
+	const session = createPagesDataSession(runtime, source, onPathsChanged)
 	const releases: (() => void)[] = []
 	return {
 		session,
@@ -94,8 +94,11 @@ type Harness = ReturnType<typeof harness>
 
 describe('Shared Pages data sessions', () => {
 	const active: Harness[] = []
-	function setup(initial?: ReturnType<typeof doc>[]) {
-		const h = initial ? harness(initial) : harness()
+	function setup(
+		initial?: ReturnType<typeof doc>[],
+		onPathsChanged?: () => void,
+	) {
+		const h = harness(initial, onPathsChanged)
 		active.push(h)
 		return h
 	}
@@ -107,6 +110,71 @@ describe('Shared Pages data sessions', () => {
 	})
 	const settle = () => vi.advanceTimersByTimeAsync(0)
 	const changed = () => vi.advanceTimersByTimeAsync(CHANGE_DELAY_MS)
+
+	it('notifies folder maintenance only when the loaded page identities or URL paths change', async () => {
+		const onPathsChanged = vi.fn()
+		const h = setup([doc(0)], onPathsChanged)
+		h.subscribe(h.session.pages)
+		h.subscribe(h.session.folders)
+		await settle()
+		expect(onPathsChanged).toHaveBeenCalledOnce()
+
+		h.fetchFolderRegistry.mockResolvedValue(savedFolders('/empty'))
+		h.observers[0]!.next({ type: 'mutation' })
+		await changed()
+		expect(h.session.folders.getSnapshot().data).toMatchObject([
+			{ pathname: '/empty' },
+		])
+		expect(onPathsChanged).toHaveBeenCalledOnce()
+
+		h.setData([
+			{ ...doc(0), title: 'Changed title', _updatedAt: '2026-11-04T00:00:00Z' },
+		])
+		h.observers[0]!.next({ type: 'mutation' })
+		await changed()
+		expect(h.session.pages.getSnapshot().data.documents[0]?.title).toBe(
+			'Changed title',
+		)
+		expect(onPathsChanged).toHaveBeenCalledOnce()
+
+		h.setData([{ ...doc(0), path: '/new-parent/page-0' }])
+		h.observers[0]!.next({ type: 'mutation' })
+		await changed()
+		expect(onPathsChanged).toHaveBeenCalledTimes(2)
+	})
+
+	it('does not notify folder maintenance from a cancelled page read that resolves after unmount', async () => {
+		const onPathsChanged = vi.fn()
+		const h = setup([doc(0)], onPathsChanged)
+		const pending = Promise.withResolvers<unknown>()
+		h.fetch.mockReturnValueOnce(pending.promise)
+		const release = h.subscribe(h.session.pages)
+		await settle()
+		release()
+		pending.resolve([{ ...doc(0), pathname: '/late-parent/page' }])
+		await settle()
+		expect(onPathsChanged).not.toHaveBeenCalled()
+		expect(h.session.pages.getSnapshot().data.documents).toEqual([])
+	})
+
+	it('notifies for the replacement page read without notifying again for an obsolete response', async () => {
+		const onPathsChanged = vi.fn()
+		const h = setup([doc(0)], onPathsChanged)
+		const old = Promise.withResolvers<unknown>()
+		h.fetch.mockReturnValueOnce(old.promise)
+		h.subscribe(h.session.pages)
+		await settle()
+		h.observers[0]!.next({ type: 'mutation' })
+		h.setData([{ ...doc(0), path: '/current/page' }])
+		await changed()
+		expect(onPathsChanged).toHaveBeenCalledOnce()
+		old.resolve([{ ...doc(0), pathname: '/obsolete/page' }])
+		await settle()
+		expect(onPathsChanged).toHaveBeenCalledOnce()
+		expect(h.session.pages.getSnapshot().data.documents[0]?.pathname).toBe(
+			'/current/page',
+		)
+	})
 
 	it('isolates identity targets, aborts abandoned reads, and clears old identity results', async () => {
 		const h = setup([doc(0), doc(1)])

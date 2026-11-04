@@ -26,7 +26,7 @@ registration comes from the [URL subsystem](./url.md).
 Editors should not need to know whether a folder was inferred from a page URL or
 loaded from a saved record. Both appear and behave as ordinary folders. There are
 no persistence labels or different row styles. A **Sync folders** action in the
-Pages `…` menu will be an out-of-the-way recovery option, not a routine editor task.
+Pages `…` menu is an out-of-the-way recovery option, not a routine editor task.
 
 The intended workflow is for the developer to synchronize existing paths during
 setup, then have kit-managed folder creation and URL changes save the necessary
@@ -45,8 +45,8 @@ runs. Writes require sufficient access, complete inventory evidence, revision
 guards, and reconciliation of uncertain outcomes before retrying.
 
 This replaces the earlier policy that opening Pages must never write. The
-background coordinator and menu action are not implemented in the current
-display slice. Nothing runs while Studio is closed, so import synchronization
+background coordinator and menu action are now implemented in the local Pages
+plugin. Nothing runs while Studio is closed, so import synchronization
 remains the preferred way to persist imported paths.
 
 ## What a saved folder contains
@@ -369,10 +369,56 @@ checks are pending, the field shows that the URL edit is not yet saved. A failed
 check keeps it local; network failures offer **Retry saving URL**, without silent
 retry loops.
 
-The field currently supports fixed routes and draft-only URL changes. It refuses
-published, release, and live-edit cases pending the reviewed URL-change workflow.
-It adds no automatic synchronization on initialization and no **Sync folders**
-menu action. Those remain the approved next safety fallback.
+The field supports fixed routes and draft URL changes, including drafts of
+published pages when paired with the URL-aware Publish action. Release and
+live-edit URL changes remain blocked. Pages owns the separate synchronization
+fallback described below.
+
+## Automatic synchronization and manual recovery
+
+Pages schedules a background check one second after the tool mounts. It also
+schedules a check when a newly loaded page list contains different document IDs
+or URLs. These visible results are only a signal to check; they are never used
+as evidence for a write. The service reads current access grants and a fresh,
+bounded inventory of raw draft, published, and release versions before saving.
+It uses the same additive writer as setup/import synchronization.
+
+One coordinator serves the tool's navigator, picker, and preview perspectives.
+Checks do not overlap. Automatic checks start at most once per minute, and
+requests received during a check are coalesced into one later check. There is no
+continuous sync timer: when paths stop changing, nothing more is scheduled.
+Ordinary page reads retain their separate periodic refresh. A successful write
+refreshes saved-folder display without resetting the navigator's scroll or selection.
+
+If folders are already saved, the check writes nothing. Automatic success is
+silent. A failed check pauses automatic synchronization for that tool instance;
+page browsing remains available. Editors can use **Pages → … → Sync folders**
+to run a fresh check and see the result. The feedback identifies missing or
+unverified access, connection trouble, changed records, or unsupported data.
+Closing the dialog does not cancel the shared operation. The action only adds
+missing folder records; it never changes page content or URLs, publishes,
+renames, or removes anything.
+
+Read access is proven using the same scoped grants as URL editing. Redirect
+access is not required. Sanity enforces write permissions on the mutation itself;
+a reader can still get an up-to-date result when there is nothing to save.
+Older navigation configurations that cannot safely author folders remain
+browsable, with an explanation when manual sync is attempted.
+
+A lost write response pauses synchronization. The service remembers the attempted
+folder keys and paths for the tool's lifetime. **Check again** first reads fresh
+evidence and requires all those exact records before allowing another write.
+An absent record could be a stale query, so absence does not authorize a retry.
+This state survives closing the picker, changing perspective, and reopening
+feedback; it is not a durable operation receipt across a full Studio reload.
+Every new tool instance still reads fresh evidence and uses strict creation or a
+registry revision guard. Imports should continue to run explicit synchronization
+rather than relying on an editor eventually opening Pages.
+
+Implementation: `synchronize.ts` owns access checks and uncertain-write recovery;
+`sync-controller.ts` owns scheduling; the Pages tool provider owns their shared
+lifetime. `folder-sync-dialog.tsx` provides manual feedback. These helpers remain
+private implementation details, not new package exports.
 
 ## What remains before the finished folder workflow
 

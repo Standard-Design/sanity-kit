@@ -3,12 +3,19 @@ import type { PagesRuntime } from './runtime.js'
 import { createPagesDataSource, type PagesClient } from './data-source.js'
 import { createPagesDataSession } from './data-session.js'
 
-export function createPagesDataStore(runtime: PagesRuntime) {
+export function createPagesDataStore(
+	runtime: PagesRuntime,
+	onPathsChanged?: () => void,
+) {
 	const clients = new WeakMap<
 		PagesClient,
 		Map<string, ReturnType<typeof createPagesDataSession>>
 	>()
+	const allSessions = new Set<ReturnType<typeof createPagesDataSession>>()
 	return {
+		refreshFolders: () => {
+			for (const session of allSessions) session.refreshFolders()
+		},
 		session(client: PagesClient, perspective: readonly string[]) {
 			const key = JSON.stringify(perspective)
 			let sessions = clients.get(client)
@@ -21,7 +28,9 @@ export function createPagesDataStore(runtime: PagesRuntime) {
 				session = createPagesDataSession(
 					runtime,
 					createPagesDataSource(client, perspective, runtime.model.types),
+					onPathsChanged,
 				)
+				allSessions.add(session)
 				sessions.set(key, session)
 			}
 			return session

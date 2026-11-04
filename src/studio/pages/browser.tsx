@@ -30,7 +30,8 @@ export function PagesBrowser({ fitContent = false }: { fitContent?: boolean }) {
 }
 
 function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
-	const { runtime, state, setState, setPickerOpen } = useBrowserState()
+	const { runtime, state, setState, setPickerOpen, showFolderSync } =
+		useBrowserState()
 	const session = usePagesDataSession()
 	const result = useSyncExternalStore(
 		session.pages.subscribe,
@@ -139,6 +140,7 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 											}))
 										}
 									/>
+									<MenuItem text="Sync folders" onClick={showFolderSync} />
 								</Menu>
 							}
 							// Keep the nested menu inside the modal picker's focus boundary.
