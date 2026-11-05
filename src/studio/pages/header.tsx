@@ -24,7 +24,8 @@ const FocusLock = FocusLockModule.default ?? FocusLockModule
 
 export function PagesHeader(props: PreviewHeaderProps) {
 	const { toggleNavigator, ...withoutNavigatorToggle } = props
-	const { runtime, pickerOpen, setPickerOpen } = useBrowserState()
+	const { runtime, pickerOpen, setPickerOpen, pageCreateOpen } =
+		useBrowserState()
 	const trigger = useRef<HTMLButtonElement>(null)
 	const panel = useRef<HTMLDivElement>(null)
 	const wasOpen = useRef(false)
@@ -45,10 +46,10 @@ export function PagesHeader(props: PreviewHeaderProps) {
 			trigger.current?.focus()
 		wasOpen.current = open
 	}, [open, props.navigatorEnabled])
-	useClickOutsideEvent(open ? () => setPickerOpen(false) : false, () => [
-		trigger.current,
-		panel.current,
-	])
+	useClickOutsideEvent(
+		open && !pageCreateOpen ? () => setPickerOpen(false) : false,
+		() => [trigger.current, panel.current],
+	)
 	return (
 		<Flex direction="column" flex={1} style={{ minWidth: 0 }}>
 			<Flex align="center" gap={1} style={{ minWidth: 0 }}>
@@ -81,6 +82,7 @@ export function PagesHeader(props: PreviewHeaderProps) {
 								// Flex wrappers pass the native available-height constraint down
 								// to the list; short content has no fixed height to fill.
 								<FocusLock
+									disabled={pageCreateOpen}
 									returnFocus={false}
 									lockProps={{
 										style: {

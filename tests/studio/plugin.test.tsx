@@ -61,7 +61,7 @@ describe('Pages plugin foundation', () => {
 		expect(first.registry.types[0]?.pathField).toBe('path')
 		expect(second.model.previewQuery('/')?.query).toContain('@["other"]')
 		expect(first.model.previewQuery('/')?.query).not.toContain('@["other"]')
-		expect(first.create).toBeUndefined()
+		expect(first.createChoices).toEqual([])
 	})
 	it.each([
 		[{ name: '' }, 'URL-safe'],

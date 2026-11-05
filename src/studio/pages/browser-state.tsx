@@ -16,6 +16,7 @@ import {
 } from './folder-create-dialog.js'
 import { createPagesDataStore } from './data-store.js'
 import { BrowserContext, type BrowserState } from './browser-context.js'
+import { PageCreateDialog } from './page-create-dialog.js'
 
 /**
  * Mounted around the native tool, not around its disposable navigator panel.
@@ -33,6 +34,8 @@ export function BrowserStateProvider({
 		collectionQueries: {},
 		collectionScroll: {},
 	})
+	const [pageCreateAnchor, setPageCreateAnchor] =
+		useState<HTMLButtonElement | null>(null)
 	const [syncOpen, setSyncOpen] = useState(false)
 	const [folderCreation, setFolderCreation] = useState<FolderCreationRequest>()
 	const [pickerOpen, setPickerOpen] = useState(false)
@@ -86,6 +89,8 @@ export function BrowserStateProvider({
 				runtime,
 				dataStore,
 				folderSync,
+				showPageCreate: (anchor) => setPageCreateAnchor(anchor),
+				pageCreateOpen: Boolean(pageCreateAnchor),
 				showFolderSync: () => {
 					setPickerOpen(false)
 					setSyncOpen(true)
@@ -101,6 +106,17 @@ export function BrowserStateProvider({
 			}}
 		>
 			{children}
+			{pageCreateAnchor && (
+				<PageCreateDialog
+					runtime={runtime}
+					anchor={pageCreateAnchor}
+					onClose={() => setPageCreateAnchor(null)}
+					onCreated={() => {
+						setPageCreateAnchor(null)
+						setPickerOpen(false)
+					}}
+				/>
+			)}
 			{folderCreation && (
 				<PagesFolderCreateDialog
 					request={folderCreation}

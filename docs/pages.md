@@ -10,8 +10,9 @@ Local builds include that entry point; the existing npm release does not. Its
 browser includes saved folders and collection browsing. A private
 [URL field](url-field.md) now connects draft editing and folder creation in the
 fixture. A private publication integration now pairs published-page draft URL
-edits with an optional redirect at publication. Navigator folder actions, bulk
-URL changes, advanced filtering,
+edits with an optional redirect at publication. Editors can create folders from
+the navigator and choose among explicitly registered page templates. Folder
+removal and rename, contextual page/index creation, bulk URL changes, advanced filtering,
 and broader release acceptance are still pending; this is not the finished Pages
 feature set.
 
@@ -51,7 +52,7 @@ export default defineConfig({
 			],
 			// Optional: use this only if the app, not a CMS document, owns the homepage.
 			excludePaths: ['/'],
-			// Optional shortcut to an existing, parameter-free native template.
+			// Optional: allow creation with this existing, parameter-free native template.
 			create: { schemaType: 'page', templateId: 'page' },
 		}),
 	],
@@ -71,12 +72,62 @@ Overrides do not change the browser's registered URL rules. The plugin rejects
 `components` and deprecated `locate`: it owns the header/navigator slots and
 uses `resolve` for native lookups. The header always retains `renderDefault`.
 
-The optional `create` shortcut sends a native create intent with the configured
-type, template, and tool name. It supplies no document ID or URL and does not
-publish anything. The app must define that template for that type; native Sanity
-still owns template resolution and authorization. Parameterized templates and
-the full permission-aware template chooser are later work. Omit `create` to
-use Studio's global creation menu only.
+## Choose which pages editors can create
+
+Browsing a document type does not automatically make it available in **Create
+page**. Register the allowed schema types and native templates with `create`.
+The single object in the example above remains supported. To offer several
+choices, use an array:
+
+```ts
+create: [
+  {schemaType: 'page', templateId: 'page', title: 'Page'},
+  {schemaType: 'landingPage', templateId: 'campaignLanding', title: 'Campaign landing page'},
+],
+```
+
+Each `schemaType` must also be registered in the tool's routing configuration.
+Each `templateId` must name an existing Studio template for that schema type.
+The optional `title` changes the choice's label; it does not set the new
+page's title field. Without it, the label comes from the template title, then
+the schema title or schema type name. A schema type can offer several distinct templates. Repeating
+the same type/template pair is a configuration error. Omit `create`, or pass an
+empty array, to use Studio's global creation menu only.
+
+When an editor chooses **Create page**, the kit checks the registered choices
+against the current Studio schema, templates, and native create permissions.
+The picker shows a checking state while those permissions load. One allowed
+choice opens directly. Several allowed choices show a compact, searchable
+popover, styled like Studio’s native document creator. Rows use the template or
+document type’s icon. Choices without create access are disabled, with a tooltip
+explaining why. Search filters the list; it never creates a page automatically.
+Arrow keys move between choices. Escape or Tab closes the picker and returns
+focus to its button. When opened inside Choose page, that parent picker stays
+open until the editor chooses a template.
+If none are available, the kit explains why instead of falling back to an
+unregistered type. A missing template or a template for the wrong schema type
+also stops this action and identifies the configuration problem. A failed access
+check stays inside the creation picker, with a retry action; the page navigator
+remains usable.
+
+After a choice, the kit sends a native create intent with its schema type,
+template, and Pages tool name. Sanity owns the new document ID, initial values,
+and document editor. The kit supplies no URL and does not publish the new draft.
+These checks use Sanity’s own `useTemplatePermissions` hook, as the native
+creator does; the kit does not implement a separate permissions system. The
+server still enforces creation permissions; the chooser's check is useful
+feedback, not a replacement for that enforcement. Native template resolution can
+still fail when the editor opens. In the pinned Studio version, Sanity shows a
+“Could not resolve initial value” toast and opens the document with empty values.
+A synchronous failure to open the editor stays in the kit’s picker with a Retry
+button. Once the native editor opens, Sanity owns initialization and save errors.
+
+This first chooser supports parameter-free templates for draft-enabled document
+types only. Singleton templates and `liveEdit` types are rejected: this action
+creates a new draft page, not a singleton or immediately live content. It does not yet
+initialize a page under a chosen folder, create a folder's index page, or choose
+collection-specific templates. Those flows need a separate template-parameter
+contract so they can set the URL without overwriting unrelated initial values.
 
 ## Dependencies and package isolation
 
@@ -296,8 +347,8 @@ size-1 semibold title using the native title color, compact icon buttons, and a
 size-1 borderless search input with a clear button. The header uses 12px outer
 spacing and 8px title padding. The list aligns with the search field below it.
 Collection Back sits beside its title instead of taking up a separate row.
-The `+` still opens the configured native create intent; the horizontal `…`
-still contains Expand/Collapse all. We use public Sanity UI primitives rather
+The `+` starts the registered page-creation flow described above. The horizontal
+`…` contains New subfolder, Sync folders, and Expand/Collapse all. We use public Sanity UI primitives rather
 than importing Structure's pane header, which requires a different pane router.
 Matching the appearance does not add Structure's sort/filter menu or change our
 search scopes. Keyboard focus and the picker's menu boundary remain intact.
@@ -362,11 +413,12 @@ uses Sanity's own preview/version subscriptions in addition to the kit's shared
 navigation listener. Native schema preview customization is not yet used for row
 titles: those still follow the registered `titleField` mapping.
 
-This is the first browsing UI slice, not the full release gate. Sort choices,
-query-side status filters, virtualization of long lists, contextual creation,
-folder/index actions, and reviewed folder rename are still pending. No dead
-rename/create-folder buttons imply those navigator actions already work. The
-private [URL field](url-field.md) has its own explicit folder-creation flow.
+This is not the full release gate. Sort choices, query-side status filters,
+virtualization of long lists, contextual page/index creation, empty-folder removal,
+and reviewed folder rename are still pending. Available actions are connected to
+their actual workflows; the navigator does not show placeholder actions for these
+future features. The private [URL field](url-field.md) also has its own explicit
+folder-creation flow.
 
 ## Shared live-data loading
 
@@ -790,13 +842,17 @@ Creating from a folder's menu can prefill that folder's prefix. Creating from th
 Pages header has no folder context. This is a convenience, not a stored parent
 relationship: a page's pathname determines where it appears in the navigator.
 
-Consumers should explicitly register which page types/templates can be created;
-being browsable is not sufficient. Collection creation should use its registered
-item choices. Approved October 31: skip selection when only one eligible choice
-exists and offer a chooser when several exist. Create drafts, never auto-publish.
-Exact configuration, template parameters, defaults, and permission-aware behavior
-remain to be designed. The existing single `create` shortcut does not yet
-implement these contextual flows.
+Consumers explicitly register the page types/templates that **Create page** can
+use through `create`; being browsable is not sufficient. The native-permission
+chooser is implemented: one eligible choice opens directly, several show a
+chooser, and no choice explains the limitation. The kit does not auto-publish.
+See [page creation](#choose-which-pages-editors-can-create) for configuration and
+failure behavior. Contextual folder/index defaults, collection-specific choices,
+and template parameters remain future work.
+
+Pages creation currently supports ordinary drafts. When a release or variant is
+selected, the dialog asks editors to switch to Drafts before creating a page.
+It does not silently change their selected perspective.
 
 ### URL field and folder picker
 
@@ -1012,6 +1068,11 @@ implementation paths are private. Nothing in this slice publishes a release.
   tool-scoped sessions, shared read lifetimes, and the authenticated transport.
   `use-page-data.ts` selects the session inside native Presentation. Components
   subscribe to its resources through React's external-store subscription API.
+- `src/studio/pages/creation-options.ts`: checks explicitly registered creation
+  choices against the native schema, templates, and create-permission results.
+  The native permissions hook is exported but marked internal upstream, so this
+  bridge is covered by the exact supported Studio version. It does not generate
+  document IDs or replace native template initialization.
 - `src/studio/pages/plugin.tsx`, `header.tsx`, `browser-state.tsx`, and
   `browser-context.ts`: native tool integration and shared browser UI state.
   The context is separate from the provider and dialogs so hot reloads of those

@@ -2,6 +2,14 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Allow `create` to register one or several explicit page type/template choices,
+  with optional display labels. Check actual Studio templates and native create
+  permissions, open a single allowed choice directly, or show a chooser for
+  several. Match Studio’s compact creator popover with search and native icons.
+  Keep missing-template and failed-access feedback local to creation.
+  Native Sanity owns document IDs and initialization; the kit does not supply
+  URLs, template parameters, or automatic publication in this slice.
+
 - Add **New subfolder** to the Pages options menu and ordinary folder menus.
   Reuse the URL field's folder-creation modal, with root as the starting parent
   from the Pages menu and the selected folder from a folder menu. Save missing

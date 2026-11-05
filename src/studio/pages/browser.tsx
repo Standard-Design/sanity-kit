@@ -5,7 +5,6 @@ import { AddIcon } from '@sanity/icons/Add'
 import { EllipsisHorizontalIcon } from '@sanity/icons/EllipsisHorizontal'
 import { useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { usePresentationParams } from 'sanity/presentation'
-import { useRouter } from 'sanity/router'
 import { useBrowserState } from './browser-context.js'
 import { usePagesDataSession } from './use-page-data.js'
 import { TreeRows, groupKeys } from './tree-browser.js'
@@ -47,7 +46,8 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 		runtime,
 		state,
 		setState,
-		setPickerOpen,
+		showPageCreate,
+		pageCreateOpen,
 		showFolderSync,
 		showFolderCreate,
 	} = useBrowserState()
@@ -80,7 +80,6 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 		})
 	const { preview } = usePresentationParams()
 	const current = runtime.model.previewedDocument(documents, preview)
-	const router = useRouter()
 	const scrollRef = useRef<HTMLDivElement>(null)
 	const initialScroll = useRef(state.scrollTop)
 	useLayoutEffect(() => {
@@ -119,7 +118,7 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 				}}
 				actions={
 					<>
-						{runtime.create && (
+						{runtime.createChoices.length > 0 && (
 							<TooltipButton
 								icon={AddIcon}
 								aria-label="Create page"
@@ -127,14 +126,9 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 								fontSize={1}
 								padding={2}
 								tooltip="Create page"
-								onClick={() => {
-									setPickerOpen(false)
-									router.navigateIntent('create', {
-										type: runtime.create!.schemaType,
-										template: runtime.create!.templateId,
-										presentation: runtime.name,
-									})
-								}}
+								aria-haspopup="dialog"
+								aria-expanded={pageCreateOpen}
+								onClick={(event) => showPageCreate(event.currentTarget)}
 							/>
 						)}
 						<MenuButton

@@ -20,6 +20,10 @@ interface TestRequest {
 
 const native = vi.hoisted(() => ({
 	navigate: vi.fn(),
+	creationLoading: false,
+	creationRelease: undefined as string | undefined,
+	creationError: false,
+	deniedTemplates: [] as string[],
 	intent: vi.fn(),
 	fetch:
 		vi.fn<
@@ -48,10 +52,39 @@ vi.mock('sanity', () => {
 		withConfig: () => client,
 		config: () => ({ projectId: 'testproject', dataset: 'test' }),
 	}
+	const templates = ['kitProofPage', 'kitProofLanding'].map((name) => ({
+		id: name,
+		schemaType: name,
+		title: name === 'kitProofPage' ? 'Page' : 'Landing page',
+	}))
+	const schema = {
+		get: (name: string) => ({ name, title: name, type: { name: 'document' } }),
+	}
 	return {
+		useTemplates: () => templates,
+		useSchema: () => schema,
+		useTemplatePermissions: ({
+			templateItems,
+		}: {
+			templateItems: { id: string; templateId: string; schemaType: string }[]
+		}) => {
+			if (native.creationError)
+				throw new Error('Permission service unavailable')
+			return [
+				templateItems.map((item) => ({
+					...item,
+					granted: !native.deniedTemplates.includes(item.templateId),
+				})),
+				native.creationLoading,
+			]
+		},
 		definePlugin: (factory: unknown) => factory,
 		useClient: () => client,
-		usePerspective: () => ({ perspectiveStack: [...native.perspective] }),
+		usePerspective: () => ({
+			perspectiveStack: [...native.perspective],
+			selectedReleaseId: native.creationRelease,
+			selectedVariantNames: [],
+		}),
 		useDocumentVersions: () => ({ versions: [], loading: false }),
 		isDraftVersion: () => false,
 		isPublishedVersion: () => false,
@@ -108,6 +141,10 @@ describe('Pages Presentation adapter lifecycle', () => {
 	beforeEach(() => {
 		vi.clearAllMocks()
 		native.request.mockReset()
+		native.creationLoading = false
+		native.creationRelease = undefined
+		native.creationError = false
+		native.deniedTemplates = []
 		native.params = { preview: '/about', id: 'shared', type: 'kitProofShared' }
 		native.perspective = ['drafts']
 		native.observer = undefined
@@ -1166,7 +1203,11 @@ describe('Pages Presentation adapter lifecycle', () => {
 	it('preserves native controls and search through navigator unmount and picker mount', async () => {
 		await render()
 		expect(button('Native refresh')).toBeTruthy()
-		expect(document.querySelector('[aria-haspopup="dialog"]')).toBeNull()
+		expect(
+			document.querySelector(
+				'[aria-haspopup="dialog"][aria-label^="Choose page"]',
+			),
+		).toBeNull()
 		const input = document.querySelector('input')!
 		act(() => {
 			Object.getOwnPropertyDescriptor(
@@ -1206,7 +1247,11 @@ describe('Pages Presentation adapter lifecycle', () => {
 		await click('Choose page: About')
 		await click('Toggle navigator')
 		expect(document.querySelector('[role="dialog"]')).toBeNull()
-		expect(document.querySelector('[aria-haspopup="dialog"]')).toBeNull()
+		expect(
+			document.querySelector(
+				'[aria-haspopup="dialog"][aria-label^="Choose page"]',
+			),
+		).toBeNull()
 	})
 
 	it('matches empty-search spacing to the normal row inset', async () => {
@@ -1285,6 +1330,174 @@ describe('Pages Presentation adapter lifecycle', () => {
 			template: 'kitProofPage',
 			presentation: 'pages-proof',
 		})
+	})
+
+	async function renderCreationChoices() {
+		const runtime = createPagesRuntime({
+			name: 'pages-proof',
+			previewUrl: 'https://example.test',
+			pages: [
+				{ schemaType: 'kitProofPage', pathnameField: 'pathname.current' },
+				{ schemaType: 'kitProofLanding', pathnameField: 'route' },
+			],
+			create: [
+				{
+					schemaType: 'kitProofPage',
+					templateId: 'kitProofPage',
+					title: 'Standard page',
+				},
+				{
+					schemaType: 'kitProofLanding',
+					templateId: 'kitProofLanding',
+					title: 'Landing page',
+				},
+			],
+		})
+		await act(async () => {
+			root.render(
+				<ThemeProvider theme={theme}>
+					<ConfiguredProvider runtime={runtime}>
+						<NativeShell />
+					</ConfiguredProvider>
+				</ThemeProvider>,
+			)
+			await Promise.resolve()
+		})
+	}
+
+	it('keeps the creation popover anchored inside Choose page until a choice is made', async () => {
+		await renderCreationChoices()
+		await click('Toggle navigator')
+		await click('Choose page')
+		await click('Create page')
+		expect(button('Choose page').getAttribute('aria-expanded')).toBe('true')
+		expect(native.intent).not.toHaveBeenCalled()
+		await click('Landing page')
+		expect(native.intent).toHaveBeenCalledExactlyOnceWith('create', {
+			type: 'kitProofLanding',
+			template: 'kitProofLanding',
+			presentation: 'pages-proof',
+		})
+		expect(native.mutate).not.toHaveBeenCalled()
+	})
+
+	it('filters creation choices without taking the single-choice shortcut and restores focus', async () => {
+		await renderCreationChoices()
+		await click('Create page')
+		const input = document.querySelector<HTMLInputElement>(
+			'[aria-label="Search page types"]',
+		)!
+		act(() => {
+			Object.getOwnPropertyDescriptor(
+				HTMLInputElement.prototype,
+				'value',
+			)!.set!.call(input, 'landing')
+			input.dispatchEvent(new Event('input', { bubbles: true }))
+		})
+		expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+			'Landing page',
+		)
+		expect(
+			document.querySelector('[role="dialog"]')?.textContent,
+		).not.toContain('Standard page')
+		expect(native.intent).not.toHaveBeenCalled()
+		await act(() =>
+			input.dispatchEvent(
+				new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }),
+			),
+		)
+		expect(document.activeElement).toBe(button('Landing page'))
+		await act(() =>
+			button('Landing page').dispatchEvent(
+				new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+			),
+		)
+		await act(async () => {
+			await new Promise((resolve) => requestAnimationFrame(resolve))
+		})
+		expect(document.querySelector('[role="dialog"]')).toBeNull()
+		expect(document.activeElement).toBe(button('Create page'))
+	})
+
+	it('opens the only permitted template even when several are registered', async () => {
+		native.deniedTemplates = ['kitProofLanding']
+		await renderCreationChoices()
+		await click('Create page')
+		expect(native.intent).toHaveBeenCalledExactlyOnceWith('create', {
+			type: 'kitProofPage',
+			template: 'kitProofPage',
+			presentation: 'pages-proof',
+		})
+	})
+
+	it('waits for current permissions and explains when none are permitted', async () => {
+		native.creationLoading = true
+		await renderCreationChoices()
+		await click('Create page')
+		expect(document.body.textContent).toContain('Checking available page types')
+		expect(native.intent).not.toHaveBeenCalled()
+		await act(() =>
+			document
+				.querySelector('[aria-label="Create page"][role="dialog"]')!
+				.dispatchEvent(
+					new KeyboardEvent('keydown', { key: 'Escape', bubbles: true }),
+				),
+		)
+		native.creationLoading = false
+		native.deniedTemplates = ['kitProofPage', 'kitProofLanding']
+		await click('Create page')
+		expect(document.body.textContent).toContain(
+			'Your current access does not allow',
+		)
+		expect(native.intent).not.toHaveBeenCalled()
+	})
+
+	it('keeps a failed editor handoff in the picker and retries the selected template', async () => {
+		await renderCreationChoices()
+		native.intent.mockImplementationOnce(() => {
+			throw new Error('Navigation failed')
+		})
+		await click('Create page')
+		await click('Landing page')
+		expect(document.querySelector('[role="dialog"]')?.textContent).toContain(
+			'The new page could not be opened. Retry to open the editor.',
+		)
+		expect(native.intent).toHaveBeenCalledTimes(1)
+		expect(native.mutate).not.toHaveBeenCalled()
+		await click('Retry')
+		expect(native.intent).toHaveBeenCalledTimes(2)
+		expect(native.intent).toHaveBeenLastCalledWith('create', {
+			type: 'kitProofLanding',
+			template: 'kitProofLanding',
+			presentation: 'pages-proof',
+		})
+		expect(document.querySelector('[role="dialog"]')).toBeNull()
+	})
+
+	it('contains permission failures and retries without losing the navigator', async () => {
+		vi.spyOn(console, 'error').mockImplementation(() => {})
+		native.creationError = true
+		await renderCreationChoices()
+		await click('Create page')
+		expect(document.body.textContent).toContain(
+			'Page creation could not be checked',
+		)
+		expect(native.intent).not.toHaveBeenCalled()
+		native.creationError = false
+		await click('Retry')
+		await click('Standard page')
+		expect(native.intent).toHaveBeenCalledTimes(1)
+		expect(button('Create page')).toBeTruthy()
+	})
+
+	it('does not create release versions through the ordinary draft shortcut', async () => {
+		native.creationRelease = 'release-1'
+		await renderCreationChoices()
+		await click('Create page')
+		expect(document.body.textContent).toContain(
+			'Switch to Drafts to create a page',
+		)
+		expect(native.intent).not.toHaveBeenCalled()
 	})
 
 	it('unsubscribes from the dataset when the browser leaves the tool', async () => {

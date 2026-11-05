@@ -1,0 +1,368 @@
+/**
+ * Choose among the consumer's registered native templates. This popover lives at
+ * tool level, anchored to the local Create page button. Sanity resolves initial
+ * values, assigns document IDs, and creates the draft after the native intent.
+ */
+import {
+	Component,
+	useEffect,
+	useId,
+	createElement,
+	useRef,
+	useState,
+	type ReactNode,
+} from 'react'
+import {
+	Box,
+	Button,
+	Card,
+	Flex,
+	Spinner,
+	Stack,
+	Text,
+	TextInput,
+	useClickOutsideEvent,
+} from '@sanity/ui'
+import { Popover } from '@sanity/ui/popover'
+import FocusLockModule from 'react-focus-lock'
+import { PagesTooltip } from './tooltip.js'
+import { DocumentIcon } from '@sanity/icons/Document'
+import { SearchIcon } from '@sanity/icons/Search'
+
+const FocusLock = FocusLockModule.default ?? FocusLockModule
+import { useRouter } from 'sanity/router'
+import { usePerspective } from 'sanity'
+import type { PagesRuntime } from './runtime.js'
+import {
+	usePageCreationOptions,
+	type PageCreationOption,
+} from './creation-options.js'
+
+/** Native permission reads can throw; keep a failed check out of the tool boundary. */
+class CreationCheckBoundary extends Component<
+	{ children: ReactNode; onRetry: () => void },
+	{ failed: boolean }
+> {
+	override state = { failed: false }
+	static getDerivedStateFromError() {
+		return { failed: true }
+	}
+	override render() {
+		if (!this.state.failed) return this.props.children
+		return (
+			<Card tone="caution" padding={3} radius={2}>
+				<Stack gap={3}>
+					<Text size={1} weight="medium">
+						Page creation could not be checked
+					</Text>
+					<Text size={1}>
+						We could not confirm which pages you can create. Retry the check to
+						continue.
+					</Text>
+					<Button mode="ghost" text="Retry" onClick={this.props.onRetry} />
+				</Stack>
+			</Card>
+		)
+	}
+}
+
+function CreationChoices({
+	runtime,
+	onClose,
+}: {
+	runtime: PagesRuntime
+	onClose: () => void
+}) {
+	const { options, loading, configurationErrors } = usePageCreationOptions(
+		runtime.createChoices,
+	)
+	const router = useRouter()
+	const navigated = useRef(false)
+	const [failedChoice, setFailedChoice] = useState<string>()
+	const eligible = options.filter((option) => option.granted)
+	const [query, setQuery] = useState('')
+	const list = useRef<HTMLDivElement>(null)
+	const filtered = options.filter((option) =>
+		option.title.toLocaleLowerCase().includes(query.trim().toLocaleLowerCase()),
+	)
+	function open(option: PageCreationOption) {
+		if (
+			loading ||
+			configurationErrors.length ||
+			!option.granted ||
+			navigated.current
+		)
+			return
+		navigated.current = true
+		try {
+			router.navigateIntent('create', {
+				type: option.schemaType,
+				template: option.templateId,
+				presentation: runtime.name,
+			})
+			onClose()
+		} catch {
+			navigated.current = false
+			setFailedChoice(option.id)
+		}
+	}
+	// Wait for current permission results before taking the single-choice shortcut.
+	useEffect(() => {
+		if (
+			!failedChoice &&
+			!loading &&
+			!configurationErrors.length &&
+			eligible.length === 1
+		)
+			open(eligible[0]!)
+	})
+	if (configurationErrors.length)
+		return (
+			<Card tone="critical" padding={3} radius={2}>
+				<Stack gap={3}>
+					<Text size={1} weight="medium">
+						Page creation needs configuration
+					</Text>
+					{configurationErrors.map((message) => (
+						<Text key={message} size={1}>
+							{message}
+						</Text>
+					))}
+					<Text size={1}>
+						Ask a developer to update the Pages creation settings.
+					</Text>
+				</Stack>
+			</Card>
+		)
+	if (loading)
+		return (
+			<Flex align="center" justify="center" gap={3} padding={4}>
+				<Spinner muted />
+				<Text size={1} muted>
+					Checking available page types…
+				</Text>
+			</Flex>
+		)
+	if (!eligible.length)
+		return (
+			<Text size={1}>
+				Your current access does not allow creating any of the page types
+				available here.
+			</Text>
+		)
+	if (failedChoice)
+		return (
+			<Card tone="caution" padding={3} radius={2}>
+				<Stack gap={3}>
+					<Text size={1}>
+						The new page could not be opened. Retry to open the editor.
+					</Text>
+					<Button
+						mode="ghost"
+						text="Retry"
+						disabled={!eligible.some((option) => option.id === failedChoice)}
+						onClick={() => {
+							const option = eligible.find((item) => item.id === failedChoice)
+							if (option) open(option)
+						}}
+					/>
+				</Stack>
+			</Card>
+		)
+	if (eligible.length === 1)
+		return (
+			<Text size={1} muted>
+				Opening a new page…
+			</Text>
+		)
+	return (
+		<Flex direction="column" style={{ minHeight: 0 }}>
+			<Card borderBottom padding={1}>
+				<TextInput
+					autoFocus
+					aria-label="Search page types"
+					placeholder="Search page types"
+					icon={SearchIcon}
+					border={false}
+					__unstable_disableFocusRing
+					fontSize={1}
+					radius={1}
+					value={query}
+					onChange={(event) => setQuery(event.currentTarget.value)}
+					onKeyDown={(event) => {
+						if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+							event.preventDefault()
+							const buttons = list.current?.querySelectorAll<HTMLButtonElement>(
+								'button:not(:disabled)',
+							)
+							buttons?.[
+								event.key === 'ArrowDown' ? 0 : buttons.length - 1
+							]?.focus()
+						}
+					}}
+				/>
+			</Card>
+			<Box
+				ref={list}
+				padding={1}
+				style={{ overflowY: 'auto', maxHeight: 338, minHeight: 0 }}
+				onKeyDown={(event) => {
+					if (event.key !== 'ArrowDown' && event.key !== 'ArrowUp') return
+					event.preventDefault()
+					const buttons = [
+						...list.current!.querySelectorAll<HTMLButtonElement>(
+							'button:not(:disabled)',
+						),
+					]
+					const index = buttons.indexOf(
+						document.activeElement as HTMLButtonElement,
+					)
+					buttons[
+						(index + (event.key === 'ArrowDown' ? 1 : -1) + buttons.length) %
+							buttons.length
+					]?.focus()
+				}}
+			>
+				{filtered.map((option) => {
+					const Icon = option.icon ?? DocumentIcon
+					return (
+						<PagesTooltip
+							key={option.id}
+							content="Your current access does not allow creating this page type."
+							disabled={option.granted}
+						>
+							<div>
+								<Card
+									as="button"
+									type="button"
+									disabled={!option.granted}
+									padding={3}
+									marginBottom={1}
+									radius={2}
+									style={{ width: '100%', textAlign: 'left' }}
+									__unstable_focusRing
+									onClick={() => open(option)}
+								>
+									<Flex align="center" gap={3}>
+										<Text size={1}>{createElement(Icon)}</Text>
+										<Text size={1}>{option.title}</Text>
+									</Flex>
+								</Card>
+							</div>
+						</PagesTooltip>
+					)
+				})}
+				{!filtered.length && (
+					<Flex
+						align="center"
+						justify="center"
+						padding={4}
+						style={{ minHeight: 100 }}
+					>
+						<Text size={1} muted align="center">
+							No page types found.
+						</Text>
+					</Flex>
+				)}
+			</Box>
+		</Flex>
+	)
+}
+
+/** Match the native creator's compact search popover, anchored to the local +. */
+export function PageCreateDialog({
+	runtime,
+	anchor,
+	onClose,
+	onCreated,
+}: {
+	runtime: PagesRuntime
+	anchor: HTMLButtonElement
+	onClose: () => void
+	onCreated: () => void
+}) {
+	const id = useId()
+	const panel = useRef<HTMLDivElement>(null)
+	const [attempt, setAttempt] = useState(0)
+	const { selectedReleaseId, selectedVariantNames } = usePerspective()
+	const scopedVersion = Boolean(
+		selectedReleaseId || selectedVariantNames?.length,
+	)
+	function close() {
+		onClose()
+		// Restore focus after the popover has released its focus lock.
+		requestAnimationFrame(() => {
+			if (anchor.isConnected) anchor.focus()
+		})
+	}
+	useClickOutsideEvent(close, () => [anchor, panel.current])
+	return (
+		<Popover
+			open
+			portal
+			modal
+			constrainSize
+			radius={3}
+			placement="bottom-start"
+			referenceElement={anchor}
+			referenceBoundary={document.documentElement}
+			floatingBoundary={document.documentElement}
+			content={
+				<FocusLock
+					returnFocus={false}
+					onActivation={() => {
+						if (!panel.current?.querySelector('input, button:not(:disabled)'))
+							panel.current?.focus()
+					}}
+					lockProps={{
+						style: { display: 'flex', flexDirection: 'column', minHeight: 0 },
+					}}
+				>
+					<Box
+						ref={panel}
+						id={`${id}-create-page`}
+						role="dialog"
+						aria-label="Create page"
+						aria-modal="true"
+						tabIndex={-1}
+						style={{
+							width: 'min(320px, 90vw)',
+							maxHeight: 'calc(100dvh - 32px)',
+							minHeight: 0,
+							overflowY: 'auto',
+							outline: 'none',
+						}}
+						onKeyDown={(event) => {
+							if (event.key === 'Escape' || event.key === 'Tab') {
+								event.preventDefault()
+								event.stopPropagation()
+								close()
+							}
+						}}
+					>
+						{scopedVersion ? (
+							<Card tone="caution" padding={3} radius={2}>
+								<Stack gap={3}>
+									<Text size={1} weight="medium">
+										Switch to Drafts to create a page
+									</Text>
+									<Text size={1}>
+										Pages creates ordinary drafts. Creating pages inside a
+										release or variant is not supported here yet.
+									</Text>
+								</Stack>
+							</Card>
+						) : (
+							<CreationCheckBoundary
+								key={attempt}
+								onRetry={() => setAttempt((value) => value + 1)}
+							>
+								<CreationChoices runtime={runtime} onClose={onCreated} />
+							</CreationCheckBoundary>
+						)}
+					</Box>
+				</FocusLock>
+			}
+		/>
+	)
+}

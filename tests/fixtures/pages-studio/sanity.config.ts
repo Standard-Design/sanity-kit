@@ -28,7 +28,18 @@ export default defineConfig(
 					title: 'Pages proof',
 					previewUrl:
 						process.env.SANITY_STUDIO_PREVIEW_ORIGIN ?? 'http://localhost:3334',
-					create: { schemaType: 'kitProofPage', templateId: 'kitProofPage' },
+					create: [
+						{
+							schemaType: 'kitProofPage',
+							templateId: 'kitProofPage',
+							title: 'Page',
+						},
+						{
+							schemaType: 'kitProofLanding',
+							templateId: 'kitProofLanding',
+							title: 'Landing page',
+						},
+					],
 				}),
 			],
 		},

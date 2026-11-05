@@ -7,10 +7,11 @@ import type { PresentationPluginOptions } from 'sanity/presentation'
 import { createPagesRegistry, type PagesRouteConfig } from './registry.js'
 import { createBrowserModel } from './model.js'
 
-/** One explicit native creation shortcut; a full template chooser comes later. */
+/** One explicitly allowed native template. Studio supplies its default title. */
 export interface PagesCreateOptions {
 	readonly schemaType: string
 	readonly templateId: string
+	readonly title?: string
 }
 
 export interface PagesToolOptions
@@ -19,8 +20,12 @@ export interface PagesToolOptions
 		Omit<PresentationPluginOptions, 'components' | 'locate' | 'resolve'> {
 	/** Overrides replace generated native resolvers, not browser route metadata. */
 	readonly resolve?: PresentationPluginOptions['resolve']
-	/** Omit to use Studio's global creation menu only. Never supplies a document ID. */
-	readonly create?: PagesCreateOptions
+	/**
+	 * Eligible creation templates, in display order. A single object remains a
+	 * shortcut for one choice. Omit or supply [] to hide Pages creation controls.
+	 * Native Studio owns document IDs and template values.
+	 */
+	readonly create?: PagesCreateOptions | readonly PagesCreateOptions[]
 }
 
 export function createPagesRuntime(options: PagesToolOptions) {
@@ -41,16 +46,57 @@ export function createPagesRuntime(options: PagesToolOptions) {
 			'pagesTool requires native Presentation previewUrl configuration.',
 		)
 	const registry = createPagesRegistry(options)
-	const create = options.create
-	if (
-		create &&
-		(!registry.types.some((type) => type.schemaType === create.schemaType) ||
-			typeof create.templateId !== 'string' ||
-			!create.templateId.trim())
+	const suppliedChoices: unknown[] =
+		options.create === undefined
+			? []
+			: Array.isArray(options.create)
+				? options.create
+				: [options.create]
+	const seen = new Set<string>()
+	const createChoices = suppliedChoices.map(
+		(choice): Readonly<PagesCreateOptions> => {
+			if (
+				!choice ||
+				typeof choice !== 'object' ||
+				Array.isArray(choice) ||
+				!('schemaType' in choice) ||
+				!registry.types.some((type) => type.schemaType === choice.schemaType) ||
+				!('templateId' in choice) ||
+				typeof choice.templateId !== 'string' ||
+				!choice.templateId.trim()
+			)
+				throw new Error(
+					'Pages create choices need a registered schemaType and templateId.',
+				)
+			if (
+				'title' in choice &&
+				(typeof choice.title !== 'string' || !choice.title.trim())
+			)
+				throw new Error('Pages create choice title must not be empty.')
+			if (
+				Object.keys(choice).some(
+					(key) => !['schemaType', 'templateId', 'title'].includes(key),
+				)
+			)
+				throw new Error(
+					'Pages create choices only support schemaType, templateId, and title.',
+				)
+			const key = JSON.stringify([choice.schemaType, choice.templateId])
+			if (seen.has(key))
+				throw new Error(
+					'Pages create choices must not repeat a schemaType/templateId pair.',
+				)
+			seen.add(key)
+			// Store copies so editing the consumer's configuration cannot change an
+			// already installed tool. Compiled template compatibility is checked in
+			// Studio, where the workspace's templates and schema are available.
+			return Object.freeze({
+				schemaType: choice.schemaType as string,
+				templateId: choice.templateId,
+				...('title' in choice ? { title: choice.title as string } : {}),
+			})
+		},
 	)
-		throw new Error(
-			'Pages create shortcut needs a registered schemaType and templateId.',
-		)
 	return Object.freeze({
 		name,
 		title,
@@ -67,7 +113,7 @@ export function createPagesRuntime(options: PagesToolOptions) {
 			excludePaths: registry.excludePaths,
 			reservedPathPrefixes: registry.reservedPathPrefixes,
 		}),
-		create: create ? Object.freeze({ ...create }) : undefined,
+		createChoices: Object.freeze(createChoices),
 		model: createBrowserModel(registry),
 	})
 }

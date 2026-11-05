@@ -270,13 +270,26 @@ loader is also approved; editor/publication controls remain future work.
 
 Approved October 31: explicitly register eligible types/templates, skip the chooser
 for one eligible choice, offer it for several, and create drafts without
-auto-publishing. The contextual defaults and parameter integration below remain
-detailed proposals.
+auto-publishing. The first native-permission chooser is now implemented; its
+configuration remains unreleased and ready for review.
 
-Register eligible schema types and native templates explicitly, with optional
-defaults. Apply permissions and context before showing choices: one eligible
-choice can open directly; multiple choices show a chooser; none disables the
-action with an explanation. Browsability alone does not grant creation access.
+`create` accepts one `{schemaType, templateId, title?}` object or an array of
+those objects. The original object form remains valid. Omission or an empty
+array hides the Pages shortcut. Each type must be registered for browsing, and
+its template must exist in Studio and belong to that type. Browsability alone
+does not grant creation access. The optional title labels the choice without
+changing document data. Duplicate type/template pairs are rejected.
+
+Current schema/template checks and Sanity's native create-permission results
+determine available choices. One allowed choice opens directly; several show a
+chooser; none explains why creation is unavailable. Configuration problems and
+permission-read failures stay within the action rather than crashing Pages.
+Native Sanity still owns IDs, initialization, and final permission enforcement.
+This slice supplies no template parameters, URL defaults, or automatic publish.
+Parameterized and singleton templates, along with `liveEdit` document types,
+are rejected so this action remains a new-draft creation flow.
+
+The following contextual defaults and parameter integration remain proposals:
 
 Folder-menu creation prefills that prefix, header creation uses root as the
 suggested starting location, and index creation supplies the exact folder URL.
@@ -298,8 +311,9 @@ implementation. Ordinary document IDs remain Sanity-generated.
   implementation design.
 - Public field/settings APIs, their failure codes, and creation template parameters.
   The private field factory is implemented. The fixed-prefix resolver, root value,
-  native source/context integration, Sanity-compatible generation, and chooser
-  direction are decided.
+  native source/context integration and Sanity-compatible generation are decided.
+  The parameter-free creation chooser is implemented; contextual defaults and
+  template parameters remain to be designed.
 - Publication/redirect/cache integration and its acceptance gates. The separate
   [redirect design](redirects-design.md) now covers this subsystem; acknowledging
   that design is not approval of every proposed status, query, or failure default.

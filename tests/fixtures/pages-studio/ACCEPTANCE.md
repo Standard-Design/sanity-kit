@@ -794,3 +794,43 @@ During development, hot reload exposed a context mismatch between the native
 Presentation slots and the Pages provider. The context now lives separately
 from the provider and dialogs. A live provider hot update kept Choose page open
 and usable; the contextual creation dialog reopened normally afterward.
+
+## November 4 — registered page creation choices
+
+The fixture now explicitly registers Page and Landing page. In the live Studio,
+opened the Navigator tab and its Create page button. The dialog showed both
+choices after native template permission checks. Selecting Landing page sent the
+native create intent to `kitProofLanding`, assigned a native-generated ID, and
+preserved the preview URL. The narrow layout kept its Navigator tab selected;
+opening the native Structure tab showed the new alternate-path document editor
+with Draft selected and Published unavailable. No content was entered or published.
+
+Automated coverage checks single-choice handoff, permission filtering, loading,
+empty results, recoverable check failures, chooser lifetime, registration errors,
+and refusal to create a release version through the ordinary-draft shortcut.
+Real restricted roles, permission service outages, and release contexts were not
+induced in the live project. All 1,752 tests, formatting, package build, lint,
+typecheck, and the proof Studio production build passed.
+
+### Native creator styling (2026-11-05)
+
+Compared the live top-bar document creator and its installed Sanity implementation.
+The Pages creator now uses a 320px search popover with the same compact row
+spacing, native icons, and no dialog heading or footer. Live checks confirmed
+search narrows choices without creating a document, ArrowDown moves to a result,
+and Escape restores focus to the local Create page button. Inside Choose page,
+the creation popover stays anchored to that button; Escape closes only the
+creation popover and leaves Choose page open. These checks changed no content.
+
+### Creation failure feedback (2026-11-05)
+
+Temporary proof-only failures exercised the real handoff catch and a throwing
+native Landing page initial-value template. The handoff failure stayed in the
+creation popover with a caution notice and Retry; the current document and
+preview URL did not change. Retry opened the selected Landing page template.
+Native initialization failure showed “Could not resolve initial value” and
+“The document opened with an empty value” in a temporary toast, then displayed
+the blank native editor. No fields were entered or published. Austin reviewed
+and accepted the picker notice. Both temporary failure injections were removed,
+restoring normal page creation. An automated regression checks the failed
+handoff, selected-template retry, and absence of kit writes.
