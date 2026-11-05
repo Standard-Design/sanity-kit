@@ -29,6 +29,11 @@ vi.mock('sanity', async (importOriginal) => ({
 }))
 const layoutPlugins = new Set<ReturnType<typeof urlPublication>>()
 
+// This suite renders only the publication pairing, outside a document form.
+// Native create-intent decoding and document identity have their own tests.
+vi.mock('../../src/studio/url/creation-presentation.js', () => ({
+	useUrlCreationContext: () => undefined,
+}))
 vi.mock('../../src/studio/url/input.js', () => ({
 	SanityUrlInput: ({
 		allowPublishedDrafts,

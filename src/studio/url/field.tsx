@@ -18,6 +18,7 @@ import {
 } from '../../url/registry.js'
 import { createSanityUrlResolver } from '../../url/resolve.js'
 import { SanityUrlInput } from './input.js'
+import { useUrlCreationContext } from './creation-presentation.js'
 import { createUrlIsUnique } from './is-unique.js'
 import { UrlValidationField } from './validation.js'
 import {
@@ -73,11 +74,13 @@ export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 	const resolve = createSanityUrlResolver(snapshot)
 	function Input(props: SlugInputProps) {
 		const allowPublishedDrafts = useUrlPublicationEnabled(publicationKey)
+		const creationContext = useUrlCreationContext(props.path)
 		return (
 			<SanityUrlInput
 				{...props}
 				routes={snapshot}
 				allowPublishedDrafts={allowPublishedDrafts}
+				{...(creationContext ? { creationContext } : {})}
 			/>
 		)
 	}
@@ -92,7 +95,13 @@ export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 	return defineField({
 		...native,
 		type: 'slug',
-		options: { ...options, isUnique: createUrlIsUnique(snapshot) },
+		options: {
+			...options,
+			isUnique: createUrlIsUnique(snapshot),
+			// Pages uses this marker to offer folder creation only for fields that
+			// consume the intent hint through the guarded URL editing workflow.
+			__sanityKitUrlField: true,
+		} as SlugOptions & { __sanityKitUrlField: true },
 		components: { ...native.components, input: Input, field: Field },
 		validation: (rule, context) => {
 			const format = rule.custom((value, nativeContext) => {

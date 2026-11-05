@@ -12,7 +12,8 @@ browser includes saved folders and collection browsing. A private
 fixture. A private publication integration now pairs published-page draft URL
 edits with an optional redirect at publication. Editors can create folders from
 the navigator and choose among explicitly registered page templates. Folder
-removal and rename, contextual page/index creation, bulk URL changes, advanced filtering,
+menus also start ordinary pages and index pages with the appropriate URL proposal.
+Folder removal and rename, bulk URL changes, advanced filtering,
 and broader release acceptance are still pending; this is not the finished Pages
 feature set.
 
@@ -112,7 +113,8 @@ remains usable.
 
 After a choice, the kit sends a native create intent with its schema type,
 template, and Pages tool name. Sanity owns the new document ID, initial values,
-and document editor. The kit supplies no URL and does not publish the new draft.
+and document editor. The header’s Create page action supplies no URL. The folder
+actions described below add a URL proposal; neither flow publishes the new draft.
 These checks use Sanity’s own `useTemplatePermissions` hook, as the native
 creator does; the kit does not implement a separate permissions system. The
 server still enforces creation permissions; the chooser's check is useful
@@ -122,12 +124,50 @@ still fail when the editor opens. In the pinned Studio version, Sanity shows a
 A synchronous failure to open the editor stays in the kit’s picker with a Retry
 button. Once the native editor opens, Sanity owns initialization and save errors.
 
-This first chooser supports parameter-free templates for draft-enabled document
-types only. Singleton templates and `liveEdit` types are rejected: this action
-creates a new draft page, not a singleton or immediately live content. It does not yet
-initialize a page under a chosen folder, create a folder's index page, or choose
-collection-specific templates. Those flows need a separate template-parameter
-contract so they can set the URL without overwriting unrelated initial values.
+This chooser supports templates without declared parameters for draft-enabled
+document types only. Singleton templates and `liveEdit` types are rejected: this
+action creates a new draft page, not a singleton or immediately live content.
+Collection-specific choices and consumer-defined template parameters remain
+future work. The folder actions use a private creation-context parameter, not a
+public template-parameter API.
+
+### Create a page inside a folder
+
+An ordinary folder’s `…` menu offers **Create page** and **Create index page**.
+Both reuse the app’s registered `create` choices and Sanity’s permission checks.
+With one eligible template, the action opens it directly. With several, a
+right-side chevron opens a searchable submenu beside the folder menu. The count
+includes only templates the current editor can use in that folder. Opening or
+hovering over a submenu never creates a draft; select a template to continue.
+Only ordinary page types using the kit’s URL field participate in these actions.
+A type with a plain string path field can still be created from the header; it
+cannot yet accept the kit’s folder suggestion.
+
+For example, choosing **Create page** in `/about` opens a normal draft with
+`/about` selected in its URL field. The final segment starts empty. Entering or
+generating `team` proposes `/about/team`. Until there is a final segment, no URL
+is saved. This avoids accidentally giving an unfinished child page the index
+page’s `/about` URL.
+
+**Create index page** instead proposes the folder’s own URL, such as `/about`.
+The URL field checks access, conflicts, and folder records before passing the
+URL to native draft autosave. Choosing a template does not publish the page or
+reserve its URL. If the visible tree already contains an index page, its creation
+action is disabled. That is a convenience check; the normal URL checks still
+read the relevant documents before saving and can catch conflicts that the tree
+has not loaded or that another editor just created.
+
+The selected folder travels in Sanity’s native creation intent and stays in the
+Studio URL while that creation context is present. It is not a hidden field on
+the document or a stored parent relationship. The URL field validates the context
+against the selected document, template, and registered URL field before using
+it. A stored pathname still determines where the page appears in the navigator.
+
+Template values outside the URL field are preserved. If a template supplies a
+nonempty URL that conflicts with the requested location, creation stops with an
+explanation instead of replacing that value. The URL field also leaves existing
+values alone. Whole-field read-only settings and the ordinary draft-editing
+safeguards continue to apply.
 
 ## Dependencies and package isolation
 
@@ -414,7 +454,7 @@ navigation listener. Native schema preview customization is not yet used for row
 titles: those still follow the registered `titleField` mapping.
 
 This is not the full release gate. Sort choices, query-side status filters,
-virtualization of long lists, contextual page/index creation, empty-folder removal,
+virtualization of long lists, empty-folder removal,
 and reviewed folder rename are still pending. Available actions are connected to
 their actual workflows; the navigator does not show placeholder actions for these
 future features. The private [URL field](url-field.md) also has its own explicit
@@ -716,8 +756,8 @@ is approved and reads and validates settings; it is not connected to Studio cont
 A private [folder writer](folders.md) for creation and explicit synchronization
 is approved. It adds folder records without changing page URLs. Read-only saved
 folder display is also approved. The field's draft-editing workflow is implemented. Pages now supplies automatic
-folder synchronization, manual recovery, and folder creation from the navigator;
-removal, rename, and contextual page-creation actions remain future work.
+folder synchronization, manual recovery, folder creation, and contextual page/index
+creation from the navigator. Removal and rename remain future work.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -833,25 +873,28 @@ pages. Collection groups do not receive ordinary folder-creation menus.
 See [Folders](folders.md#creating-folders-from-the-navigator) for access checks,
 coordination with background synchronization, and recovery after uncertain saves.
 
-The remaining planned actions include creating
-a page in a folder and creating its index page when absent (or opening it when
-present). An index page lives at the folder's own URL; an ordinary child page
-adds a final segment. These actions still need templates and creation behavior.
+Ordinary folder menus also offer **Create page** and **Create index page**.
+An index page lives at the folder’s own URL; an ordinary child page adds a final
+segment. If an index already appears in the tree, Create index page is disabled;
+open the existing page from its normal navigator row instead.
 
-Creating from a folder's menu can prefill that folder's prefix. Creating from the
-Pages header has no folder context. This is a convenience, not a stored parent
-relationship: a page's pathname determines where it appears in the navigator.
+Creating an ordinary page from a folder’s menu supplies that folder as a URL-field
+suggestion, leaving the final segment empty. Creating from the Pages header has
+no folder context. This is a convenience, not a stored parent relationship: a
+page’s pathname determines where it appears in the navigator. An index action
+proposes the exact folder URL and uses the field’s normal guarded autosave.
 
 Consumers explicitly register the page types/templates that **Create page** can
 use through `create`; being browsable is not sufficient. The native-permission
-chooser is implemented: one eligible choice opens directly, several show a
-chooser, and no choice explains the limitation. The kit does not auto-publish.
+chooser opens one eligible choice directly, offers a chooser for several, and
+explains when no choice is available. Folder actions additionally require the
+kit’s URL field on an ordinary page type. The kit does not auto-publish.
 See [page creation](#choose-which-pages-editors-can-create) for configuration and
-failure behavior. Contextual folder/index defaults, collection-specific choices,
-and template parameters remain future work.
+failure behavior. Collection-specific choices and consumer-defined template
+parameters remain future work.
 
 Pages creation currently supports ordinary drafts. When a release or variant is
-selected, the dialog asks editors to switch to Drafts before creating a page.
+selected, the picker asks editors to switch to Drafts before creating a page.
 It does not silently change their selected perspective.
 
 ### URL field and folder picker
@@ -1023,7 +1066,8 @@ must not become editor-renamable through this workflow.
   race handling, size bounds, recovery, and cache/redirect coordination. The
   URL-only write policy and initial release-version refusal are agreed.
 - **Detailed APIs:** settle function/configuration names, result wrappers and
-  error codes and template parameters. Sanity-compatible generation is now agreed. The root
+  error codes and consumer-defined template parameters. The private folder/index
+  creation context is implemented. Sanity-compatible generation is now agreed. The root
   value, pure resolution, configurable title source and slug generation, explicit
   failure categories, and one-versus-many chooser behavior are agreed.
 - **Redirect defaults:** review the defaults and integration gates in the separate
@@ -1072,7 +1116,15 @@ implementation paths are private. Nothing in this slice publishes a release.
   choices against the native schema, templates, and create-permission results.
   The native permissions hook is exported but marked internal upstream, so this
   bridge is covered by the exact supported Studio version. It does not generate
-  document IDs or replace native template initialization.
+  document IDs or replace native template initialization. Contextual choices also
+  require a kit-managed URL field and reject conflicting template URL defaults.
+- `src/studio/pages/page-create-dialog.tsx`: the compact creator popover, local
+  failure recovery, and native create-intent handoff. Folder context travels in
+  that intent; the URL field applies its proposal through ordinary checks.
+- `src/studio/url/creation-context.ts` and `creation-presentation.ts`: validate the
+  private location hint and read it from public Presentation parameters. Matching
+  the selected document, template, type, and registered field keeps a page’s
+  creation hint from being applied to a different document opened in the editor.
 - `src/studio/pages/plugin.tsx`, `header.tsx`, `browser-state.tsx`, and
   `browser-context.ts`: native tool integration and shared browser UI state.
   The context is separate from the provider and dialogs so hot reloads of those

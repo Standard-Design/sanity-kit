@@ -4,7 +4,11 @@ import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { PagesCreateOptions } from '../../src/studio/pages/runtime.js'
-import { usePageCreationOptions } from '../../src/studio/pages/creation-options.js'
+import { createPagesRegistry } from '../../src/url/registry.js'
+import {
+	usePageCreationOptions,
+	type PageCreationContext,
+} from '../../src/studio/pages/creation-options.js'
 
 const native = vi.hoisted(() => ({
 	templates: [] as Array<{
@@ -16,7 +20,12 @@ const native = vi.hoisted(() => ({
 	}>,
 	types: new Map<
 		string,
-		{ type: { name: string }; title?: string; liveEdit?: boolean }
+		{
+			type: { name: string }
+			title?: string
+			liveEdit?: boolean
+			fields?: unknown[]
+		}
 	>(),
 	permissions: undefined as
 		| Array<{
@@ -24,6 +33,8 @@ const native = vi.hoisted(() => ({
 				templateId: string
 				schemaType: string
 				granted: boolean
+				parameters?: Record<string, unknown>
+				resolvedInitialValue?: unknown
 		  }>
 		| undefined,
 	loading: false,
@@ -46,8 +57,9 @@ describe('native page creation eligibility', () => {
 	let container: HTMLDivElement
 	let result: ReturnType<typeof usePageCreationOptions>
 	let choices: readonly PagesCreateOptions[]
+	let context: PageCreationContext | undefined
 	function Probe() {
-		result = usePageCreationOptions(choices)
+		result = usePageCreationOptions(choices, context)
 		return null
 	}
 	function render() {
@@ -59,6 +71,7 @@ describe('native page creation eligibility', () => {
 		container = document.createElement('div')
 		document.body.append(container)
 		root = createRoot(container)
+		context = undefined
 		choices = [{ schemaType: 'page', templateId: 'page' }]
 		native.templates = [
 			{ id: 'page', schemaType: 'page', title: 'Standard page' },
@@ -230,5 +243,190 @@ describe('native page creation eligibility', () => {
 		expect(value.options).toHaveLength(1)
 		expect(value.options[0]?.granted).toBe(false)
 		expect(value.configurationErrors).toHaveLength(1)
+	})
+
+	function contextual(mode: 'page' | 'index' = 'page', pathname = '/about') {
+		context = {
+			registry: createPagesRegistry({
+				pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
+			}),
+			mode,
+			pathname,
+		}
+		native.types.get('page')!.fields = [
+			{
+				name: 'pathname',
+				type: { name: 'slug', options: { __sanityKitUrlField: true } },
+			},
+		]
+	}
+	function resolveContext(initial: unknown = { _type: 'page' }) {
+		render()
+		const item = native.permissionHook.mock.lastCall![0].templateItems[0] as {
+			parameters: Record<string, unknown>
+		}
+		native.permissions = [
+			{
+				id: 'pages-create-0',
+				templateId: 'page',
+				schemaType: 'page',
+				granted: true,
+				parameters: item.parameters,
+				resolvedInitialValue: initial,
+			},
+		]
+		return render()
+	}
+
+	it('passes only a folder hint to native parameters without inventing a page URL or ID', () => {
+		contextual()
+		const value = resolveContext({
+			title: 'Template title',
+			body: ['unchanged'],
+		})
+		expect(value.options[0]?.granted).toBe(true)
+		expect(value.options[0]?.parameters).toEqual({
+			sanityKitCreation: {
+				version: 1,
+				mode: 'page',
+				pathname: '/about',
+				schemaType: 'page',
+				templateId: 'page',
+				pathField: 'pathname.current',
+			},
+		})
+		expect(native.permissions![0]!.resolvedInitialValue).toEqual({
+			title: 'Template title',
+			body: ['unchanged'],
+		})
+		expect(
+			native.permissionHook.mock.lastCall![0].templateItems[0],
+		).not.toHaveProperty('initialDocumentId')
+	})
+
+	it('does not reuse a create grant from another folder or creation mode', () => {
+		contextual()
+		expect(resolveContext().options[0]?.granted).toBe(true)
+		context = { ...context!, pathname: '/other' }
+		expect(render().options[0]?.granted).toBe(false)
+		context = { ...context, pathname: '/about', mode: 'index' }
+		expect(render().options[0]?.granted).toBe(false)
+	})
+
+	it('keeps contextual permission parameters stable on unrelated rerenders', () => {
+		contextual()
+		render()
+		const first = native.permissionHook.mock.lastCall?.[0]
+		context = { ...context! }
+		render()
+		expect(native.permissionHook.mock.lastCall?.[0]).toBe(first)
+	})
+
+	it('does not overwrite any nonempty template pathname when creating a child page', () => {
+		contextual()
+		const value = resolveContext({
+			_type: 'page',
+			pathname: { current: '/about' },
+		})
+		expect(value.options[0]?.granted).toBe(false)
+		expect(value.options[0]?.reason).toContain('already sets')
+	})
+
+	it('allows an index template with the exact requested URL but rejects a different one', () => {
+		contextual('index')
+		expect(
+			resolveContext({ _type: 'page', pathname: { current: '/about' } })
+				.options[0]?.granted,
+		).toBe(true)
+		expect(
+			resolveContext({ _type: 'page', pathname: { current: '/elsewhere' } })
+				.options[0]?.granted,
+		).toBe(false)
+	})
+
+	it('detects the empty native template-resolution failure fallback', () => {
+		contextual()
+		const value = resolveContext({})
+		expect(value.options[0]?.granted).toBe(false)
+		expect(value.options[0]?.reason).toContain('could not be prepared')
+	})
+
+	it('allows missing, null and empty initial URL values', () => {
+		contextual()
+		for (const current of [undefined, null, '']) {
+			expect(
+				resolveContext({ _type: 'page', pathname: { current } }).options[0]
+					?.granted,
+			).toBe(true)
+		}
+	})
+
+	it('does not let invalid contextual choices disable another usable choice', () => {
+		contextual()
+		choices = [...choices, { schemaType: 'page', templateId: 'missing' }]
+		const value = resolveContext()
+		expect(value.options[0]?.granted).toBe(true)
+		expect(value.configurationErrors[0]).toContain('not registered')
+	})
+
+	it('omits unmanaged fields and collection types from contextual choices', () => {
+		contextual()
+		native.types.get('page')!.fields = [
+			{ name: 'pathname', type: { name: 'slug' } },
+		]
+		expect(render().options).toEqual([])
+		contextual()
+		context = {
+			...context!,
+			registry: {
+				...context!.registry,
+				types: [{ ...context!.registry.types[0]!, collection: 'journal' }],
+			},
+		}
+		expect(render().options).toEqual([])
+	})
+
+	it('finds a managed URL field nested in an object', () => {
+		contextual()
+		context = {
+			...context!,
+			registry: createPagesRegistry({
+				pages: [
+					{ schemaType: 'page', pathnameField: 'routing.pathname.current' },
+				],
+			}),
+		}
+		native.types.get('page')!.fields = [
+			{
+				name: 'routing',
+				type: {
+					fields: [
+						{
+							name: 'pathname',
+							type: { name: 'slug', options: { __sanityKitUrlField: true } },
+						},
+					],
+				},
+			},
+		]
+		const value = resolveContext({
+			_type: 'page',
+			routing: { pathname: { current: '' } },
+		})
+		expect(value.options[0]?.granted).toBe(true)
+	})
+	it('rejects a malformed intermediate URL field without overwriting template content', () => {
+		contextual()
+		expect(
+			resolveContext({ _type: 'page', pathname: 'invalid object' }).options[0]
+				?.granted,
+		).toBe(false)
+	})
+
+	it('does not send malformed folder hints to native template resolution', () => {
+		contextual('page', '/about/')
+		const value = render()
+		expect(value.options).toEqual([])
+		expect(value.configurationErrors[0]).toContain('valid folder path')
 	})
 })

@@ -2,13 +2,20 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add **Create page** and **Create index page** to ordinary folder menus, reusing
+  explicitly registered templates and native permission checks. Carry the folder
+  suggestion in native Studio intent parameters without adding document metadata.
+  Leave child-page URLs unset until a final segment is supplied; send index URL
+  proposals through the existing guarded URL autosave. Preserve unrelated template
+  values and reject conflicting URL defaults. Global creation remains unchanged.
+
 - Allow `create` to register one or several explicit page type/template choices,
   with optional display labels. Check actual Studio templates and native create
   permissions, open a single allowed choice directly, or show a chooser for
   several. Match Studio’s compact creator popover with search and native icons.
   Keep missing-template and failed-access feedback local to creation.
-  Native Sanity owns document IDs and initialization; the kit does not supply
-  URLs, template parameters, or automatic publication in this slice.
+  Native Sanity owns document IDs and initialization; the header action does not
+  supply URL defaults or publish the new draft.
 
 - Add **New subfolder** to the Pages options menu and ordinary folder menus.
   Reuse the URL field's folder-creation modal, with root as the starting parent

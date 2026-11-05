@@ -227,6 +227,37 @@ when one exists. It does not add an origin or save the proposal. A whole-field
 read-only setting disables editing, generation, folder selection, creation, and
 autosave, while leaving copying available.
 
+### Starting a page from a folder
+
+Pages can open a new draft from an ordinary folder’s menu. **Create page** sets
+that folder as the URL field’s starting selection, but leaves the final segment
+blank. For `/about`, entering `team` then proposes `/about/team`. The field saves
+nothing while that final segment is missing; `/about` is already the folder’s
+index URL and must not be used as a placeholder for a child page.
+
+**Create index page** proposes the folder URL itself. It passes through the same
+access, uniqueness, folder-preservation, and read-only checks as a typed URL before
+native draft autosave receives a patch. An index URL that another page already
+uses remains a local proposal with the normal validation feedback. There is no
+automatic publication or guaranteed URL reservation.
+
+The starting location arrives in Sanity’s native create-intent parameters and is
+kept in the Studio URL, not in an extra document field. The input checks that this
+context belongs to the selected document, schema type, template, and URL-field
+path before using it. Existing stored or template URL values are not overwritten.
+The ordinary header Create page action has no folder hint and keeps its existing
+behavior. These contextual actions require the kit-managed URL field; a plain
+string path input cannot consume the hint.
+
+Creation hints are temporary starting values, not a durable creation history.
+Reopening an old creation URL after an external writer completely removes the
+URL field can apply its original hint again. A normally opened document has no
+creation hint. Existing nonempty URLs are always preserved.
+An empty template URL object can receive the hint before its first save. On
+reload, an already-saved empty object is left alone because it may represent an
+editor's deliberate choice to clear it. A title-only draft with no URL field
+still receives its original folder suggestion.
+
 ### Create an empty folder
 
 Choose the **+** button at the top right of the folder picker (its tooltip is
@@ -398,16 +429,17 @@ not verify.
 
 ## How the source fits together
 
-| File                                             | Responsibility                                                                                 |
-| ------------------------------------------------ | ---------------------------------------------------------------------------------------------- |
-| `src/studio/url/field.tsx`                       | Connect the schema, native validation, and custom input.                                       |
-| `src/studio/url/input.tsx`                       | Keep a local proposal, render controls, and emit the final native patch.                       |
-| `src/studio/url/validation.tsx`                  | Pass local proposal errors to Sanity’s native field header without changing stored validation. |
-| `src/studio/url/folder-picker.tsx`               | Folder selection and the creation modal; delegates persistence to its caller.                  |
-| `src/studio/url/edit.ts`                         | Read access/version evidence, check conflicts, and preserve folders before a patch.            |
-| `src/studio/url/generate.ts`                     | Bind native source/generator callbacks to the shared authoring helper.                         |
-| `src/studio/url/conflicts.ts` and `is-unique.ts` | Check occupancy and adapt it to native slug validation.                                        |
-| `src/studio/folders/`                            | Read, plan, and save organizational folder records.                                            |
+| File                                                                | Responsibility                                                                                                      |
+| ------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| `src/studio/url/field.tsx`                                          | Connect the schema, native validation, and custom input.                                                            |
+| `src/studio/url/input.tsx`                                          | Keep a local proposal, render controls, and emit the final native patch.                                            |
+| `src/studio/url/creation-context.ts` and `creation-presentation.ts` | Validate the private location hint and read it from native Presentation parameters; do not write document metadata. |
+| `src/studio/url/validation.tsx`                                     | Pass local proposal errors to Sanity’s native field header without changing stored validation.                      |
+| `src/studio/url/folder-picker.tsx`                                  | Folder selection and the creation modal; delegates persistence to its caller.                                       |
+| `src/studio/url/edit.ts`                                            | Read access/version evidence, check conflicts, and preserve folders before a patch.                                 |
+| `src/studio/url/generate.ts`                                        | Bind native source/generator callbacks to the shared authoring helper.                                              |
+| `src/studio/url/conflicts.ts` and `is-unique.ts`                    | Check occupancy and adapt it to native slug validation.                                                             |
+| `src/studio/folders/`                                               | Read, plan, and save organizational folder records.                                                                 |
 
 Publication has a separate path through the code:
 

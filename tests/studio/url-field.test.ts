@@ -96,6 +96,17 @@ function fixture(
 }
 
 describe('native URL field definition', () => {
+	it('marks the compiled field as able to consume guarded creation hints', () => {
+		const { field } = fixture()
+		const schema = createSchema({
+			name: 'creation-marker',
+			types: [defineType({ name: 'page', type: 'document', fields: [field] })],
+		})
+		const page = schema.get('page')
+		expect(
+			page && 'fields' in page ? page.fields[0]?.type.options : undefined,
+		).toMatchObject({ __sanityKitUrlField: true })
+	})
 	it('accepts full page paths, the homepage, and collection slugs through native validation', async () => {
 		const { validate } = fixture()
 		for (const value of [

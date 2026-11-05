@@ -34,8 +34,10 @@ export function BrowserStateProvider({
 		collectionQueries: {},
 		collectionScroll: {},
 	})
-	const [pageCreateAnchor, setPageCreateAnchor] =
-		useState<HTMLButtonElement | null>(null)
+	const [pageCreation, setPageCreation] = useState<{
+		anchor: HTMLButtonElement
+		context?: { mode: 'page' | 'index'; pathname: string }
+	}>()
 	const [syncOpen, setSyncOpen] = useState(false)
 	const [folderCreation, setFolderCreation] = useState<FolderCreationRequest>()
 	const [pickerOpen, setPickerOpen] = useState(false)
@@ -89,8 +91,9 @@ export function BrowserStateProvider({
 				runtime,
 				dataStore,
 				folderSync,
-				showPageCreate: (anchor) => setPageCreateAnchor(anchor),
-				pageCreateOpen: Boolean(pageCreateAnchor),
+				showPageCreate: (anchor, context) =>
+					setPageCreation({ anchor, ...(context ? { context } : {}) }),
+				pageCreateOpen: Boolean(pageCreation),
 				showFolderSync: () => {
 					setPickerOpen(false)
 					setSyncOpen(true)
@@ -106,13 +109,14 @@ export function BrowserStateProvider({
 			}}
 		>
 			{children}
-			{pageCreateAnchor && (
+			{pageCreation && (
 				<PageCreateDialog
 					runtime={runtime}
-					anchor={pageCreateAnchor}
-					onClose={() => setPageCreateAnchor(null)}
+					anchor={pageCreation.anchor}
+					context={pageCreation.context}
+					onClose={() => setPageCreation(undefined)}
 					onCreated={() => {
-						setPageCreateAnchor(null)
+						setPageCreation(undefined)
 						setPickerOpen(false)
 					}}
 				/>

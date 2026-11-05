@@ -191,6 +191,180 @@ describe('URL input draft workflow', () => {
 			input.dispatchEvent(new Event('input', { bubbles: true }))
 		})
 	}
+	function createInFolder(mode: 'page' | 'index', pathname = '/about') {
+		native.document = {
+			_id: 'drafts.page1',
+			_type: 'page',
+			title: 'Hello World',
+		}
+		props = {
+			...props,
+			value: undefined,
+			creationContext: {
+				version: 1,
+				mode,
+				pathname,
+				schemaType: 'page',
+				templateId: 'page',
+				pathField: 'pathname.current',
+			},
+		}
+	}
+	it('uses a creation folder as a prefix without silently creating its index page', async () => {
+		createInFolder('page')
+		await render()
+		expect(button('Folder /about')).toBeDefined()
+		expect(host.querySelector('input')!.value).toBe('')
+		await save()
+		expect(native.prepare).not.toHaveBeenCalled()
+		await type('team')
+		await save()
+		expect(native.prepare).toHaveBeenCalledWith(
+			expect.objectContaining({ storedValue: '/about/team' }),
+			expect.any(AbortSignal),
+		)
+	})
+	it.each(['/about', '/about/company', '/'])(
+		'checks and autosaves an explicit index proposal for %s',
+		async (pathname) => {
+			createInFolder('index', pathname)
+			await render()
+			expect(native.onChange).not.toHaveBeenCalled()
+			await save()
+			expect(native.prepare).toHaveBeenCalledWith(
+				expect.objectContaining({ storedValue: pathname }),
+				expect.any(AbortSignal),
+			)
+			expect(native.onChange).toHaveBeenCalledWith([
+				{ type: 'setIfMissing', value: { _type: 'slug' } },
+				{ type: 'set', value: pathname, path: ['current'] },
+			])
+		},
+	)
+	it('does not bypass conflict checks when initializing an index page', async () => {
+		createInFolder('index')
+		native.prepare.mockResolvedValue({
+			status: 'blocked',
+			reason: 'url-in-use',
+		})
+		await render()
+		await save()
+		expect(native.onChange).not.toHaveBeenCalled()
+		expect(host.textContent).toContain('Another document already uses this URL')
+	})
+	it('honors read-only and access restrictions for index proposals', async () => {
+		createInFolder('index')
+		props = { ...props, readOnly: true }
+		await render()
+		await save()
+		expect(native.prepare).not.toHaveBeenCalled()
+		props = { ...props, readOnly: false }
+		native.load.mockResolvedValue({
+			status: 'blocked',
+			reason: 'access-unavailable',
+		})
+		native.document = { ...native.document, _id: 'drafts.page2' }
+		await render()
+		await save()
+		expect(native.prepare).not.toHaveBeenCalled()
+		expect(native.onChange).not.toHaveBeenCalled()
+	})
+	it('preserves an existing template URL and does not restore the hint after it is cleared', async () => {
+		createInFolder('index')
+		props = { ...props, value: { _type: 'slug', current: '/template/page' } }
+		await render()
+		expect(host.querySelector('input')!.value).toBe('page')
+		await save()
+		expect(native.prepare).not.toHaveBeenCalled()
+		props = { ...props, value: undefined }
+		await render()
+		await save()
+		expect(host.querySelector('input')!.value).toBe('')
+		expect(native.onChange).not.toHaveBeenCalled()
+	})
+	it('keeps a normal page prefix when a title save adds a draft revision', async () => {
+		createInFolder('page')
+		await render()
+		native.document = { ...native.document, _rev: 'saved-title' }
+		await render()
+		expect(button('Folder /about')).toBeDefined()
+		await save()
+		expect(native.onChange).not.toHaveBeenCalled()
+	})
+	it.each([
+		{ _type: 'slug' as const },
+		{ _type: 'slug' as const, current: '' },
+	])(
+		'does not reapply an index hint after reloading an explicitly empty URL: %j',
+		async (value) => {
+			createInFolder('index')
+			props = { ...props, value }
+			native.document = {
+				...native.document,
+				_rev: 'existing-draft',
+				_createdAt: '2026-11-05T00:00:00Z',
+				pathname: value,
+			}
+			await render()
+			await save()
+			expect(host.querySelector('input')!.value).toBe('')
+			expect(button('Folder /')).toBeDefined()
+			expect(native.prepare).not.toHaveBeenCalled()
+			expect(native.onChange).not.toHaveBeenCalled()
+		},
+	)
+	it('restores a title-only draft creation folder after reload while its URL remains absent', async () => {
+		createInFolder('page')
+		native.document = {
+			...native.document,
+			_rev: 'saved-title',
+			_createdAt: '2026-11-05T00:00:00Z',
+		}
+		await render()
+		expect(button('Folder /about')).toBeDefined()
+		await save()
+		expect(native.onChange).not.toHaveBeenCalled()
+	})
+	it.each([
+		{ _type: 'slug' as const },
+		{ _type: 'slug' as const, current: '' },
+	])(
+		'uses an empty native template default for an index proposal and keeps it through the first title save: %j',
+		async (value) => {
+			createInFolder('index')
+			props = { ...props, value }
+			native.document = { ...native.document, pathname: value }
+			await render()
+			expect(host.querySelector('input')!.value).toBe('about')
+			native.document = {
+				...native.document,
+				_rev: 'saved-title',
+				_createdAt: '2026-11-05T00:00:00Z',
+			}
+			await render()
+			await save()
+			expect(native.prepare).toHaveBeenCalledWith(
+				expect.objectContaining({ storedValue: '/about' }),
+				expect.any(AbortSignal),
+			)
+			expect(native.onChange).toHaveBeenCalled()
+		},
+	)
+	it('uses a normal page creation folder with an empty template URL without creating its index', async () => {
+		createInFolder('page')
+		props = { ...props, value: { _type: 'slug', current: '' } }
+		await render()
+		expect(button('Folder /about')).toBeDefined()
+		expect(host.querySelector('input')!.value).toBe('')
+		await save()
+		expect(native.prepare).not.toHaveBeenCalled()
+		await type('team')
+		await save()
+		expect(native.prepare).toHaveBeenCalledWith(
+			expect.objectContaining({ storedValue: '/about/team' }),
+			expect.any(AbortSignal),
+		)
+	})
 	it('does not turn a missing URL into home after failed generation', async () => {
 		native.document = { _id: 'drafts.page1', _type: 'page' }
 		props = { ...props, value: undefined }

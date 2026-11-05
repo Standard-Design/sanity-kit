@@ -40,6 +40,7 @@ import { FolderPicker } from './folder-picker.js'
 import { useUrlAutosave } from './autosave.js'
 import { useUrlFieldError } from './validation.js'
 import { useUrlPublicationState } from './publication-state.js'
+import type { SanityKitCreationContext } from './creation-context.js'
 
 // Studio's document-saving indicator uses the sync symbol with a one-second
 // eased rotation. Use the public icon rather than importing its private status
@@ -167,6 +168,8 @@ export interface SanityUrlInputProps extends SlugInputProps {
 	routes: PagesRouteConfig
 	/** Paired with the kit's publication action; never a live URL write. */
 	allowPublishedDrafts?: boolean
+	/** Native create-intent hint, already matched to this form by the adapter. */
+	creationContext?: SanityKitCreationContext
 }
 
 function message(reason: string): string {
@@ -215,6 +218,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 	const {
 		routes,
 		allowPublishedDrafts,
+		creationContext,
 		value,
 		schemaType,
 		path,
@@ -262,15 +266,57 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 		expected.length === path.length + 1 &&
 		path.every((part, index) => part === expected[index])
 	const stored = value?.current
+	// Empty template defaults can receive a hint before the first document save.
+	// Once mounted, a title save must not cancel that proposal by adding _createdAt.
+	// On reload, a persisted empty object is treated as an editor's deliberate
+	// empty value. A fully removed field remains indistinguishable from a fresh
+	// title-only draft when reopening an old creation URL.
+	const persisted = typeof document?._createdAt === 'string'
+	const emptyTemplateDefault = value !== undefined && !stored && !persisted
+	const creationSession = useRef({
+		identity: documentIdentity,
+		emptyTemplateDefault,
+		hadValue: !!stored || (value !== undefined && persisted),
+	})
+	if (creationSession.current.identity !== documentIdentity)
+		creationSession.current = {
+			identity: documentIdentity,
+			emptyTemplateDefault,
+			hadValue: !!stored || (value !== undefined && persisted),
+		}
+	if (
+		stored ||
+		(value !== undefined &&
+			persisted &&
+			!creationSession.current.emptyTemplateDefault)
+	)
+		creationSession.current.hadValue = true
+	const creation =
+		!creationSession.current.hadValue &&
+		validField &&
+		!registered?.collection &&
+		creationContext?.schemaType === document?._type &&
+		creationContext.pathField === registered?.pathField
+			? creationContext
+			: undefined
+	const indexProposal =
+		creation?.mode === 'index'
+			? authoring.prepareStored(document?._type, creation.pathname)
+			: undefined
+	const creatingIndex = indexProposal?.ok === true
 	const initial = authoring.prepareStored(document?._type, stored)
 	const initialPrefix = initial.ok
 		? initial.value.url.prefix
-		: (registered?.routePrefix ?? '/')
+		: indexProposal?.ok
+			? indexProposal.value.url.prefix
+			: (creation?.pathname ?? registered?.routePrefix ?? '/')
 	const initialSlug = initial.ok
 		? initial.value.url.slug
-		: registered?.pathMode === 'slug'
-			? (stored ?? '')
-			: ''
+		: indexProposal?.ok
+			? indexProposal.value.url.slug
+			: registered?.pathMode === 'slug'
+				? (stored ?? '')
+				: ''
 	const [prefix, setPrefix] = useState(initialPrefix)
 	const [slug, setSlug] = useState(initialSlug)
 	const [fullPath, setFullPath] = useState<string | undefined>(
@@ -282,7 +328,10 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 		useState<Awaited<ReturnType<typeof editor.load>>>()
 	const [refresh, setRefresh] = useState(0)
 	const [busy, setBusy] = useState(false)
-	const [touched, setTouched] = useState(false)
+	const [touched, setTouched] = useState(creatingIndex)
+	const [indexHomepage, setIndexHomepage] = useState(
+		creatingIndex && creation?.pathname === '/',
+	)
 	const [notice, setNotice] = useState<string>()
 	const operation = useRef(0)
 	const editSequence = useRef(0)
@@ -314,7 +363,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 		!loaded.editable
 	const candidate =
 		fullPath === undefined
-			? slug === '' && stored !== '/'
+			? slug === '' && stored !== '/' && !indexHomepage
 				? { ok: false as const, reason: 'missing-slug' as const }
 				: authoring.prepareParts(document?._type, { prefix, slug })
 			: authoring.prepareStored(document?._type, fullPath)
@@ -361,7 +410,8 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 			echoedEdit !== editSequence.current
 		)
 			return
-		setTouched(false)
+		setTouched(creatingIndex)
+		setIndexHomepage(creatingIndex && creation?.pathname === '/')
 		setPrefix(initialPrefix)
 		setSlug(initialSlug)
 		setFullPath(
@@ -376,6 +426,8 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 		initialSlug,
 		initial.ok,
 		registered?.pathMode,
+		creatingIndex,
+		creation?.pathname,
 	])
 	useEffect(() => {
 		operation.current += 1
@@ -406,6 +458,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 	}, [editor, documentIdentity, refresh])
 
 	function changed() {
+		setIndexHomepage(false)
 		editSequence.current += 1
 		operation.current += 1
 		generation.invalidate()

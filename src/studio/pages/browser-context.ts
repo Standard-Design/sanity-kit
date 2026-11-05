@@ -23,7 +23,10 @@ export const BrowserContext = createContext<{
 	runtime: PagesRuntime
 	dataStore: ReturnType<typeof createPagesDataStore>
 	folderSync: ReturnType<typeof createFolderSyncController>
-	showPageCreate: (anchor: HTMLButtonElement) => void
+	showPageCreate: (
+		anchor: HTMLButtonElement,
+		context?: { mode: 'page' | 'index'; pathname: string },
+	) => void
 	pageCreateOpen: boolean
 	showFolderSync: () => void
 	showFolderCreate: (request: FolderCreationRequest) => void

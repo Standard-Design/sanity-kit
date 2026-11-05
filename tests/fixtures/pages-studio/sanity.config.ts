@@ -19,7 +19,20 @@ export default defineConfig(
 			title: 'SanityKit Pages — integration proof',
 			projectId,
 			dataset,
-			schema: { types: schemaTypes },
+			schema: {
+				types: schemaTypes,
+				templates: (previous) => [
+					...previous,
+					{
+						id: 'kitProofPageWithIntro',
+						title: 'Page with intro',
+						schemaType: 'kitProofPage',
+						value: {
+							body: 'This introduction comes from the selected page template.',
+						},
+					},
+				],
+			},
 			plugins: [
 				structureTool({ title: 'Fixture content' }),
 				pagesTool({
@@ -33,6 +46,11 @@ export default defineConfig(
 							schemaType: 'kitProofPage',
 							templateId: 'kitProofPage',
 							title: 'Page',
+						},
+						{
+							schemaType: 'kitProofPage',
+							templateId: 'kitProofPageWithIntro',
+							title: 'Page with intro',
 						},
 						{
 							schemaType: 'kitProofLanding',

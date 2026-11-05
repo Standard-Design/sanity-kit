@@ -57,8 +57,30 @@ vi.mock('sanity', () => {
 		schemaType: name,
 		title: name === 'kitProofPage' ? 'Page' : 'Landing page',
 	}))
+	templates.push({
+		id: 'kitProofPageWithIntro',
+		schemaType: 'kitProofPage',
+		title: 'Page with intro',
+	})
 	const schema = {
-		get: (name: string) => ({ name, title: name, type: { name: 'document' } }),
+		get: (name: string) => ({
+			name,
+			title: name,
+			type: { name: 'document' },
+			fields:
+				name === 'kitProofPage'
+					? [
+							{
+								name: 'pathname',
+								type: {
+									name: 'slug',
+									options: { __sanityKitUrlField: true },
+									fields: [{ name: 'current', type: { name: 'string' } }],
+								},
+							},
+						]
+					: [],
+		}),
 	}
 	return {
 		useTemplates: () => templates,
@@ -74,6 +96,7 @@ vi.mock('sanity', () => {
 				templateItems.map((item) => ({
 					...item,
 					granted: !native.deniedTemplates.includes(item.templateId),
+					resolvedInitialValue: { _type: item.schemaType },
 				})),
 				native.creationLoading,
 			]
@@ -1332,7 +1355,10 @@ describe('Pages Presentation adapter lifecycle', () => {
 		})
 	})
 
-	async function renderCreationChoices() {
+	async function renderCreationChoices(
+		invalidSibling = false,
+		extraTemplate = false,
+	) {
 		const runtime = createPagesRuntime({
 			name: 'pages-proof',
 			previewUrl: 'https://example.test',
@@ -1351,6 +1377,17 @@ describe('Pages Presentation adapter lifecycle', () => {
 					templateId: 'kitProofLanding',
 					title: 'Landing page',
 				},
+				...(extraTemplate
+					? [
+							{
+								schemaType: 'kitProofPage',
+								templateId: 'kitProofPageWithIntro',
+							},
+						]
+					: []),
+				...(invalidSibling
+					? [{ schemaType: 'kitProofPage', templateId: 'missing' }]
+					: []),
 			],
 		})
 		await act(async () => {
@@ -1417,6 +1454,178 @@ describe('Pages Presentation adapter lifecycle', () => {
 		})
 		expect(document.querySelector('[role="dialog"]')).toBeNull()
 		expect(document.activeElement).toBe(button('Create page'))
+	})
+
+	it.each(['page', 'index'] as const)(
+		'passes a %s folder proposal to native creation without an ID or URL write',
+		async (mode) => {
+			savedFolderFixture(['/empty'])
+			await renderCreationChoices()
+			await click('Folder options: /empty')
+			await act(async () => {
+				const item = [
+					...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+				].find(
+					(element) =>
+						element.textContent ===
+						(mode === 'page' ? 'Create page' : 'Create index page'),
+				)!
+				expect(item).toBeTruthy()
+				expect(item.dataset.ui).toBe('MenuItem')
+				item.click()
+				await Promise.resolve()
+			})
+			expect(native.intent).toHaveBeenCalledExactlyOnceWith('create', [
+				{
+					type: 'kitProofPage',
+					template: 'kitProofPage',
+					presentation: 'pages-proof',
+				},
+				{
+					sanityKitCreation: {
+						version: 1,
+						mode,
+						pathname: '/empty',
+						schemaType: 'kitProofPage',
+						templateId: 'kitProofPage',
+						pathField: 'pathname.current',
+					},
+				},
+			])
+			expect(native.mutate).not.toHaveBeenCalled()
+		},
+	)
+
+	it.each(['page', 'index'] as const)(
+		'offers multiple templates for folder %s creation and preserves the chosen template context',
+		async (mode) => {
+			savedFolderFixture(['/empty'])
+			await renderCreationChoices(false, true)
+			await click('Folder options: /empty')
+			await act(async () => {
+				const item = [
+					...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+				].find(
+					(element) =>
+						element.textContent ===
+						(mode === 'page' ? 'Create page' : 'Create index page'),
+				)!
+				expect(item.dataset.ui).toBe('MenuGroup')
+				item.click()
+				await Promise.resolve()
+			})
+			expect(button('Standard page')).toBeTruthy()
+			expect(button('Page with intro')).toBeTruthy()
+			expect(
+				document.querySelector('[data-ui="MenuGroup__popover"]')?.textContent,
+			).not.toContain('Landing page')
+			expect(native.intent).not.toHaveBeenCalled()
+			await click('Page with intro')
+			expect(native.intent).toHaveBeenCalledExactlyOnceWith('create', [
+				{
+					type: 'kitProofPage',
+					template: 'kitProofPageWithIntro',
+					presentation: 'pages-proof',
+				},
+				{
+					sanityKitCreation: {
+						version: 1,
+						mode,
+						pathname: '/empty',
+						schemaType: 'kitProofPage',
+						templateId: 'kitProofPageWithIntro',
+						pathField: 'pathname.current',
+					},
+				},
+			])
+			expect(native.mutate).not.toHaveBeenCalled()
+			for (const [request] of native.request.mock.calls) {
+				expect(request.url).toBe('/projects/testproject/datasets/test/acl')
+				expect(request.method ?? 'GET').toBe('GET')
+				expect(request.body).toBeUndefined()
+			}
+		},
+	)
+
+	it('uses a direct folder action when only one of several templates is permitted', async () => {
+		savedFolderFixture(['/empty'])
+		native.deniedTemplates = ['kitProofPageWithIntro']
+		await renderCreationChoices(false, true)
+		await click('Folder options: /empty')
+		const item = [
+			...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+		].find((element) => element.textContent === 'Create page')!
+		expect(item.dataset.ui).toBe('MenuItem')
+		await act(async () => {
+			item.click()
+			await Promise.resolve()
+		})
+		expect(native.intent).toHaveBeenCalledOnce()
+		expect(native.intent.mock.calls[0]?.[1]).toMatchObject([
+			{ template: 'kitProofPage' },
+			{ sanityKitCreation: { pathname: '/empty' } },
+		])
+	})
+
+	it('keeps the folder submenu open after a failed handoff and retries the selected template', async () => {
+		savedFolderFixture(['/empty'])
+		await renderCreationChoices(false, true)
+		await click('Folder options: /empty')
+		const item = [
+			...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+		].find((element) => element.textContent === 'Create page')!
+		await act(async () => {
+			item.click()
+			await Promise.resolve()
+		})
+		native.intent.mockImplementationOnce(() => {
+			throw new Error('Navigation unavailable')
+		})
+		await click('Page with intro')
+		expect(document.body.textContent).toContain(
+			'The new page could not be opened.',
+		)
+		expect(
+			document.querySelector('[data-ui="MenuGroup__popover"]'),
+		).toBeTruthy()
+		await click('Retry')
+		expect(native.intent).toHaveBeenCalledTimes(2)
+		expect(native.intent.mock.calls[1]?.[1]).toMatchObject([
+			{ template: 'kitProofPageWithIntro' },
+			{ sanityKitCreation: { pathname: '/empty' } },
+		])
+		expect(button('Folder options: /empty').getAttribute('aria-expanded')).toBe(
+			'false',
+		)
+	})
+
+	it('allows a valid contextual template when another registered template is invalid', async () => {
+		savedFolderFixture(['/empty'])
+		await renderCreationChoices(true)
+		await click('Folder options: /empty')
+		await act(async () => {
+			const item = [
+				...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+			].find((element) => element.textContent === 'Create page')!
+			item.click()
+			await Promise.resolve()
+		})
+		expect(native.intent).toHaveBeenCalledTimes(1)
+		expect(native.intent.mock.calls[0]?.[1]).toMatchObject([
+			{ template: 'kitProofPage' },
+			{ sanityKitCreation: { pathname: '/empty' } },
+		])
+	})
+
+	it('disables creating a folder index when that exact page is already visible', async () => {
+		savedFolderFixture(['/about'])
+		await renderCreationChoices()
+		await click('Folder options: /about')
+		const item = [
+			...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+		].find((element) => element.textContent === 'Create index page')!
+		expect((item as HTMLButtonElement).disabled).toBe(true)
+		expect(native.intent).not.toHaveBeenCalled()
 	})
 
 	it('opens the only permitted template even when several are registered', async () => {

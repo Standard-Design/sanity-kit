@@ -834,3 +834,52 @@ the blank native editor. No fields were entered or published. Austin reviewed
 and accepted the picker notice. Both temporary failure injections were removed,
 restoring normal page creation. An automated regression checks the failed
 handoff, selected-template retry, and absence of kit writes.
+
+## November 5 — creating pages from folders
+
+Used the `/testing/nested` folder menu in the live Standard Stack development
+Studio. **Create page** opened a native Proof page draft with that folder selected
+and an empty final segment. Entering a title left its URL empty; **Generate** then
+saved `/testing/nested/contextual-page-proof` through the normal URL checks.
+The draft appeared beneath the folder in the navigator.
+
+**Create index page** opened another native draft and saved `/testing/nested`
+through the same guarded URL-field workflow. Named it **Contextual index proof**.
+Once it appeared in the tree, the folder's Create index page action was disabled.
+The URL field showed `/testing/` plus `nested`, consistent with its stored full
+pathname. Both test drafts remain available for review; neither was published.
+Creating either draft kept the existing preview until its navigator row was
+selected. The general header creator still offers both Page and Landing page;
+folder actions admit only Page because it uses the kit-managed URL field.
+
+Automated checks cover template defaults, stale permission results, incompatible
+or unregistered templates, read-only/access guards, URL conflicts, and malformed
+or mismatched creation hints. Live restricted-role failures, concurrent URL
+creation, and failed network writes were not induced in this pass.
+
+### Multiple templates inside a folder (2026-11-05)
+
+Added **Page with intro**, a second native template for the Proof page document
+type. It supplies starter body text and uses the same kit-managed URL field.
+The general creator now offers Page, Page with intro, and Landing page; folder
+creation offers the first two. Landing page keeps its alternate plain-string
+URL field and remains available only through general creation.
+
+In the `/empty-folder-test` folder, both **Create page** and **Create index page**
+opened the template chooser. Selecting Page with intro preserved its starter
+body text. Ordinary creation selected `/empty-folder-test/` and left the slug
+empty. Index creation saved `/empty-folder-test` and appeared in the navigator
+as a draft, named **Template chooser index proof**. Neither flow changed the
+website preview or published content. Automated browser tests cover both
+chooser paths and verify the chosen template and folder context in the native
+create intent.
+
+### Native folder creation submenus (2026-11-05)
+
+With several eligible templates, folder creation now opens Sanity UI's native
+submenu beside the folder actions. Live checks confirmed the parent menu stays
+visible, Right Arrow enters the template list, Left Arrow returns to the parent,
+and searching narrows the choices without creating anything. One eligible
+template remains a direct action, including when permissions exclude the other
+registered templates. Automated coverage also checks that a failed handoff
+keeps its Retry notice in the submenu and retries the selected template.

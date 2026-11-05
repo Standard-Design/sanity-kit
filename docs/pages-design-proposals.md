@@ -271,7 +271,8 @@ loader is also approved; editor/publication controls remain future work.
 Approved October 31: explicitly register eligible types/templates, skip the chooser
 for one eligible choice, offer it for several, and create drafts without
 auto-publishing. The first native-permission chooser is now implemented; its
-configuration remains unreleased and ready for review.
+configuration remains unreleased. The folder/index extension below is now
+implemented locally and under review.
 
 `create` accepts one `{schemaType, templateId, title?}` object or an array of
 those objects. The original object form remains valid. Omission or an empty
@@ -285,20 +286,30 @@ determine available choices. One allowed choice opens directly; several show a
 chooser; none explains why creation is unavailable. Configuration problems and
 permission-read failures stay within the action rather than crashing Pages.
 Native Sanity still owns IDs, initialization, and final permission enforcement.
-This slice supplies no template parameters, URL defaults, or automatic publish.
-Parameterized and singleton templates, along with `liveEdit` document types,
-are rejected so this action remains a new-draft creation flow.
+Header creation supplies no URL defaults. Templates with declared parameters,
+singleton templates, and `liveEdit` document types remain unsupported so this
+action stays a new-draft creation flow.
 
-The following contextual defaults and parameter integration remain proposals:
+The current folder/index implementation adds these behaviors:
 
-Folder-menu creation prefills that prefix, header creation uses root as the
-suggested starting location, and index creation supplies the exact folder URL.
-Collection creation offers only its registered item choices. Preserve unrelated
-template values; fail configuration checks when URL initialization rules conflict
-rather than silently overriding them. Create drafts, never auto-publish.
+- Folder-menu **Create page** suggests that folder in the URL field and leaves the
+  final segment empty. It saves no pathname until an editor supplies or generates
+  that segment. A folder-only value must not accidentally become an index page.
+- **Create index page** proposes the exact folder URL through the URL field’s
+  existing access, conflict, and folder-preservation checks before native autosave.
+  A visible index disables this menu action; current raw URL checks still run
+  before saving. This does not reserve a URL against every possible external writer.
+- Only ordinary page types using the kit-managed URL field participate. Global
+  creation continues to offer registered types with other supported path fields.
+- Native create-intent parameters carry a private, validated location hint in the
+  Studio URL. The document stores neither a folder reference nor extra creation
+  metadata. Existing template URL values are never silently replaced, and unrelated
+  initial values remain Sanity’s responsibility.
+- Native Studio still generates document IDs. These actions create drafts and do
+  not publish them. Read-only, permission, and version safeguards still apply.
 
-The concrete template-parameter API and generation rules need review before
-implementation. Ordinary document IDs remain Sanity-generated.
+Collection-specific creation and a public API for consumer-defined template
+parameters remain proposals. The private location hint is not that public API.
 
 ## Remaining review items
 
@@ -312,8 +323,9 @@ implementation. Ordinary document IDs remain Sanity-generated.
 - Public field/settings APIs, their failure codes, and creation template parameters.
   The private field factory is implemented. The fixed-prefix resolver, root value,
   native source/context integration and Sanity-compatible generation are decided.
-  The parameter-free creation chooser is implemented; contextual defaults and
-  template parameters remain to be designed.
+  The parameter-free creation chooser and private folder/index context are
+  implemented. Collection-specific choices and consumer-defined template
+  parameters remain to be designed.
 - Publication/redirect/cache integration and its acceptance gates. The separate
   [redirect design](redirects-design.md) now covers this subsystem; acknowledging
   that design is not approval of every proposed status, query, or failure default.
