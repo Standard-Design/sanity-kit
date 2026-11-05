@@ -1,7 +1,7 @@
 /**
  * Save new folders, or explicitly adopt folders already implied by page URLs.
  * Reads and planning remain separate modules; this boundary is the first one
- * allowed to send a mutation. It cannot remove folders or change page URLs.
+ * allowed to send a mutation. Removal is empty-only; page URLs never change.
  * See docs/folders.md for access assumptions and uncertain-outcome recovery.
  */
 import type { PagesRouteConfig } from '../../url/registry.js'
@@ -27,6 +27,7 @@ type FolderMutation =
 				insert: { after: 'folders[-1]'; items: readonly FolderRecord[] }
 			}
 	  }
+	| { patch: { id: string; ifRevisionID: string; unset: readonly string[] } }
 
 /** Structural types accept the app's or Studio's SDK without an instance check. */
 export interface FolderWriteClient {
@@ -67,6 +68,7 @@ export type FolderWriteResult =
 			readonly status: 'written'
 			readonly transactionId: string
 			readonly added: readonly FolderRecord[]
+			readonly removed?: readonly FolderRecord[]
 	  }
 	| { readonly status: 'unchanged'; readonly added: readonly FolderRecord[] }
 	| Extract<FolderLoadResult, { status: 'unavailable' }>
@@ -80,6 +82,7 @@ export type FolderWriteResult =
 			readonly reason: 'request-failed' | 'invalid-response'
 			/** Reconcile these keys and paths before deciding whether to try again. */
 			readonly added: readonly FolderRecord[]
+			readonly removed?: readonly FolderRecord[]
 	  }
 
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -116,17 +119,28 @@ export function createFolderWriter(
 		if (plan.operation === 'unchanged')
 			return { status: 'unchanged', added: [] }
 		// A strict create refuses an already-created singleton. Updates append only
-		// new records; existing records and all unknown metadata remain untouched.
+		// new records. Empty removal unsets only the reviewed key; every other
+		// record and all unknown metadata remain untouched.
 		const mutation: FolderMutation =
 			plan.guard.kind === 'absent'
 				? { create: plan.document }
-				: {
-						patch: {
-							id: planner.id,
-							ifRevisionID: plan.guard.revision,
-							insert: { after: 'folders[-1]', items: plan.added },
-						},
-					}
+				: plan.removed.length
+					? {
+							patch: {
+								id: planner.id,
+								ifRevisionID: plan.guard.revision,
+								unset: plan.removed.map(
+									(folder) => `folders[_key==${JSON.stringify(folder._key)}]`,
+								),
+							},
+						}
+					: {
+							patch: {
+								id: planner.id,
+								ifRevisionID: plan.guard.revision,
+								insert: { after: 'folders[-1]', items: plan.added },
+							},
+						}
 		const body = { mutations: [mutation] }
 		// Bound the actual request too, including patch and revision overhead. This
 		// cannot measure unrelated metadata retained in the existing Sanity record.
@@ -177,6 +191,7 @@ export function createFolderWriter(
 				status: 'outcome-unknown',
 				reason: 'request-failed',
 				added: plan.added,
+				...(plan.removed.length ? { removed: plan.removed } : {}),
 			}
 		}
 		if (
@@ -193,18 +208,20 @@ export function createFolderWriter(
 				status: 'outcome-unknown',
 				reason: 'invalid-response',
 				added: plan.added,
+				...(plan.removed.length ? { removed: plan.removed } : {}),
 			}
 		// A confirmed write stays confirmed even if the signal was cancelled late.
 		return {
 			status: 'written',
 			transactionId: response.transactionId,
 			added: plan.added,
+			...(plan.removed.length ? { removed: plan.removed } : {}),
 		}
 	}
 
 	async function run(
 		request: FolderWriteRequest,
-		operation: 'create' | 'synchronize',
+		operation: 'create' | 'synchronize' | 'remove',
 		pathname?: unknown,
 	): Promise<FolderWriteResult> {
 		const signal = request?.signal
@@ -218,7 +235,13 @@ export function createFolderWriter(
 						snapshot.snapshot.inventory,
 						createKey,
 					)
-				: planner.planCreate(snapshot.snapshot.registry, pathname, createKey)
+				: operation === 'remove'
+					? planner.planRemove(
+							snapshot.snapshot.registry,
+							pathname,
+							snapshot.snapshot.inventory,
+						)
+					: planner.planCreate(snapshot.snapshot.registry, pathname, createKey)
 		if (!plan.ok) return { status: 'invalid', reason: plan.reason }
 		return save(plan.value, signal)
 	}
@@ -227,5 +250,7 @@ export function createFolderWriter(
 		create: (request: FolderWriteRequest & { readonly pathname: string }) =>
 			run(request, 'create', request?.pathname),
 		synchronize: (request: FolderWriteRequest) => run(request, 'synchronize'),
+		remove: (request: FolderWriteRequest & { readonly pathname: string }) =>
+			run(request, 'remove', request?.pathname),
 	})
 }

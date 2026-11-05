@@ -2,7 +2,7 @@
  * Schedule the Pages safety fallback without making browsing wait for it.
  * One controller belongs to the tool, not to a perspective or navigator panel.
  * The synchronizer owns access checks and uncertain writes; this layer coalesces
- * checks and keeps explicit creation from overlapping them. Failed operations
+ * checks and keeps explicit creation and removal from overlapping them. Failures
  * pause automatic checks until an editor retries. See docs/folders.md.
  */
 import type { FolderSyncResult } from './synchronize.js'
@@ -17,6 +17,10 @@ export function createFolderSyncController(
 		pathname: string,
 		signal?: AbortSignal,
 	) => Promise<FolderSyncResult>,
+	remove?: (
+		pathname: string,
+		signal?: AbortSignal,
+	) => Promise<FolderSyncResult>,
 ) {
 	let active = false
 	let paused = false
@@ -24,7 +28,7 @@ export function createFolderSyncController(
 	let lastStarted = -Infinity
 	let timer: ReturnType<typeof setTimeout> | undefined
 	let running: Promise<FolderSyncResult> | undefined
-	let runningKind: 'sync' | 'create' | undefined
+	let runningKind: 'sync' | 'create' | 'remove' | undefined
 	let abort: AbortController | undefined
 
 	function schedule() {
@@ -38,11 +42,12 @@ export function createFolderSyncController(
 			void run()
 		}, delay)
 	}
-	function run(pathname?: string): Promise<FolderSyncResult> {
-		const kind = pathname === undefined ? 'sync' : 'create'
+	function run(pathname?: string, removing = false): Promise<FolderSyncResult> {
+		const kind =
+			pathname === undefined ? 'sync' : removing ? 'remove' : 'create'
 		if (running) {
 			// Only equivalent synchronization requests can share a result. A
-			// creation result must never imply that another path was created.
+			// write result must never imply that a different action succeeded.
 			return kind === 'sync' && runningKind === 'sync'
 				? running
 				: Promise.resolve({ status: 'blocked', reason: 'busy' })
@@ -56,7 +61,9 @@ export function createFolderSyncController(
 			.then(() =>
 				pathname === undefined
 					? synchronize(controller.signal)
-					: create!(pathname, controller.signal),
+					: removing
+						? remove!(pathname, controller.signal)
+						: create!(pathname, controller.signal),
 			)
 			.catch((): FolderSyncResult => ({
 				status: 'blocked',
@@ -117,6 +124,16 @@ export function createFolderSyncController(
 			clearTimeout(timer)
 			timer = undefined
 			return run(pathname)
+		},
+		/** Removal uses the same queue so background adoption cannot overlap it. */
+		remove(pathname: string): Promise<FolderSyncResult> {
+			if (!active)
+				return Promise.resolve({ status: 'blocked', reason: 'aborted' })
+			if (!remove)
+				return Promise.resolve({ status: 'blocked', reason: 'configuration' })
+			clearTimeout(timer)
+			timer = undefined
+			return run(pathname, true)
 		},
 	}
 }

@@ -337,7 +337,7 @@ export function createFolderPlanner(options: {
 	/**
 	 * Empty-only removal considers all supplied versions and saved descendants.
 	 * Completeness/access are caller assertions, not permission or freshness proof.
-	 * A future writer must recheck and coordinate writes; this plan is not race-proof.
+	 * The writer rechecks current evidence; this plan alone is not race-proof.
 	 */
 	function planRemove(
 		input: unknown,

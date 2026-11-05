@@ -8,12 +8,12 @@ The implementation supplies **private validation and planning functions** in
 `src/studio/folders/planner.ts` and a **private read layer** in
 `src/studio/folders/load.ts`. The planner works on supplied records and returns a
 proposed change. The read layer can fetch the evidence needed by those plans.
-The approved **private additive writer** in `src/studio/folders/write.ts`
-connects reads and plans to explicit create and synchronize actions.
-It can save new folder records but cannot remove folders or change page URLs.
+The **private writer** in `src/studio/folders/write.ts` connects reads and plans
+to create, synchronize, and empty-folder removal actions. It changes folder
+records only; it never changes page content or URLs.
 None of these foundation modules registers a Studio schema. There is no public
-package export for these functions yet. The approved read-only navigator
-integration displays saved folders alongside folders inferred from page URLs.
+package export for these functions yet. The navigator displays saved folders
+alongside folders inferred from page URLs.
 The private [URL field](url-field.md) calls the writer from explicit folder
 creation and draft URL changes. Pages also offers folder creation directly from
 the navigator, using the same creation modal and guarded writer.
@@ -125,9 +125,8 @@ Use `null` only when a read has established that the registry does not exist.
 `undefined`, malformed records, a different registry ID, and unsupported schema versions are
 errors. An unreadable registry must not be mistaken for an empty one.
 
-The current synchronization helper runs only when called; the display reader
-does not call it. The planned background coordinator will invoke it as a safety
-fallback under the policy above. A page at `/about/company/team` contributes
+The synchronization helper runs when called; the display reader does not call
+it. The tool coordinator invokes it as a safety fallback under the policy above. A page at `/about/company/team` contributes
 the parent folders `/about` and `/about/company`; it does not alone establish
 `/about/company/team` as a folder. Once adopted, those parents remain saved even
 if the page later moves away. Removing them requires a separate empty-folder
@@ -229,18 +228,19 @@ never adopts inferred folders. Cancellation and request failures never become an
 empty registry or a successful emptiness check.
 
 The returned registry contains only the planner's owned fields and `_rev`.
-Additional source metadata is left untouched but is not returned. The additive
-writer appends missing records instead of replacing existing records with this
-snapshot. A single request reduces separate-read drift;
+Additional source metadata is left untouched but is not returned. The writer
+appends missing records or unsets a selected key instead of replacing the registry
+with this snapshot. A single request reduces separate-read drift;
 it does not lock documents against later changes. Successful reads cannot prove
-ACL visibility or make a future removal race-free.
+ACL visibility or make removal race-free.
 
 ## Displaying saved folders in Pages
 
 The navigator has a smaller read than the operation loader above. It reads only
 the fixed registry document, validates it, and merges the saved paths with folders
 inferred from the visible pages. It does not fetch every raw page version, adopt
-folders, or call the writer. Opening the tool is read-only.
+folders, or call the writer. The separate tool coordinator can schedule the
+background synchronization described below.
 
 Saved folders remain visible with no pages inside. A real page at a saved folder's
 path appears first inside it, using the page's title. Matching inferred and saved
@@ -282,15 +282,17 @@ already stored on the registry; Sanity still enforces its own document limits.
 
 ## Saving new folders and adopting existing paths
 
-The private `createFolderWriter({routes}, client)` returns two explicit actions:
+The private `createFolderWriter({routes}, client)` returns three explicit actions:
 
 - `create({pathname, readAccess, signal?})` saves the requested folder and any
   missing ancestors. Its input must already be canonical.
 - `synchronize({readAccess, signal?})` saves folders implied by registered page
   URLs and collection-group ancestors. It only adds records; it never prunes
   folders that no longer have pages.
+- `remove({pathname, readAccess, signal?})` removes one saved folder after checking
+  that no registered page version, subfolder, or collection location uses it.
 
-Both use the same `readAccess` assertion as the reader. Unknown access refuses
+All three use the same `readAccess` assertion as the reader. Unknown access refuses
 the operation. The client must configure a concrete dataset name; dataset aliases
 are not supported by this private writer. Constructing it does not read or write anything. Each
 action loads new evidence and runs the planner itself; callers cannot submit
@@ -300,7 +302,8 @@ Settings changes require a new writer with newly resolved routes.
 If the registry is absent, the writer uses strict `create`. It never uses
 `createIfNotExists`, which could silently succeed without adding the desired
 folders when another editor creates the singleton first. For an existing registry,
-the writer checks its exact `_rev` and appends only new records. Existing array
+the writer checks its exact `_rev`. Creation and synchronization append new
+records. Removal unsets only the selected array item by its stable `_key`. Other
 items, keys, and unrelated document or item metadata remain untouched. An action
 with nothing to add returns `unchanged` without sending a mutation. This describes
 the read snapshot, not a guarantee that the dataset cannot change afterward.
@@ -325,12 +328,12 @@ The writer returns explicit states:
 
 | Status            | Meaning                                                                                                                    |
 | ----------------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `written`         | Sanity acknowledged the expected registry mutation. Includes its transaction ID and added keys/paths.                      |
+| `written`         | Sanity acknowledged the expected registry mutation. Includes its transaction ID and added or removed keys/paths.           |
 | `unchanged`       | The fresh read showed no missing folders. No mutation was sent.                                                            |
 | `unavailable`     | Reading failed, access was not confirmed, or cancellation happened before mutation dispatch. Includes the reader's reason. |
 | `invalid`         | Planning or request-size validation refused the action. No mutation was sent.                                              |
 | `rejected`        | A recognized API rejection reports a conflict, permission failure, or rejected request. No automatic retry follows.        |
-| `outcome-unknown` | A mutation was attempted but its result could not be confirmed. Includes the attempted added keys/paths.                   |
+| `outcome-unknown` | A mutation was attempted but its result could not be confirmed. Includes the attempted added or removed keys/paths.        |
 
 A timeout, lost response, cancellation after dispatch, server error, or malformed
 acknowledgment can leave the outcome unknown. The write may have succeeded. The
@@ -342,9 +345,9 @@ that cancellation undid a committed mutation. See
 
 Do not blindly retry an uncertain result. Read the registry again and reconcile
 the returned keys and paths with the current data; a delayed or stale query alone
-cannot prove the first operation failed. The private writer does not yet provide
-an automated reconciliation workflow or UI. Its reported transaction ID is only
-available after a valid acknowledgment.
+cannot prove the first operation failed. The lower-level writer returns evidence for the caller to reconcile. The Pages
+service provides the recovery described below. Its reported transaction ID is
+only available after a valid acknowledgment.
 
 Tests in `tests/studio/folders-write.test.ts` cover result handling, size bounds,
 and SDK retry behavior. `tests/studio/folder-persistence.integration.test.ts` runs
@@ -394,8 +397,8 @@ saved-folder list. It does not create a page, change a document's URL, or move
 the website preview. The dialog belongs to the tool rather than the disposable
 page picker, so opening it from the picker can close that picker safely.
 
-Navigator creation and synchronization share one tool-scoped service and
-coordinator. They do not make overlapping writes. Creation checks current read
+Navigator creation, removal, and synchronization share one tool-scoped service
+and coordinator. They do not make overlapping writes. Creation checks current read
 access and a fresh inventory before using the additive writer. Sanity enforces
 write permissions. A failed or uncertain save stays visible for recovery; an
 uncertain result must be reconciled before another write can be attempted.
@@ -449,24 +452,62 @@ registry revision guard. Imports should continue to run explicit synchronization
 rather than relying on an editor eventually opening Pages.
 
 Implementation: `synchronize.ts` owns access checks and uncertain-write recovery
-for tool-managed folder creation and synchronization; `sync-controller.ts` owns
+for tool-managed folder creation, removal, and synchronization; `sync-controller.ts` owns
 their coordination and background scheduling. The Pages tool provider owns their
 shared lifetime. `folder-sync-dialog.tsx` provides manual sync feedback. These
 helpers remain private implementation details, not new package exports.
 
+## Removing an empty folder
+
+Choose **Remove folder** from an ordinary folder's `…` menu. A confirmation
+shows the full folder path. The action is disabled when the loaded tree already
+shows contents. That is only a convenience: confirming always checks fresh data,
+including versions that are not visible in the current preview perspective.
+
+An empty folder has no page at its exact URL, no page below it, no saved
+subfolder, and no configured collection group at or below it. Drafts, published
+documents, and release versions all count. The check covers every registered URL
+type, not just the currently loaded navigator rows. Unknown read access,
+incomplete or malformed evidence, and exceeded inventory bounds stop removal.
+Root `/` and collection groups are not ordinary saved folders and cannot be
+removed this way.
+
+After the checks, one revision-guarded patch removes only the selected folder
+record. It does not delete documents, change URLs, publish anything, or create
+redirects. Successful removal refreshes the navigator and shows **Folder removed**.
+If contents were found, the dialog explains why removal was blocked. Permission,
+connection, and changed-registry notices explain how to try again safely.
+
+Removal shares the tool's coordinator with creation and background sync, so those
+operations cannot overlap in that tool instance. If a write response is lost,
+**Check again** reads the registry rather than resending the mutation. The service
+retains the removed key and path: it proceeds only when neither is present. A new
+record at the same path, or the same key at another path, is not evidence that it
+is safe to repeat the removal. The operation remains unconfirmed and further
+folder writes pause. This protects replacement folders from an accidental retry.
+The pending evidence survives dialog closure for the tool's lifetime, but is not
+a durable receipt across a full Studio reload. If checking stays inconclusive, a
+developer can inspect the registry and request history before starting a new
+operation.
+
+A registry revision protects against concurrent folder edits, not against a new
+page written after the occupancy query. External writers and other Studio
+sessions can still introduce a page in that interval. Removal never touches that
+page; URL inference keeps it discoverable, and synchronization can restore its
+folder record. This is a fresh, guarded empty-folder check, not a database-wide
+lock on page creation. Imports and external writers should still synchronize
+folders after their changes.
+
+`folder-remove-dialog.tsx` owns confirmation and feedback; the writer and planner
+own the removal rule. Dedicated offline tests in `folders-remove.test.ts` and
+`folder-remove-dialog.test.tsx` cover version occupancy, access, revision conflicts,
+uncertain outcomes, replacement identities, and editor feedback. These checks do
+not replace live Studio acceptance.
+
 ## What remains before the finished folder workflow
 
-A registry revision check only protects the registry. It does not stop another
-writer from creating a page in a folder after the occupancy check. The persistence
-design still needs coordinated URL changes, appropriate permissions, freshness
-checks, and a policy for external writers. This slice does not claim database-wide
-uniqueness or race-free empty-folder removal. For this reason the writer has no
-remove action, even though the pure planner can describe one.
-
-Folder rename, moving descendants, redirects for bulk moves, empty-folder removal,
-contextual page/index creation, private-schema registration, and broader live
-acceptance remain separate work. Navigator folder creation is implemented; it
-does not imply that those other folder-menu actions are available.
-These planners use the supplied route registration. A separate private collection-settings loader
-is now approved. Coordinating settings changes with folder operations remains
-future work.
+Folder rename, moving descendants, redirects for bulk moves, private-schema
+registration, and broader live acceptance remain separate work. Empty-folder
+removal does not move or remove populated folders. The planners use supplied
+route registration; coordinating mutable collection settings with folder
+operations remains future work.

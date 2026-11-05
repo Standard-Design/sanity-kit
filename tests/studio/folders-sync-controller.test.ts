@@ -34,6 +34,67 @@ afterEach(() => {
 })
 
 describe('Pages folder synchronization scheduling', () => {
+	it('serializes removal with creation and synchronization, then refreshes the list', async () => {
+		const pending = deferred()
+		const remove = vi.fn().mockReturnValue(pending.promise)
+		const create = vi.fn().mockResolvedValue(synced(1))
+		const synchronize = vi.fn().mockResolvedValue(synced())
+		const refresh = vi.fn()
+		const controller = createFolderSyncController(
+			synchronize,
+			refresh,
+			create,
+			remove,
+		)
+		controller.start()
+		const first = controller.remove('/empty')
+		expect(await controller.remove('/other')).toEqual({
+			status: 'blocked',
+			reason: 'busy',
+		})
+		expect(await controller.create('/new')).toEqual({
+			status: 'blocked',
+			reason: 'busy',
+		})
+		expect(await controller.manual()).toEqual({
+			status: 'blocked',
+			reason: 'busy',
+		})
+		await vi.advanceTimersByTimeAsync(FOLDER_SYNC_INTERVAL_MS * 2)
+		expect(synchronize).not.toHaveBeenCalled()
+		expect(create).not.toHaveBeenCalled()
+		pending.resolve(synced(1))
+		await first
+		expect(remove).toHaveBeenCalledExactlyOnceWith(
+			'/empty',
+			expect.any(AbortSignal),
+		)
+		expect(refresh).toHaveBeenCalledOnce()
+		controller.stop()
+		expect(await controller.remove('/other')).toEqual({
+			status: 'blocked',
+			reason: 'aborted',
+		})
+	})
+	it('pauses automatic checks after an uncertain removal', async () => {
+		const synchronize = vi.fn().mockResolvedValue(synced())
+		const remove = vi
+			.fn()
+			.mockResolvedValue({ status: 'blocked', reason: 'outcome-unknown' })
+		const controller = createFolderSyncController(
+			synchronize,
+			vi.fn(),
+			undefined,
+			remove,
+		)
+		controller.start()
+		await controller.remove('/empty')
+		controller.notify()
+		await vi.advanceTimersByTimeAsync(FOLDER_SYNC_INTERVAL_MS * 2)
+		expect(synchronize).not.toHaveBeenCalled()
+		controller.stop()
+	})
+
 	it('creates explicitly and refreshes folders without consuming a queued sync', async () => {
 		const synchronize = vi.fn().mockResolvedValue(synced())
 		const create = vi.fn().mockResolvedValue(synced(2))

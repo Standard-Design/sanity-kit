@@ -1,8 +1,22 @@
-/** Plain-language recovery advice shared by folder creation and synchronization. */
+/** Plain-language recovery advice shared by folder creation, removal, and synchronization. */
 export function folderOperationExplanation(
 	reason: string,
-	operation: 'sync' | 'create' = 'sync',
+	operation: 'sync' | 'create' | 'remove' = 'sync',
 ) {
+	if (operation === 'remove') {
+		if (reason === 'folder-not-empty')
+			return 'This folder contains a page or subfolder, possibly in another draft or release. Move its contents first, then try removing the empty folder again. No pages or URLs have changed.'
+		if (reason === 'folder-not-found')
+			return 'This folder is no longer in the saved folder list. Close this dialog and check the navigator again.'
+		if (reason === 'outcome-unknown')
+			return 'We could not confirm whether the folder was removed. Check again before making another folder change. Checking does not repeat the removal. If the result stays unconfirmed, ask a developer or Studio administrator to check the saved folder records.'
+		if (reason === 'unknown-read-access')
+			return 'To confirm this folder is empty, we need to read all registered pages and their versions, plus the saved folder list. Ask someone who manages project permissions to check the requirements below.'
+		if (reason === 'collection-group')
+			return 'This folder contains a collection location and cannot be removed. Change the collection configuration first.'
+		if (reason === 'limit-exceeded')
+			return 'The folder list or page inventory is too large for this check. A developer needs to arrange a complete check before this folder can be removed.'
+	}
 	if (operation === 'create' && reason === 'outcome-unknown')
 		return 'We could not confirm whether the folder was saved. Close this dialog and choose Pages → … → Sync folders to check before trying another change.'
 	if (operation === 'create' && reason === 'unknown-read-access')

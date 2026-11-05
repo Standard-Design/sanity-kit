@@ -990,12 +990,21 @@ closed. The coordinator and menu action are now implemented in local builds.
 See [automatic synchronization and recovery](folders.md#automatic-synchronization-and-manual-recovery)
 for timing, access checks, and failure behavior.
 
-The approved first removal workflow is **Remove folder** in the navigator, only
-for an empty folder: no index page, descendant pages, or saved subfolders. It
-removes the folder record without changing document URLs. The operation must
-recheck occupancy before writing; the currently displayed tree alone is not
-sufficient, particularly when drafts
-and published content differ. Concurrency safeguards remain to be designed.
+**Remove folder** is available in an ordinary folder's navigator menu. It opens
+a confirmation showing the full path, and removes only an empty saved folder:
+no index page, descendant pages, saved subfolders, or collection locations. The
+menu disables it when loaded contents are already visible. On confirmation, the
+service checks fresh access and all registered draft, published, and release
+versions before a revision-guarded registry patch. It does not change page URLs
+or content and needs no redirects.
+
+Removal shares the coordinator with creation and sync. Failed checks explain the
+problem in the dialog. An uncertain write offers **Check again**, which reconciles
+its key and path without resending the removal. The registry guard cannot lock
+out a page created concurrently by another writer; inference and synchronization
+keep that page discoverable and can restore its folder. See
+[empty-folder removal](folders.md#removing-an-empty-folder) for the checks and
+recovery limits.
 
 Removing a populated folder and lifting its descendants into its parent is a
 different bulk URL-change operation, not simple folder removal. It can create

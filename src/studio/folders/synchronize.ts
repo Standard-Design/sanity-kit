@@ -1,7 +1,7 @@
 /**
  * The Pages tool's checked folder creation and synchronization boundary. It adds
- * organizational folders without changing a page URL. Scheduling and feedback belong to
- * the Pages coordinator; this service handles fresh access evidence and uncertain
+ * organizational folders and removes empty ones without changing a page URL.
+ * Scheduling and feedback belong to the Pages coordinator; this service handles fresh access evidence and uncertain
  * writes. Keep one instance for the tool's lifetime. See docs/folders.md.
  */
 import {
@@ -30,7 +30,7 @@ const blocked = (reason: string): FolderSyncResult => ({
 /**
  * Never derives permission or completeness from the visible navigator. Every run
  * checks the current account's read grants, then lets the existing writer load a
- * complete raw inventory and make one revision-guarded, additive write if needed.
+ * complete raw inventory and make one revision-guarded registry write if needed.
  * The server enforces write permission; a read-only account can still confirm
  * that no folders need saving. No failed write is automatically retried here.
  */
@@ -73,9 +73,10 @@ export function createFolderSynchronizer(
 		)
 	let busy = false
 	let uncertain: readonly FolderRecord[] = []
+	let uncertainRemoval: readonly FolderRecord[] = []
 
 	async function run(
-		operation: 'synchronize' | 'create',
+		operation: 'synchronize' | 'create' | 'remove',
 		signal?: AbortSignal,
 		pathname?: string,
 	): Promise<FolderSyncResult> {
@@ -104,7 +105,7 @@ export function createFolderSynchronizer(
 					accessIssues: access.issues,
 				}
 
-			if (uncertain.length) {
+			if (uncertain.length || uncertainRemoval.length) {
 				const loaded = await load(
 					{ readAccess: 'all-registered-versions' },
 					signal,
@@ -123,7 +124,26 @@ export function createFolderSynchronizer(
 					)
 				)
 					return blocked('outcome-unknown')
+				// Absence of both identity and pathname confirms the observed removal.
+				// If a replacement now occupies the same path, never remove it as
+				// an automatic retry of the previous editor-confirmed operation.
+				if (
+					uncertainRemoval.some((pending) =>
+						saved.some(
+							(folder) =>
+								folder._key === pending._key ||
+								folder.pathname === pending.pathname,
+						),
+					)
+				)
+					return blocked('outcome-unknown')
+				const removedRequested = uncertainRemoval.some(
+					(folder) => folder.pathname === pathname,
+				)
 				uncertain = []
+				uncertainRemoval = []
+				if (operation === 'remove' && removedRequested)
+					return { status: 'synced', count: 1 }
 			}
 
 			const request = {
@@ -133,15 +153,28 @@ export function createFolderSynchronizer(
 			const result =
 				operation === 'create'
 					? await writer.create({ ...request, pathname: pathname! })
-					: await writer.synchronize(request)
+					: operation === 'remove'
+						? await writer.remove({ ...request, pathname: pathname! })
+						: await writer.synchronize(request)
 			// Do not discard this result when the signal becomes aborted. The write
 			// may already have committed; retain uncertainty or the acknowledgment.
 			if (result.status === 'outcome-unknown') {
 				uncertain = result.added.map((folder) => ({ ...folder }))
+				uncertainRemoval = (result.removed ?? []).map((folder) => ({
+					...folder,
+				}))
 				return blocked('outcome-unknown')
 			}
 			if (result.status === 'written' || result.status === 'unchanged')
-				return { status: 'synced', count: result.added.length }
+				return {
+					status: 'synced',
+					count:
+						operation === 'remove'
+							? result.status === 'written'
+								? (result.removed?.length ?? 0)
+								: 0
+							: result.added.length,
+				}
 			return blocked(result.reason)
 		} finally {
 			busy = false
@@ -154,5 +187,7 @@ export function createFolderSynchronizer(
 		// synchronization, and vice versa, until exact saved records are found.
 		create: (pathname: string, signal?: AbortSignal) =>
 			run('create', signal, pathname),
+		remove: (pathname: string, signal?: AbortSignal) =>
+			run('remove', signal, pathname),
 	})
 }

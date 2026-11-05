@@ -9,6 +9,7 @@ import {
 import { useClient } from 'sanity'
 import { createFolderSynchronizer } from '../folders/synchronize.js'
 import { createFolderSyncController } from '../folders/sync-controller.js'
+import { FolderRemoveDialog } from './folder-remove-dialog.js'
 import { FolderSyncDialog } from './folder-sync-dialog.js'
 import {
 	PagesFolderCreateDialog,
@@ -39,6 +40,7 @@ export function BrowserStateProvider({
 		context?: { mode: 'page' | 'index'; pathname: string }
 	}>()
 	const [syncOpen, setSyncOpen] = useState(false)
+	const [folderRemoval, setFolderRemoval] = useState<string>()
 	const [folderCreation, setFolderCreation] = useState<FolderCreationRequest>()
 	const [pickerOpen, setPickerOpen] = useState(false)
 	const client = useClient({ apiVersion: '2026-10-01' })
@@ -75,6 +77,14 @@ export function BrowserStateProvider({
 				}
 				return getService().create(pathname, signal)
 			},
+			async (pathname, signal) => {
+				try {
+					getService()
+				} catch {
+					return { status: 'blocked', reason: 'configuration' }
+				}
+				return getService().remove(pathname, signal)
+			},
 		)
 	}, [runtime, client, dataStore])
 	useEffect(() => {
@@ -94,6 +104,10 @@ export function BrowserStateProvider({
 				showPageCreate: (anchor, context) =>
 					setPageCreation({ anchor, ...(context ? { context } : {}) }),
 				pageCreateOpen: Boolean(pageCreation),
+				showFolderRemove: (pathname) => {
+					setPickerOpen(false)
+					setFolderRemoval(pathname)
+				},
 				showFolderSync: () => {
 					setPickerOpen(false)
 					setSyncOpen(true)
@@ -142,6 +156,13 @@ export function BrowserStateProvider({
 						}))
 						setFolderCreation(undefined)
 					}}
+				/>
+			)}
+			{folderRemoval && (
+				<FolderRemoveDialog
+					pathname={folderRemoval}
+					folderSync={folderSync}
+					onClose={() => setFolderRemoval(undefined)}
 				/>
 			)}
 			{syncOpen && (

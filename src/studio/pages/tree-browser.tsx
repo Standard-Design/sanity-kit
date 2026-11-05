@@ -11,6 +11,7 @@ import { ChevronDownIcon } from '@sanity/icons/ChevronDown'
 import { ChevronRightIcon } from '@sanity/icons/ChevronRight'
 import { FolderIcon } from '@sanity/icons/Folder'
 import { EllipsisHorizontalIcon } from '@sanity/icons/EllipsisHorizontal'
+import { TrashIcon } from '@sanity/icons/Trash'
 import { AddIcon } from '@sanity/icons/Add'
 import { Menu, MenuButton, MenuItem } from '@sanity/ui/menu'
 import { TooltipButton } from './tooltip.js'
@@ -129,7 +130,8 @@ function FolderActions({
 	disabled: boolean
 	onCreateFolder: (pathname: string) => void
 }) {
-	const { runtime, setPickerOpen, showPageCreate } = useBrowserState()
+	const { runtime, setPickerOpen, showPageCreate, showFolderRemove } =
+		useBrowserState()
 	const trigger = useRef<HTMLButtonElement>(null)
 	const [menuVersion, setMenuVersion] = useState(0)
 	const hasPageChoices = runtime.createChoices.some((choice) =>
@@ -187,6 +189,13 @@ function FolderActions({
 						text="New subfolder"
 						icon={AddIcon}
 						onClick={() => onCreateFolder(node.pathname)}
+					/>
+					<MenuItem
+						text="Remove folder"
+						icon={TrashIcon}
+						tone="critical"
+						disabled={disabled || node.children.length > 0}
+						onClick={() => showFolderRemove(node.pathname)}
 					/>
 				</Menu>
 			}
