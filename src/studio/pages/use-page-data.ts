@@ -1,7 +1,7 @@
 /** Read the native perspective inside Presentation, not above its provider. */
 import { useSyncExternalStore } from 'react'
 import { useClient, usePerspective } from 'sanity'
-import { useBrowserState } from './browser-state.js'
+import { useBrowserState } from './browser-context.js'
 
 export function usePagesDataSession() {
 	const { dataStore } = useBrowserState()

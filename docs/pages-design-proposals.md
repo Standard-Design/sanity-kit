@@ -6,10 +6,10 @@ preview/publication lifecycle, and the field/helper/creation behavior described
 below are approved directions. **They are not all implemented features or
 finalized public APIs.** The fixed-prefix [URL resolver](url.md), private
 authoring preparation, native generation bridge, and conflict checks are approved
-locally. The new private [draft URL field](url-field.md) now connects those pieces
-to editor controls and guarded folder persistence; this implementation is under
-review. Reviewed live-URL moves and the broader publication workflows remain
-future work. Remaining proposals are explicitly identified. See also
+locally. The private [draft URL field](url-field.md) connects those pieces
+to editor controls and guarded folder persistence. Reviewed single-page URL
+publishing with redirects is implemented. Bulk folder moves and collection-prefix
+publication remain future work. Remaining proposals are explicitly identified. See also
 [the Pages guide](pages.md#design-decisions-and-remaining-work).
 
 The private [folder validation and planning](folders.md) foundation is approved.
@@ -32,6 +32,12 @@ The private folder writer for creation and explicit synchronization is approved.
 It adds records using guarded writes; it does not remove or rename folders or
 change page URLs. Read-only navigator support for saved folders is also approved.
 The private draft URL field adds creation controls and prepares native URL patches.
+The navigator now offers **New subfolder** from the Pages menu and ordinary
+folder menus, using the same modal and additive writer. Root is the initial parent
+from the Pages menu and can be changed; a folder menu locks the parent to that
+folder, displaying its full path as text. This saves folder
+metadata without creating or moving pages. Creation and synchronization share
+tool-level coordination and recovery after uncertain writes.
 See [Folders](folders.md) for write results, display behavior, and recovery limits.
 
 The private [Studio generation bridge](url.md#studio-generation-context-internal)
@@ -115,8 +121,10 @@ This supersedes the earlier “opening Pages never writes” policy and the prop
 to omit a synchronization menu action. The background coordinator and menu action
 are now implemented; see [Folders](folders.md#automatic-synchronization-and-manual-recovery)
 for the current timing, access, and recovery contract.
-Folder creation controls, setup/import maintenance, and automatic URL-write
-integration remain part of the intended workflow.
+Folder creation controls in the URL field and navigator, plus preservation of
+folders during URL-field saves, are implemented. Setup and import maintenance
+should still run explicit synchronization rather than depending on an editor
+opening Pages later.
 
 Synchronization is additive. It never removes unused folders. Empty-only removal
 checks index pages, descendant pages, and saved subfolders across relevant drafts,
@@ -281,14 +289,15 @@ implementation. Ordinary document IDs remain Sanity-generated.
 
 ## Remaining review items
 
-- Folder schema registration, background synchronization, and removal/rename
-  coordination. The singleton, bounded reads, additive writer, and saved-folder
-  display are implemented and approved; the draft field integration is under review.
+- Folder schema registration and removal/rename coordination. The singleton,
+  bounded reads, additive writer, saved-folder display, URL-field creation,
+  background synchronization, and navigator folder-creation controls are
+  implemented. Removal and bulk moves need their own safety checks.
 - Settings registration/schema and any optional overview shortcut. Draft preview
   followed by reviewed publication is decided; action and cache coordination need
   implementation design.
 - Public field/settings APIs, their failure codes, and creation template parameters.
-  The private field factory is under review. The fixed-prefix resolver, root value,
+  The private field factory is implemented. The fixed-prefix resolver, root value,
   native source/context integration, Sanity-compatible generation, and chooser
   direction are decided.
 - Publication/redirect/cache integration and its acceptance gates. The separate

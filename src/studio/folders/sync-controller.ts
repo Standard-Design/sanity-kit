@@ -1,8 +1,9 @@
 /**
  * Schedule the Pages safety fallback without making browsing wait for it.
  * One controller belongs to the tool, not to a perspective or navigator panel.
- * The synchronizer owns access checks and uncertain writes; this layer only
- * coalesces requests and pauses automatic checks after a failure. See docs/folders.md.
+ * The synchronizer owns access checks and uncertain writes; this layer coalesces
+ * checks and keeps explicit creation from overlapping them. Failed operations
+ * pause automatic checks until an editor retries. See docs/folders.md.
  */
 import type { FolderSyncResult } from './synchronize.js'
 
@@ -12,6 +13,10 @@ export const FOLDER_SYNC_INTERVAL_MS = 60_000
 export function createFolderSyncController(
 	synchronize: (signal?: AbortSignal) => Promise<FolderSyncResult>,
 	onSaved: () => void,
+	create?: (
+		pathname: string,
+		signal?: AbortSignal,
+	) => Promise<FolderSyncResult>,
 ) {
 	let active = false
 	let paused = false
@@ -19,6 +24,7 @@ export function createFolderSyncController(
 	let lastStarted = -Infinity
 	let timer: ReturnType<typeof setTimeout> | undefined
 	let running: Promise<FolderSyncResult> | undefined
+	let runningKind: 'sync' | 'create' | undefined
 	let abort: AbortController | undefined
 
 	function schedule() {
@@ -32,14 +38,26 @@ export function createFolderSyncController(
 			void run()
 		}, delay)
 	}
-	function run(): Promise<FolderSyncResult> {
-		if (running) return running
-		queued = false
+	function run(pathname?: string): Promise<FolderSyncResult> {
+		const kind = pathname === undefined ? 'sync' : 'create'
+		if (running) {
+			// Only equivalent synchronization requests can share a result. A
+			// creation result must never imply that another path was created.
+			return kind === 'sync' && runningKind === 'sync'
+				? running
+				: Promise.resolve({ status: 'blocked', reason: 'busy' })
+		}
+		if (kind === 'sync') queued = false
 		lastStarted = Date.now()
 		const controller = new AbortController()
 		abort = controller
+		runningKind = kind
 		running = Promise.resolve()
-			.then(() => synchronize(controller.signal))
+			.then(() =>
+				pathname === undefined
+					? synchronize(controller.signal)
+					: create!(pathname, controller.signal),
+			)
 			.catch((): FolderSyncResult => ({
 				status: 'blocked',
 				reason: 'request-failed',
@@ -59,6 +77,7 @@ export function createFolderSyncController(
 			})
 			.finally(() => {
 				running = undefined
+				runningKind = undefined
 				abort = undefined
 				schedule()
 			})
@@ -88,6 +107,16 @@ export function createFolderSyncController(
 			timer = undefined
 			paused = false
 			return run()
+		},
+		/** Explicit folder creation shares the tool's write and recovery boundary. */
+		create(pathname: string): Promise<FolderSyncResult> {
+			if (!active)
+				return Promise.resolve({ status: 'blocked', reason: 'aborted' })
+			if (!create)
+				return Promise.resolve({ status: 'blocked', reason: 'configuration' })
+			clearTimeout(timer)
+			timer = undefined
+			return run(pathname)
 		},
 	}
 }

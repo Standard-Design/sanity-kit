@@ -99,12 +99,27 @@ function FolderOptions(props: FolderOptionsProps) {
 		<Popover
 			open={props.open}
 			placement="bottom-start"
+			// A parent picker is portaled outside its dialog. Measure available
+			// space against the viewport, not the dialog's short content area.
+			floatingBoundary={
+				props.triggerRef.current?.ownerDocument.documentElement ?? null
+			}
+			referenceBoundary={
+				props.triggerRef.current?.ownerDocument.documentElement ?? null
+			}
+			fallbackPlacements={['top-start', 'bottom-start']}
+			placementStrategy="autoPlacement"
 			portal
 			modal
 			constrainSize
 			content={
 				props.open ? (
-					<FocusLock returnFocus>
+					<FocusLock
+						returnFocus
+						lockProps={{
+							style: { display: 'flex', flexDirection: 'column', minHeight: 0 },
+						}}
+					>
 						<Box
 							ref={panel}
 							role="dialog"
@@ -112,6 +127,7 @@ function FolderOptions(props: FolderOptionsProps) {
 							aria-modal="true"
 							padding={1}
 							style={{
+								minHeight: 0,
 								width: 'max-content',
 								minWidth: 'min(240px, 80vw)',
 								maxWidth: 'min(400px, 90vw)',
@@ -177,94 +193,18 @@ export function FolderPicker({
 	onChange,
 	onCreate,
 }: FolderPickerProps) {
-	const id = useId()
 	const trigger = useRef<HTMLButtonElement>(null)
-	const parentTrigger = useRef<HTMLButtonElement>(null)
 	const [open, setOpen] = useState(false)
 	const [creating, setCreating] = useState(false)
-	const [parentOpen, setParentOpen] = useState(false)
-	const [parent, setParent] = useState('/')
-	const [relative, setRelative] = useState('')
-	const [busy, setBusy] = useState(false)
-	const [failure, setFailure] = useState<string>()
-	const requestEpoch = useRef(0)
-	const inFlight = useRef(false)
-	const latest = useRef({ readOnly, mounted: true })
+	const latest = useRef({ readOnly })
 	latest.current.readOnly = readOnly
 	useEffect(() => {
-		latest.current.mounted = true
-		return () => {
-			latest.current.mounted = false
-			requestEpoch.current += 1
-		}
-	}, [])
-	useEffect(() => {
 		if (readOnly) {
-			requestEpoch.current += 1
 			setOpen(false)
 			setCreating(false)
-			setParentOpen(false)
 		}
 	}, [readOnly])
 	const paths = useMemo(() => folderPaths(folders, value), [folders, value])
-	const path = destination(parent, relative)
-	const validation =
-		relative && !path
-			? 'Use URL segments separated by /. Do not start with / or use spaces, dot segments, queries, or hashes.'
-			: path && paths.includes(path)
-				? 'That folder already exists. Choose it from the folder picker.'
-				: undefined
-	function closeModal() {
-		if (busy) return
-		setCreating(false)
-		setParentOpen(false)
-		trigger.current?.focus()
-	}
-	async function create() {
-		if (
-			readOnly ||
-			latest.current.readOnly ||
-			inFlight.current ||
-			loading ||
-			error ||
-			!path ||
-			validation
-		)
-			return
-		const request = ++requestEpoch.current
-		inFlight.current = true
-		setBusy(true)
-		setFailure(undefined)
-		try {
-			const result = await onCreate(path)
-			if (
-				!latest.current.mounted ||
-				latest.current.readOnly ||
-				request !== requestEpoch.current
-			)
-				return
-			if (!result.ok) {
-				setFailure(result.message)
-				return
-			}
-			onChange(path)
-			setCreating(false)
-			setParentOpen(false)
-			trigger.current?.focus()
-		} catch {
-			if (
-				latest.current.mounted &&
-				!latest.current.readOnly &&
-				request === requestEpoch.current
-			)
-				setFailure(
-					'The folder could not be saved. Check the folder list before trying again.',
-				)
-		} finally {
-			inFlight.current = false
-			if (latest.current.mounted) setBusy(false)
-		}
-	}
 	return (
 		<>
 			<FolderOptions
@@ -319,11 +259,7 @@ export function FolderPicker({
 						padding={2}
 						disabled={loading || Boolean(error)}
 						onClick={() => {
-							requestEpoch.current += 1
 							setOpen(false)
-							setParent('/')
-							setRelative('')
-							setFailure(undefined)
 							setCreating(true)
 						}}
 					/>
@@ -358,120 +294,310 @@ export function FolderPicker({
 				}
 			/>
 			{creating && !readOnly && (
-				<Dialog
-					id={`${id}-create-folder`}
-					header="New subfolder"
-					width={1}
-					onClose={() => {
-						if (parentOpen) setParentOpen(false)
-						else closeModal()
+				<NewFolderDialog
+					folders={paths.map((pathname) => ({ pathname }))}
+					readOnly={readOnly}
+					loading={loading}
+					{...(error ? { error } : {})}
+					{...(onRetry ? { onRetry } : {})}
+					onCreate={onCreate}
+					submitLabel="Create and use folder"
+					onCreated={(pathname) => {
+						if (latest.current.readOnly) return
+						onChange(pathname)
+						setCreating(false)
+						trigger.current?.focus()
 					}}
-					footer={
-						<Flex padding={3} gap={2} justify="flex-end">
-							<Button
-								type="button"
-								mode="bleed"
-								text="Cancel"
-								onClick={closeModal}
-								disabled={busy}
-							/>
-							<Button
-								type="button"
-								tone="primary"
-								text={busy ? 'Creating folder…' : 'Create and use folder'}
-								disabled={
-									busy ||
-									loading ||
-									Boolean(error) ||
-									!path ||
-									Boolean(validation)
-								}
-								onClick={() => {
-									void create()
-								}}
-							/>
-						</Flex>
-					}
-				>
-					<Stack gap={4} padding={4}>
-						<Stack gap={3}>
-							<Text as="label" htmlFor={`${id}-name`} size={1} weight="medium">
-								Folder name or path
-							</Text>
-							<Text id={`${id}-hint`} size={1} muted>
-								Use / to add several nested folders.
-							</Text>
-							<TextInput
-								id={`${id}-name`}
-								autoFocus
-								value={relative}
-								placeholder="team or company/team"
-								spellCheck={false}
-								disabled={busy}
-								aria-describedby={`${id}-hint`}
-								onChange={(event) => {
-									setRelative(event.currentTarget.value)
-									setFailure(undefined)
-								}}
-								onKeyDown={(event) => {
-									if (event.key === 'Enter') {
-										event.preventDefault()
-										void create()
-									}
-								}}
-							/>
-						</Stack>
-						<Stack gap={3}>
-							<Text size={1} weight="medium">
-								Nest inside
-							</Text>
-							<FolderOptions
-								label="Parent folders"
-								value={parent}
-								paths={paths}
-								open={parentOpen}
-								triggerRef={parentTrigger}
-								onClose={() => setParentOpen(false)}
-								onSelect={(selected) => {
-									setParent(selected)
-									setParentOpen(false)
-									setFailure(undefined)
-								}}
-								trigger={
-									<Button
-										ref={parentTrigger}
-										width="fill"
-										justify="space-between"
-										textAlign="left"
-										type="button"
-										mode="ghost"
-										text={folderName(parent)}
-										aria-label={`Nest inside: ${parent}`}
-										aria-haspopup="dialog"
-										aria-expanded={parentOpen}
-										iconRight={ChevronDownIcon}
-										disabled={busy}
-										onClick={() => setParentOpen((current) => !current)}
-									/>
-								}
-							/>
-						</Stack>
-						<Stack gap={3}>
-							<Text size={1} muted>
-								New folder path
-							</Text>
-							<Text size={1} style={{ overflowWrap: 'anywhere' }}>
-								<output aria-live="polite">{path ?? parent}</output>
-							</Text>
-						</Stack>
-						{(failure || validation) && (
-							<Text size={1} role="alert">
-								{failure || validation}
-							</Text>
-						)}
-					</Stack>
-				</Dialog>
+					onClose={() => {
+						setCreating(false)
+						trigger.current?.focus()
+					}}
+				/>
 			)}
 		</>
+	)
+}
+
+/**
+ * Shared creation dialog for the URL field and Pages navigator. It only collects
+ * a folder destination; the caller owns access checks, persistence, and recovery.
+ * Mount a new dialog for each action so each starts with its supplied parent.
+ */
+export interface NewFolderDialogProps {
+	folders: FolderPickerProps['folders']
+	initialParent?: string
+	/** Contextual folder actions keep their chosen parent fixed. */
+	parentLocked?: boolean
+	readOnly?: boolean
+	loading?: boolean
+	error?: string
+	onRetry?: () => void
+	onCreate: FolderPickerProps['onCreate']
+	onCreated: (pathname: string) => void
+	onClose: () => void
+	submitLabel?: string
+}
+
+export function NewFolderDialog({
+	folders,
+	initialParent = '/',
+	parentLocked = false,
+	readOnly = false,
+	loading = false,
+	error,
+	onRetry,
+	onCreate,
+	onCreated,
+	onClose,
+	submitLabel = 'Create folder',
+}: NewFolderDialogProps) {
+	const id = useId()
+	const parentTrigger = useRef<HTMLButtonElement>(null)
+	const [parentOpen, setParentOpen] = useState(false)
+	const [parent, setParent] = useState(initialParent)
+	const [relative, setRelative] = useState('')
+	const [busy, setBusy] = useState(false)
+	const [failure, setFailure] = useState<string>()
+	const requestEpoch = useRef(0)
+	const inFlight = useRef(false)
+	const latest = useRef({ readOnly, mounted: true })
+	latest.current.readOnly = readOnly
+	useEffect(() => {
+		latest.current.mounted = true
+		return () => {
+			latest.current.mounted = false
+			requestEpoch.current += 1
+		}
+	}, [])
+	useEffect(() => {
+		if (readOnly) {
+			requestEpoch.current += 1
+			setParentOpen(false)
+		}
+	}, [readOnly])
+	const paths = useMemo(
+		() => folderPaths(folders, initialParent),
+		[folders, initialParent],
+	)
+	const path = destination(parent, relative)
+	const validation =
+		relative && !path
+			? 'Use URL segments separated by /. Do not start with / or use spaces, dot segments, queries, or hashes.'
+			: path && paths.includes(path)
+				? 'That folder already exists. Choose a different name or parent folder.'
+				: undefined
+	function closeModal() {
+		if (busy) return
+		setParentOpen(false)
+		onClose()
+	}
+	async function create() {
+		if (
+			readOnly ||
+			latest.current.readOnly ||
+			inFlight.current ||
+			loading ||
+			error ||
+			!path ||
+			validation
+		)
+			return
+		const request = ++requestEpoch.current
+		inFlight.current = true
+		setBusy(true)
+		setFailure(undefined)
+		try {
+			const result = await onCreate(path)
+			if (
+				!latest.current.mounted ||
+				latest.current.readOnly ||
+				request !== requestEpoch.current
+			)
+				return
+			if (!result.ok) {
+				setFailure(result.message)
+				return
+			}
+			onCreated(path)
+			setParentOpen(false)
+		} catch {
+			if (
+				latest.current.mounted &&
+				!latest.current.readOnly &&
+				request === requestEpoch.current
+			)
+				setFailure(
+					'The folder could not be saved. Check the folder list before trying again.',
+				)
+		} finally {
+			inFlight.current = false
+			if (latest.current.mounted) setBusy(false)
+		}
+	}
+	if (readOnly) return null
+	return (
+		<Dialog
+			id={`${id}-create-folder`}
+			header={
+				parentLocked
+					? `New subfolder inside ${folderName(parent)}`
+					: 'New subfolder'
+			}
+			width={1}
+			onClose={() => {
+				if (parentOpen) setParentOpen(false)
+				else closeModal()
+			}}
+			footer={
+				<Flex padding={3} gap={2} justify="flex-end">
+					<Button
+						type="button"
+						mode="bleed"
+						text="Cancel"
+						onClick={closeModal}
+						disabled={busy}
+					/>
+					<Button
+						type="button"
+						tone="primary"
+						text={busy ? 'Creating folder…' : submitLabel}
+						disabled={
+							busy ||
+							readOnly ||
+							loading ||
+							Boolean(error) ||
+							!path ||
+							Boolean(validation)
+						}
+						onClick={() => {
+							void create()
+						}}
+					/>
+				</Flex>
+			}
+		>
+			<Stack gap={4} padding={4}>
+				<Stack gap={3}>
+					<Text as="label" htmlFor={`${id}-name`} size={1} weight="medium">
+						Folder name or path
+					</Text>
+					<Text id={`${id}-hint`} size={1} muted>
+						Use / to add several nested folders.
+					</Text>
+					<TextInput
+						id={`${id}-name`}
+						autoFocus
+						value={relative}
+						placeholder="team or company/team"
+						spellCheck={false}
+						disabled={busy}
+						aria-describedby={`${id}-hint`}
+						onChange={(event) => {
+							setRelative(event.currentTarget.value)
+							setFailure(undefined)
+						}}
+						onKeyDown={(event) => {
+							if (event.key === 'Enter') {
+								event.preventDefault()
+								void create()
+							}
+						}}
+					/>
+				</Stack>
+				<Stack gap={3}>
+					{!parentLocked && (
+						<Text size={1} weight="medium">
+							Nest inside
+						</Text>
+					)}
+					{parentLocked ? (
+						<Card border radius={2} padding={3}>
+							<Flex gap={3} align="center">
+								<Text size={2} muted>
+									<FolderIcon />
+								</Text>
+								<Stack gap={3} flex={1} style={{ minWidth: 0 }}>
+									<Text size={1} muted>
+										Nest inside
+									</Text>
+									<Text
+										size={1}
+										weight="medium"
+										style={{ overflowWrap: 'anywhere' }}
+									>
+										{parent}
+									</Text>
+								</Stack>
+							</Flex>
+						</Card>
+					) : (
+						<FolderOptions
+							label="Parent folders"
+							value={parent}
+							paths={paths}
+							open={parentOpen}
+							triggerRef={parentTrigger}
+							onClose={() => setParentOpen(false)}
+							onSelect={(selected) => {
+								setParent(selected)
+								setParentOpen(false)
+								setFailure(undefined)
+							}}
+							trigger={
+								<Button
+									ref={parentTrigger}
+									width="fill"
+									justify="space-between"
+									textAlign="left"
+									type="button"
+									mode="ghost"
+									text={folderName(parent)}
+									aria-label={`Nest inside: ${parent}`}
+									aria-haspopup="dialog"
+									aria-expanded={parentOpen}
+									iconRight={ChevronDownIcon}
+									disabled={busy}
+									onClick={() => setParentOpen((current) => !current)}
+								/>
+							}
+						/>
+					)}
+				</Stack>
+				<Stack gap={3}>
+					<Text size={1} muted>
+						New folder path
+					</Text>
+					<Text size={1} style={{ overflowWrap: 'anywhere' }}>
+						<output aria-live="polite">{path ?? parent}</output>
+					</Text>
+				</Stack>
+				{loading && (
+					<Text size={1} muted role="status">
+						Loading folders…
+					</Text>
+				)}
+				{error && (
+					<Card padding={3} tone="caution">
+						<Stack gap={3}>
+							<Text size={1} role="alert">
+								{error}
+							</Text>
+							{onRetry && (
+								<Button
+									mode="ghost"
+									text="Retry loading folders"
+									onClick={onRetry}
+								/>
+							)}
+						</Stack>
+					</Card>
+				)}
+				{(failure || validation) && (
+					<Text size={1} role="alert">
+						{failure || validation}
+					</Text>
+				)}
+			</Stack>
+		</Dialog>
 	)
 }

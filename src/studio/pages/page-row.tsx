@@ -11,7 +11,7 @@ import {
 	usePresentationParams,
 } from 'sanity/presentation'
 import type { PageDocument } from './model.js'
-import { useBrowserState } from './browser-state.js'
+import { useBrowserState } from './browser-context.js'
 import { PageStatus } from './document-status.js'
 
 export function PageRow({

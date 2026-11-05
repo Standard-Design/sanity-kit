@@ -1,6 +1,6 @@
 /**
- * The Pages tool's checked synchronization boundary. It adds organizational
- * folders without changing a page URL. Scheduling and editor feedback belong to
+ * The Pages tool's checked folder creation and synchronization boundary. It adds
+ * organizational folders without changing a page URL. Scheduling and feedback belong to
  * the Pages coordinator; this service handles fresh access evidence and uncertain
  * writes. Keep one instance for the tool's lifetime. See docs/folders.md.
  */
@@ -74,7 +74,11 @@ export function createFolderSynchronizer(
 	let busy = false
 	let uncertain: readonly FolderRecord[] = []
 
-	async function synchronize(signal?: AbortSignal): Promise<FolderSyncResult> {
+	async function run(
+		operation: 'synchronize' | 'create',
+		signal?: AbortSignal,
+		pathname?: string,
+	): Promise<FolderSyncResult> {
 		if (signal?.aborted) return blocked('aborted')
 		if (busy) return blocked('busy')
 		busy = true
@@ -122,10 +126,14 @@ export function createFolderSynchronizer(
 				uncertain = []
 			}
 
-			const result = await writer.synchronize({
+			const request = {
 				readAccess: 'all-registered-versions',
 				...(signal ? { signal } : {}),
-			})
+			} as const
+			const result =
+				operation === 'create'
+					? await writer.create({ ...request, pathname: pathname! })
+					: await writer.synchronize(request)
 			// Do not discard this result when the signal becomes aborted. The write
 			// may already have committed; retain uncertainty or the acknowledgment.
 			if (result.status === 'outcome-unknown') {
@@ -140,5 +148,11 @@ export function createFolderSynchronizer(
 		}
 	}
 
-	return Object.freeze({ synchronize })
+	return Object.freeze({
+		synchronize: (signal?: AbortSignal) => run('synchronize', signal),
+		// Sharing this boundary means an uncertain creation also blocks later
+		// synchronization, and vice versa, until exact saved records are found.
+		create: (pathname: string, signal?: AbortSignal) =>
+			run('create', signal, pathname),
+	})
 }

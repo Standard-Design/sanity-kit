@@ -34,6 +34,97 @@ afterEach(() => {
 })
 
 describe('Pages folder synchronization scheduling', () => {
+	it('creates explicitly and refreshes folders without consuming a queued sync', async () => {
+		const synchronize = vi.fn().mockResolvedValue(synced())
+		const create = vi.fn().mockResolvedValue(synced(2))
+		const refresh = vi.fn()
+		const controller = createFolderSyncController(synchronize, refresh, create)
+		controller.start()
+		expect(await controller.create('/new/team')).toEqual(synced(2))
+		expect(create).toHaveBeenCalledWith('/new/team', expect.any(AbortSignal))
+		expect(refresh).toHaveBeenCalledOnce()
+		expect(synchronize).not.toHaveBeenCalled()
+		await vi.advanceTimersByTimeAsync(FOLDER_SYNC_INTERVAL_MS)
+		expect(synchronize).toHaveBeenCalledOnce()
+	})
+
+	it('does not share creation results with other paths or manual sync requests', async () => {
+		const pending = deferred()
+		const create = vi.fn().mockReturnValue(pending.promise)
+		const synchronize = vi.fn().mockResolvedValue(synced())
+		const controller = createFolderSyncController(synchronize, vi.fn(), create)
+		controller.start()
+		const first = controller.create('/new')
+		expect(await controller.create('/other')).toEqual({
+			status: 'blocked',
+			reason: 'busy',
+		})
+		expect(await controller.manual()).toEqual({
+			status: 'blocked',
+			reason: 'busy',
+		})
+		await vi.advanceTimersByTimeAsync(FOLDER_SYNC_INTERVAL_MS * 2)
+		expect(create).toHaveBeenCalledOnce()
+		expect(synchronize).not.toHaveBeenCalled()
+		pending.resolve(synced(1))
+		await first
+	})
+
+	it('refuses creation while a sync is running instead of reporting it as created', async () => {
+		const pending = deferred()
+		const synchronize = vi.fn().mockReturnValue(pending.promise)
+		const create = vi.fn().mockResolvedValue(synced(1))
+		const controller = createFolderSyncController(synchronize, vi.fn(), create)
+		controller.start()
+		const run = controller.manual()
+		expect(await controller.create('/new')).toEqual({
+			status: 'blocked',
+			reason: 'busy',
+		})
+		expect(create).not.toHaveBeenCalled()
+		pending.resolve(synced())
+		await run
+		expect(await controller.create('/new')).toEqual(synced(1))
+	})
+
+	it('pauses background sync after an uncertain creation until an explicit recovery', async () => {
+		const synchronize = vi.fn().mockResolvedValue(synced())
+		const create = vi
+			.fn()
+			.mockResolvedValue({ status: 'blocked', reason: 'outcome-unknown' })
+		const controller = createFolderSyncController(synchronize, vi.fn(), create)
+		controller.start()
+		await controller.create('/new')
+		controller.notify()
+		await vi.advanceTimersByTimeAsync(FOLDER_SYNC_INTERVAL_MS * 2)
+		expect(synchronize).not.toHaveBeenCalled()
+		await controller.manual()
+		expect(synchronize).toHaveBeenCalledOnce()
+	})
+
+	it('refuses creation after stop and preserves an already-dispatched late result', async () => {
+		const pending = deferred()
+		const create = vi
+			.fn<
+				(pathname: string, signal?: AbortSignal) => Promise<FolderSyncResult>
+			>()
+			.mockReturnValue(pending.promise)
+		const refresh = vi.fn()
+		const controller = createFolderSyncController(vi.fn(), refresh, create)
+		controller.start()
+		const run = controller.create('/new')
+		await vi.advanceTimersByTimeAsync(0)
+		controller.stop()
+		expect(create.mock.calls[0]![1]!.aborted).toBe(true)
+		expect(await controller.create('/other')).toEqual({
+			status: 'blocked',
+			reason: 'aborted',
+		})
+		pending.resolve(synced(1))
+		expect(await run).toEqual(synced(1))
+		expect(refresh).not.toHaveBeenCalled()
+	})
+
 	it('starts after a short delay and does not poll when nothing changes', async () => {
 		const { controller, synchronize, onSaved } = harness()
 		controller.start()

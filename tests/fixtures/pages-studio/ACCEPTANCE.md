@@ -770,3 +770,27 @@ or create a new import solely to exercise the automatic write path.
 
 Final checks passed: formatting, package build, lint, typechecking, 1,701 tests
 across 57 files, and the proof Studio production build.
+
+## November 4 — navigator folder creation
+
+Opened the ordinary About folder's `…` menu in Choose page and selected **New
+subfolder**. The picker closed while the shared creation modal remained open,
+with **Nest inside** set to `/about`. Created `navigator-folder-proof/nested`
+through the modal in the authorized Standard Stack development dataset. Both
+`/about/navigator-folder-proof` and its empty `nested` child appeared expanded
+when the picker reopened. The edited document and preview URL stayed unchanged.
+The records are left in the fixture for editor review.
+
+Also opened **Pages → … → New subfolder** and verified its parent defaults to
+site root. This uses the same modal as URL-field creation, with **Create folder**
+instead of **Create and use folder**. Automated coverage checks access rejection,
+shared sync/create operation guards, uncertain-write reconciliation, picker
+lifetime, and existing URL-field behavior; live network failures and concurrent
+external writes were not induced in this acceptance pass.
+
+The contextual parent is now fixed text; Pages-menu creation keeps its editable
+parent picker. A clipped parent popover was corrected to use viewport bounds.
+During development, hot reload exposed a context mismatch between the native
+Presentation slots and the Pages provider. The context now lives separately
+from the provider and dialogs. A live provider hot update kept Choose page open
+and usable; the contextual creation dialog reopened normally afterward.

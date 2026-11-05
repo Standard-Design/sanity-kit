@@ -14,8 +14,9 @@ It can save new folder records but cannot remove folders or change page URLs.
 None of these foundation modules registers a Studio schema. There is no public
 package export for these functions yet. The approved read-only navigator
 integration displays saved folders alongside folders inferred from page URLs.
-The new private [URL field](url-field.md) calls the writer from explicit folder
-creation and draft URL changes; it is being reviewed in the fixture.
+The private [URL field](url-field.md) calls the writer from explicit folder
+creation and draft URL changes. Pages also offers folder creation directly from
+the navigator, using the same creation modal and guarded writer.
 
 The broader editor behavior is described in [Pages](./pages.md) and the
 [Pages design decisions](./pages-design-proposals.md). The shared route
@@ -374,6 +375,38 @@ published pages when paired with the URL-aware Publish action. Release and
 live-edit URL changes remain blocked. Pages owns the separate synchronization
 fallback described below.
 
+## Creating folders from the navigator
+
+Editors can prepare a folder structure without first creating a page. Choose
+**Pages → … → New subfolder** to start at the site root, or **… → New subfolder**
+on an ordinary folder to start inside it. Collection groups do not offer this
+ordinary-folder action; their paths belong to collection routing.
+
+Both actions open the same modal used by the URL field. Enter a folder name or
+several relative segments, such as `company/team`. From the Pages menu, **Nest
+inside** lets you choose the parent. From a folder’s menu, it shows that folder’s
+full path as fixed text: the new folders are created inside it. The preview shows
+the complete folder path before saving.
+Root `/` remains implicit; it is not a saved folder record.
+
+The navigator saves the folder and any missing ancestors, then refreshes the
+saved-folder list. It does not create a page, change a document's URL, or move
+the website preview. The dialog belongs to the tool rather than the disposable
+page picker, so opening it from the picker can close that picker safely.
+
+Navigator creation and synchronization share one tool-scoped service and
+coordinator. They do not make overlapping writes. Creation checks current read
+access and a fresh inventory before using the additive writer. Sanity enforces
+write permissions. A failed or uncertain save stays visible for recovery; an
+uncertain result must be reconciled before another write can be attempted.
+The intended folder keys and paths survive closing and reopening the dialog
+for the tool's lifetime, but do not form a durable receipt across a Studio reload.
+
+The URL field uses the shared modal for a different next step: after a confirmed
+folder save, it selects that folder for the document's proposed URL. Navigator
+creation only saves organizational metadata. Both keep empty folders available
+for later pages.
+
 ## Automatic synchronization and manual recovery
 
 Pages schedules a background check one second after the tool mounts. It also
@@ -415,10 +448,11 @@ Every new tool instance still reads fresh evidence and uses strict creation or a
 registry revision guard. Imports should continue to run explicit synchronization
 rather than relying on an editor eventually opening Pages.
 
-Implementation: `synchronize.ts` owns access checks and uncertain-write recovery;
-`sync-controller.ts` owns scheduling; the Pages tool provider owns their shared
-lifetime. `folder-sync-dialog.tsx` provides manual feedback. These helpers remain
-private implementation details, not new package exports.
+Implementation: `synchronize.ts` owns access checks and uncertain-write recovery
+for tool-managed folder creation and synchronization; `sync-controller.ts` owns
+their coordination and background scheduling. The Pages tool provider owns their
+shared lifetime. `folder-sync-dialog.tsx` provides manual sync feedback. These
+helpers remain private implementation details, not new package exports.
 
 ## What remains before the finished folder workflow
 
@@ -429,8 +463,10 @@ checks, and a policy for external writers. This slice does not claim database-wi
 uniqueness or race-free empty-folder removal. For this reason the writer has no
 remove action, even though the pure planner can describe one.
 
-Folder rename, moving descendants, redirect creation, navigator folder actions,
-private-schema registration, and broader live acceptance remain separate work.
+Folder rename, moving descendants, redirects for bulk moves, empty-folder removal,
+contextual page/index creation, private-schema registration, and broader live
+acceptance remain separate work. Navigator folder creation is implemented; it
+does not imply that those other folder-menu actions are available.
 These planners use the supplied route registration. A separate private collection-settings loader
 is now approved. Coordinating settings changes with folder operations remains
 future work.

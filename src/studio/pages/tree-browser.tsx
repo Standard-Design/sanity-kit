@@ -10,10 +10,14 @@ import { Box, Button, Card, Flex, Stack, Text } from '@sanity/ui'
 import { ChevronDownIcon } from '@sanity/icons/ChevronDown'
 import { ChevronRightIcon } from '@sanity/icons/ChevronRight'
 import { FolderIcon } from '@sanity/icons/Folder'
+import { EllipsisHorizontalIcon } from '@sanity/icons/EllipsisHorizontal'
+import { AddIcon } from '@sanity/icons/Add'
+import { Menu, MenuButton, MenuItem } from '@sanity/ui/menu'
+import { TooltipButton } from './tooltip.js'
 import { usePresentationParams } from 'sanity/presentation'
 import type { NavigationNode, NavigationCollection } from './navigation.js'
 import type { PageDocument } from './model.js'
-import { useBrowserState } from './browser-state.js'
+import { useBrowserState } from './browser-context.js'
 import { usePagesDataSession } from './use-page-data.js'
 import { PageRow } from './page-row.js'
 
@@ -114,10 +118,12 @@ export function TreeRows({
 	nodes,
 	documents,
 	disabled,
+	onCreateFolder,
 }: {
 	nodes: NavigationNode[]
 	documents: PageDocument[]
 	disabled: boolean
+	onCreateFolder: (pathname: string) => void
 }) {
 	const { state, setState, runtime } = useBrowserState()
 	const { preview } = usePresentationParams()
@@ -145,35 +151,69 @@ export function TreeRows({
 						key={node.key}
 						paddingBottom={open && index < nodes.length - 1 ? 3 : 0}
 					>
-						<Card
-							as="button"
-							type="button"
-							__unstable_focusRing
-							radius={2}
-							tone="inherit"
-							paddingLeft={1}
-							paddingRight={2}
-							paddingY={1}
-							aria-label={`${open ? 'Collapse' : 'Expand'} ${title}`}
-							aria-expanded={open}
-							style={{ width: '100%', minHeight: 33, textAlign: 'left' }}
-							onClick={() =>
-								setState((value) => ({
-									...value,
-									collapsed: open
-										? [...value.collapsed, node.key]
-										: value.collapsed.filter((key) => key !== node.key),
-								}))
-							}
-						>
-							<Text size={1} weight="medium">
-								<span style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-									{open ? <ChevronDownIcon /> : <ChevronRightIcon />}
-									<FolderIcon />
-									{title}
-								</span>
-							</Text>
-						</Card>
+						<Flex align="center" gap={1}>
+							<Card
+								as="button"
+								type="button"
+								__unstable_focusRing
+								radius={2}
+								tone="inherit"
+								paddingLeft={1}
+								paddingRight={2}
+								paddingY={1}
+								aria-label={`${open ? 'Collapse' : 'Expand'} ${title}`}
+								aria-expanded={open}
+								style={{
+									flex: 1,
+									minWidth: 0,
+									minHeight: 33,
+									textAlign: 'left',
+								}}
+								onClick={() =>
+									setState((value) => ({
+										...value,
+										collapsed: open
+											? [...value.collapsed, node.key]
+											: value.collapsed.filter((key) => key !== node.key),
+									}))
+								}
+							>
+								<Text size={1} weight="medium">
+									<span
+										style={{ display: 'flex', alignItems: 'center', gap: 8 }}
+									>
+										{open ? <ChevronDownIcon /> : <ChevronRightIcon />}
+										<FolderIcon />
+										{title}
+									</span>
+								</Text>
+							</Card>
+							{node.kind === 'folder' && (
+								<MenuButton
+									id={`folder-options-${encodeURIComponent(node.pathname)}`}
+									button={
+										<TooltipButton
+											icon={EllipsisHorizontalIcon}
+											aria-label={`Folder options: ${node.pathname}`}
+											tooltip="Folder options"
+											mode="bleed"
+											fontSize={1}
+											padding={2}
+										/>
+									}
+									menu={
+										<Menu>
+											<MenuItem
+												text="New subfolder"
+												icon={AddIcon}
+												onClick={() => onCreateFolder(node.pathname)}
+											/>
+										</Menu>
+									}
+									popover={{ portal: false }}
+								/>
+							)}
+						</Flex>
 						{open && (
 							<NestedRows>
 								{node.kind === 'folder' && node.children.length === 0 && (
@@ -213,6 +253,7 @@ export function TreeRows({
 									nodes={node.children}
 									documents={documents}
 									disabled={disabled}
+									onCreateFolder={onCreateFolder}
 								/>
 								{node.kind === 'collection' && <RecentItems node={node} />}
 							</NestedRows>

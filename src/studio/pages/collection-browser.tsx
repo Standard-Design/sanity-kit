@@ -13,7 +13,7 @@ import {
 import { Box, Button, Flex, Stack, Text } from '@sanity/ui'
 import { ArrowLeftIcon } from '@sanity/icons/ArrowLeft'
 import { usePresentationParams } from 'sanity/presentation'
-import { useBrowserState } from './browser-state.js'
+import { useBrowserState } from './browser-context.js'
 import { usePagesDataSession } from './use-page-data.js'
 import { PageRow } from './page-row.js'
 import { DataWarning } from './data-warning.js'

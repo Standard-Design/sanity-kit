@@ -112,6 +112,116 @@ function deferred<T>() {
 }
 
 describe('checked Pages folder synchronization', () => {
+	it('creates an empty nested folder and its ancestors without changing pages', async () => {
+		const io = transport([saved(), page()])
+		const originalPage = structuredClone(io.dataset[1])
+		expect(await io.service.create('/prepared/team')).toEqual({
+			status: 'synced',
+			count: 2,
+		})
+		expect(io.dataset[1]).toEqual(originalPage)
+		expect(io.dataset[0]).toMatchObject({
+			custom: 'retain me',
+			folders: [
+				{ _key: 'existing', pathname: '/empty', detail: 'keep me' },
+				{ pathname: '/prepared' },
+				{ pathname: '/prepared/team' },
+			],
+		})
+		expect(await io.service.create('/prepared/team')).toEqual({
+			status: 'synced',
+			count: 0,
+		})
+		expect(io.mutate).toHaveBeenCalledOnce()
+	})
+
+	it('checks fresh access for creation and refuses unreadable inventory', async () => {
+		const io = transport()
+		io.grants([])
+		expect(await io.service.create('/new')).toMatchObject({
+			status: 'blocked',
+			reason: 'unknown-read-access',
+		})
+		expect(io.fetch).not.toHaveBeenCalled()
+		expect(io.mutate).not.toHaveBeenCalled()
+		io.grants([{ filter: 'true', permissions: ['read'] }])
+		expect(await io.service.create('/new')).toEqual({
+			status: 'synced',
+			count: 1,
+		})
+		expect(io.mutate).toHaveBeenCalledOnce()
+	})
+
+	it('prevents creation and synchronization from overlapping in either direction', async () => {
+		const io = transport()
+		const acl = deferred<unknown>()
+		io.request.mockImplementationOnce(() => acl.promise)
+		const first = io.service.create('/new')
+		expect(await io.service.synchronize()).toEqual({
+			status: 'blocked',
+			reason: 'busy',
+		})
+		expect(await io.service.create('/other')).toEqual({
+			status: 'blocked',
+			reason: 'busy',
+		})
+		acl.resolve([{ filter: 'true', permissions: ['read'] }])
+		expect(await first).toEqual({ status: 'synced', count: 1 })
+		const nextAcl = deferred<unknown>()
+		io.request.mockImplementationOnce(() => nextAcl.promise)
+		const sync = io.service.synchronize()
+		expect(await io.service.create('/other')).toEqual({
+			status: 'blocked',
+			reason: 'busy',
+		})
+		nextAcl.resolve([{ filter: 'true', permissions: ['read'] }])
+		await sync
+		expect(io.mutate).toHaveBeenCalledTimes(2)
+	})
+
+	it('keeps uncertain creation evidence when synchronization is requested', async () => {
+		const io = transport()
+		io.fail('before')
+		expect(await io.service.create('/new')).toEqual({
+			status: 'blocked',
+			reason: 'outcome-unknown',
+		})
+		io.fail(undefined)
+		expect(await io.service.synchronize()).toEqual({
+			status: 'blocked',
+			reason: 'outcome-unknown',
+		})
+		expect(await io.service.create('/other')).toEqual({
+			status: 'blocked',
+			reason: 'outcome-unknown',
+		})
+		expect(io.mutate).toHaveBeenCalledOnce()
+	})
+
+	it('reconciles an uncertain sync before creating a different folder', async () => {
+		const io = transport()
+		io.fail('after')
+		await io.service.synchronize()
+		io.fail(undefined)
+		expect(await io.service.create('/new')).toEqual({
+			status: 'synced',
+			count: 1,
+		})
+		expect(io.mutate).toHaveBeenCalledTimes(2)
+	})
+
+	it('does not write again when retrying an acknowledged-lost creation', async () => {
+		const io = transport()
+		io.fail('after')
+		await io.service.create('/new/team')
+		io.fail(undefined)
+		expect(await io.service.create('/new/team')).toEqual({
+			status: 'synced',
+			count: 0,
+		})
+		expect(io.mutate).toHaveBeenCalledOnce()
+	})
+
 	it('does no work at construction and adds missing folders without changing pages or metadata', async () => {
 		const io = transport([saved(), page('/about/company/team')])
 		const originalPage = structuredClone(io.dataset[1])

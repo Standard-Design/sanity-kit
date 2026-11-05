@@ -2,6 +2,13 @@
 
 ## Unreleased — Pages plugin foundation
 
+- Add **New subfolder** to the Pages options menu and ordinary folder menus.
+  Reuse the URL field's folder-creation modal, with root as the starting parent
+  from the Pages menu and the selected folder from a folder menu. Save missing
+  ancestors together, refresh saved-folder display, and keep the current page
+  and preview selected. Creation and background synchronization share the tool's
+  write coordination and uncertain-result recovery. No page is created or published.
+
 - Add a background folder-sync fallback and **Sync folders** recovery action in
   the Pages options menu. Share one throttled coordinator across the navigator,
   picker, and perspectives. Check current scoped read access and complete raw

@@ -312,6 +312,145 @@ describe('Pages Presentation adapter lifecycle', () => {
 		return fixture
 	}
 
+	async function openFolderCreate(menu = 'Pages options') {
+		await click(menu)
+		await act(async () => {
+			const item = [
+				...document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+			].find((element) => element.textContent === 'New subfolder')
+			expect(item).toBeTruthy()
+			item!.click()
+			await Promise.resolve()
+		})
+	}
+	function createFolderDialog() {
+		return [...document.querySelectorAll('[data-ui="Dialog"]')].find(
+			(element) => element.textContent?.includes('New subfolder'),
+		)
+	}
+	function fillFolderName(value: string) {
+		act(() => {
+			const input = document.querySelector<HTMLInputElement>(
+				'input[placeholder="team or company/team"]',
+			)!
+			Object.getOwnPropertyDescriptor(
+				HTMLInputElement.prototype,
+				'value',
+			)!.set!.call(input, value)
+			input.dispatchEvent(new Event('input', { bubbles: true }))
+		})
+	}
+
+	it('opens navigator folder creation at root without moving the preview or edited document', async () => {
+		readableFolderFixture()
+		await render()
+		await openFolderCreate()
+		expect(createFolderDialog()).toBeTruthy()
+		expect(button('Nest inside: /').getAttribute('aria-label')).toBe(
+			'Nest inside: /',
+		)
+		expect(button('Create folder').disabled).toBe(true)
+		expect(native.navigate).not.toHaveBeenCalled()
+		expect(native.intent).not.toHaveBeenCalled()
+		expect(native.request).not.toHaveBeenCalled()
+		await click('Cancel')
+		expect(createFolderDialog()).toBeUndefined()
+	})
+
+	it('locks the ordinary folder parent and keeps creation open after closing the page picker', async () => {
+		readableFolderFixture()
+		await render()
+		await click('Toggle navigator')
+		await click('Choose page')
+		await openFolderCreate('Folder options: /about')
+		expect(button('Choose page').getAttribute('aria-expanded')).toBe('false')
+		expect(createFolderDialog()).toBeTruthy()
+		expect(
+			createFolderDialog()?.querySelector('[aria-label^="Nest inside:"]'),
+		).toBeNull()
+		expect(createFolderDialog()?.textContent).toContain('/about')
+		fillFolderName('company/team')
+		expect(createFolderDialog()?.querySelector('output')?.textContent).toBe(
+			'/about/company/team',
+		)
+		expect(native.navigate).not.toHaveBeenCalled()
+		expect(native.intent).not.toHaveBeenCalled()
+		expect(native.request).not.toHaveBeenCalled()
+	})
+
+	it('refreshes and expands new navigator folders without changing document selection or preview', async () => {
+		const fixture = readableFolderFixture()
+		native.request.mockImplementation((options) => {
+			if (options.url.endsWith('/acl'))
+				return Promise.resolve([{ filter: 'true', permissions: ['read'] }])
+			const patch = options.body!.mutations[0]!.patch
+			fixture.folders.folders.push(...patch.insert.items)
+			fixture.folders._rev = 'created-revision'
+			return Promise.resolve({
+				transactionId: 'created-folders',
+				results: [{ id: 'sanityKit.folders', operation: 'update' }],
+			})
+		})
+		await render()
+		await click('Collapse About')
+		await openFolderCreate('Folder options: /about')
+		fillFolderName('company/team')
+		await click('Create folder')
+		expect(createFolderDialog()).toBeUndefined()
+		expect(button('Collapse About')).toBeTruthy()
+		expect(button('Collapse Company')).toBeTruthy()
+		expect(button('Collapse Team')).toBeTruthy()
+		expect(container.textContent).toContain('No pages in this folder.')
+		expect(fixture.folders.folders.map((folder) => folder.pathname)).toContain(
+			'/about/company/team',
+		)
+		expect(
+			native.request.mock.calls.filter(
+				([options]) => options.method === 'POST',
+			),
+		).toHaveLength(1)
+		expect(native.navigate).not.toHaveBeenCalled()
+		expect(native.intent).not.toHaveBeenCalled()
+		expect(native.mutate).not.toHaveBeenCalled()
+		expect(native.params).toEqual({
+			preview: '/about',
+			id: 'shared',
+			type: 'kitProofShared',
+		})
+	})
+
+	it('does not offer ordinary folder actions on collection rows', async () => {
+		collectionFixture(1)
+		await render()
+		expect(button('Collapse Journal')).toBeTruthy()
+		expect(
+			document.querySelector('[aria-label="Folder options: /journal"]'),
+		).toBeNull()
+	})
+
+	it('keeps navigator creation open with missing access requirements and sends no mutation', async () => {
+		readableFolderFixture()
+		native.request.mockResolvedValueOnce([])
+		await render()
+		await openFolderCreate('Folder options: /about')
+		fillFolderName('team')
+		await click('Create folder')
+		expect(createFolderDialog()?.textContent).toContain(
+			'Read the folder registry (not granted)',
+		)
+		expect(
+			document.querySelector<HTMLInputElement>(
+				'input[placeholder="team or company/team"]',
+			)?.value,
+		).toBe('team')
+		expect(
+			native.request.mock.calls.every(([options]) => options.method !== 'POST'),
+		).toBe(true)
+		expect(native.mutate).not.toHaveBeenCalled()
+		expect(native.navigate).not.toHaveBeenCalled()
+		expect(native.intent).not.toHaveBeenCalled()
+	})
+
 	it('runs Sync folders from the navigator and reports an up-to-date list without a mutation', async () => {
 		readableFolderFixture()
 		await render()
@@ -752,13 +891,17 @@ describe('Pages Presentation adapter lifecycle', () => {
 		await render()
 		for (const title of ['About', 'Journal']) {
 			expect(
-				getComputedStyle(button(`Collapse ${title}`).parentElement!)
-					.paddingBottom,
+				getComputedStyle(
+					button(`Collapse ${title}`).parentElement!.closest(
+						'[data-ui="Box"]',
+					)!,
+				).paddingBottom,
 			).toBe('0.75rem')
 			await click(`Collapse ${title}`)
 			expect(
-				getComputedStyle(button(`Expand ${title}`).parentElement!)
-					.paddingBottom,
+				getComputedStyle(
+					button(`Expand ${title}`).parentElement!.closest('[data-ui="Box"]')!,
+				).paddingBottom,
 			).toBe('0px')
 		}
 		expect(native.navigate).not.toHaveBeenCalled()

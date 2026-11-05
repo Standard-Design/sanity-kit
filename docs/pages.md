@@ -664,8 +664,8 @@ is approved and reads and validates settings; it is not connected to Studio cont
 A private [folder writer](folders.md) for creation and explicit synchronization
 is approved. It adds folder records without changing page URLs. Read-only saved
 folder display is also approved. The field's draft-editing workflow is implemented. Pages now supplies automatic
-folder synchronization and manual recovery; navigator removal and rename actions
-remain future work.
+folder synchronization, manual recovery, and folder creation from the navigator;
+removal, rename, and contextual page-creation actions remain future work.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -770,7 +770,18 @@ to be specified.
 - Include a Journal section with its overview and post browsing.
 - Retain both the website preview and native document pane.
 
-Folder actions belong in this navigator. The intended actions include creating
+Folder actions belong in this navigator. **New subfolder** is available from
+the Pages `…` menu and each ordinary folder's `…` menu. The Pages menu starts
+at `/` and lets the editor change **Nest inside**. A folder menu locks the parent
+to that folder and displays its full path as text. The shared creation modal
+accepts a name or relative path. Saving adds
+folder records and any missing ancestors without creating a page, changing the
+selected document, or moving the preview. Empty folders stay available for later
+pages. Collection groups do not receive ordinary folder-creation menus.
+See [Folders](folders.md#creating-folders-from-the-navigator) for access checks,
+coordination with background synchronization, and recovery after uncertain saves.
+
+The remaining planned actions include creating
 a page in a folder and creating its index page when absent (or opening it when
 present). An index page lives at the folder's own URL; an ordinary child page
 adds a final segment. These actions still need templates and creation behavior.
@@ -947,10 +958,11 @@ must not become editor-renamable through this workflow.
   arrangement, fields, registration, optional overview relationship, and the
   controlled publication integration. The draft-preview/published-activation
   lifecycle is agreed.
-- **Folder implementation:** define exact fields, size
-  limits, and safe synchronization/concurrency mechanisms. The private singleton,
-  immediate organizational lifecycle, adoption of inferred folders, and empty-only
-  removal are agreed.
+- **Folder implementation:** complete schema registration and coordination for
+  removal and bulk moves. The bounded private registry, guarded additive writes,
+  URL-field and navigator folder creation, and background synchronization are
+  implemented. Empty-only removal is agreed, but still needs its own concurrency
+  and permission checks.
 - **Bulk-change implementation:** prove permissions, revision guards, new-document
   race handling, size bounds, recovery, and cache/redirect coordination. The
   URL-only write policy and initial release-version refusal are agreed.
@@ -1000,8 +1012,10 @@ implementation paths are private. Nothing in this slice publishes a release.
   tool-scoped sessions, shared read lifetimes, and the authenticated transport.
   `use-page-data.ts` selects the session inside native Presentation. Components
   subscribe to its resources through React's external-store subscription API.
-- `src/studio/pages/plugin.tsx`, `header.tsx`, and `browser-state.tsx`:
-  native tool integration and shared browser UI state.
+- `src/studio/pages/plugin.tsx`, `header.tsx`, `browser-state.tsx`, and
+  `browser-context.ts`: native tool integration and shared browser UI state.
+  The context is separate from the provider and dialogs so hot reloads of those
+  components keep the navigator connected to the same context.
 
 The [fixture README](../tests/fixtures/pages-studio/README.md) explains how to run
 the proof. The [routing guide](../tests/fixtures/pages-studio/ROUTING.md) describes

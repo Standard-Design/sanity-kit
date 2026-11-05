@@ -1,7 +1,5 @@
 import type { PagesRuntime } from './runtime.js'
 import {
-	createContext,
-	useContext,
 	useState,
 	useMemo,
 	useEffect,
@@ -12,30 +10,18 @@ import { useClient } from 'sanity'
 import { createFolderSynchronizer } from '../folders/synchronize.js'
 import { createFolderSyncController } from '../folders/sync-controller.js'
 import { FolderSyncDialog } from './folder-sync-dialog.js'
+import {
+	PagesFolderCreateDialog,
+	type FolderCreationRequest,
+} from './folder-create-dialog.js'
 import { createPagesDataStore } from './data-store.js'
+import { BrowserContext, type BrowserState } from './browser-context.js'
 
-/** Browser UI state is separate from cached data and native URL/document selection. */
-export interface BrowserState {
-	query: string
-	scrollTop: number
-	collapsed: string[]
-	collection?: string | undefined
-	collectionQueries: Record<string, string>
-	collectionScroll: Record<string, number>
-}
-
-const BrowserContext = createContext<{
-	runtime: PagesRuntime
-	dataStore: ReturnType<typeof createPagesDataStore>
-	folderSync: ReturnType<typeof createFolderSyncController>
-	showFolderSync: () => void
-	state: BrowserState
-	setState: React.Dispatch<React.SetStateAction<BrowserState>>
-	pickerOpen: boolean
-	setPickerOpen: React.Dispatch<React.SetStateAction<boolean>>
-} | null>(null)
-
-/** Mounted around the native tool, not around its disposable navigator panel. */
+/**
+ * Mounted around the native tool, not around its disposable navigator panel.
+ * The context lives in browser-context.ts so dialog edits can refresh this
+ * component without replacing the context used by native Presentation slots.
+ */
 export function BrowserStateProvider({
 	children,
 	runtime,
@@ -48,6 +34,7 @@ export function BrowserStateProvider({
 		collectionScroll: {},
 	})
 	const [syncOpen, setSyncOpen] = useState(false)
+	const [folderCreation, setFolderCreation] = useState<FolderCreationRequest>()
 	const [pickerOpen, setPickerOpen] = useState(false)
 	const client = useClient({ apiVersion: '2026-10-01' })
 	const syncRef = useRef<ReturnType<typeof createFolderSyncController> | null>(
@@ -59,16 +46,31 @@ export function BrowserStateProvider({
 	)
 	const folderSync = useMemo(() => {
 		let service: ReturnType<typeof createFolderSynchronizer> | undefined
-		return createFolderSyncController(async (signal) => {
-			// Older navigation-only configurations can be unsafe to author. Keep
-			// browsing available and explain that limitation in manual feedback.
-			try {
-				service ??= createFolderSynchronizer(runtime.routes, client)
-			} catch {
-				return { status: 'blocked', reason: 'configuration' }
-			}
-			return service.synchronize(signal)
-		}, dataStore.refreshFolders)
+		const getService = () => {
+			service ??= createFolderSynchronizer(runtime.routes, client)
+			return service
+		}
+		return createFolderSyncController(
+			async (signal) => {
+				// Older navigation-only configurations can be unsafe to author. Keep
+				// browsing available and explain that limitation in manual feedback.
+				try {
+					getService()
+				} catch {
+					return { status: 'blocked', reason: 'configuration' }
+				}
+				return getService().synchronize(signal)
+			},
+			dataStore.refreshFolders,
+			async (pathname, signal) => {
+				try {
+					getService()
+				} catch {
+					return { status: 'blocked', reason: 'configuration' }
+				}
+				return getService().create(pathname, signal)
+			},
+		)
 	}, [runtime, client, dataStore])
 	useEffect(() => {
 		syncRef.current = folderSync
@@ -88,6 +90,10 @@ export function BrowserStateProvider({
 					setPickerOpen(false)
 					setSyncOpen(true)
 				},
+				showFolderCreate: (request) => {
+					setPickerOpen(false)
+					setFolderCreation(request)
+				},
 				state,
 				setState,
 				pickerOpen,
@@ -95,6 +101,29 @@ export function BrowserStateProvider({
 			}}
 		>
 			{children}
+			{folderCreation && (
+				<PagesFolderCreateDialog
+					request={folderCreation}
+					folderSync={folderSync}
+					onClose={() => setFolderCreation(undefined)}
+					onCreated={(pathname) => {
+						// Reveal the new folder without selecting a page or moving preview.
+						const segments = pathname.split('/').filter(Boolean)
+						const ancestors = new Set(
+							segments.map(
+								(_, index) =>
+									`folder:/${segments.slice(0, index + 1).join('/')}`,
+							),
+						)
+						setState((value) => ({
+							...value,
+							query: '',
+							collapsed: value.collapsed.filter((key) => !ancestors.has(key)),
+						}))
+						setFolderCreation(undefined)
+					}}
+				/>
+			)}
 			{syncOpen && (
 				<FolderSyncDialog
 					folderSync={folderSync}
@@ -103,11 +132,4 @@ export function BrowserStateProvider({
 			)}
 		</BrowserContext.Provider>
 	)
-}
-
-export function useBrowserState() {
-	const context = useContext(BrowserContext)
-	if (!context)
-		throw new Error('Pages browser must be inside its tool provider.')
-	return context
 }

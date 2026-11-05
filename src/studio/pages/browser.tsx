@@ -6,13 +6,13 @@ import { EllipsisHorizontalIcon } from '@sanity/icons/EllipsisHorizontal'
 import { useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react'
 import { usePresentationParams } from 'sanity/presentation'
 import { useRouter } from 'sanity/router'
-import { useBrowserState } from './browser-state.js'
+import { useBrowserState } from './browser-context.js'
 import { usePagesDataSession } from './use-page-data.js'
 import { TreeRows, groupKeys } from './tree-browser.js'
 import { PageRow } from './page-row.js'
 import { CollectionBrowser } from './collection-browser.js'
 import { DataWarning, FolderDataWarning } from './data-warning.js'
-import { buildNavigationTree } from './navigation.js'
+import { buildNavigationTree, type NavigationNode } from './navigation.js'
 import { BrowserHeader } from './browser-header.js'
 import { TooltipButton } from './tooltip.js'
 
@@ -29,9 +29,28 @@ export function PagesBrowser({ fitContent = false }: { fitContent?: boolean }) {
 	)
 }
 
+function folderChoices(
+	nodes: readonly NavigationNode[],
+): { pathname: string }[] {
+	return nodes.flatMap((node) =>
+		node.kind === 'page'
+			? []
+			: [
+					...(node.kind === 'folder' ? [{ pathname: node.pathname }] : []),
+					...folderChoices(node.children),
+				],
+	)
+}
+
 function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
-	const { runtime, state, setState, setPickerOpen, showFolderSync } =
-		useBrowserState()
+	const {
+		runtime,
+		state,
+		setState,
+		setPickerOpen,
+		showFolderSync,
+		showFolderCreate,
+	} = useBrowserState()
 	const session = usePagesDataSession()
 	const result = useSyncExternalStore(
 		session.pages.subscribe,
@@ -52,6 +71,13 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 	)
 	const error = result.error || result.disconnected
 	const folderError = folders.error || folders.disconnected
+	const createFolder = (parent: string, parentLocked = true) =>
+		showFolderCreate({
+			parent,
+			parentLocked,
+			folders: folderChoices(tree.roots),
+			session,
+		})
 	const { preview } = usePresentationParams()
 	const current = runtime.model.previewedDocument(documents, preview)
 	const router = useRouter()
@@ -125,6 +151,11 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 							}
 							menu={
 								<Menu>
+									<MenuItem
+										text="New subfolder"
+										icon={AddIcon}
+										onClick={() => createFolder('/', false)}
+									/>
 									<MenuItem
 										text="Expand all"
 										onClick={() =>
@@ -207,6 +238,7 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 							nodes={tree.roots}
 							documents={documents}
 							disabled={error}
+							onCreateFolder={createFolder}
 						/>
 						{unfiledGroups
 							.filter((group) => group.pages.length > 0)

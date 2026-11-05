@@ -14,7 +14,7 @@ import {
 	usePresentationParams,
 	type PreviewHeaderProps,
 } from 'sanity/presentation'
-import { useBrowserState } from './browser-state.js'
+import { useBrowserState } from './browser-context.js'
 import { PagesBrowser } from './browser.js'
 import { usePageIdentity } from './use-page-data.js'
 import { TooltipButton } from './tooltip.js'

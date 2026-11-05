@@ -13,33 +13,7 @@ import { CheckmarkCircleIcon } from '@sanity/icons/CheckmarkCircle'
 import { useEffect, useState } from 'react'
 import type { FolderSyncResult } from '../folders/synchronize.js'
 import type { createFolderSyncController } from '../folders/sync-controller.js'
-
-function explanation(reason: string) {
-	if (reason === 'configuration')
-		return 'This Pages configuration can be browsed, but is not ready to save folders. Ask a developer to check that collection paths are canonical and that the Studio uses a concrete project and dataset.'
-	if (reason === 'outcome-unknown')
-		return 'We could not confirm whether the last folder save finished. Check again before trying another change. If this continues, ask a developer or Studio administrator to verify the saved folder records.'
-	if (reason === 'unknown-read-access')
-		return 'To find every folder, we need to read all registered pages and their versions, plus the saved folder list. Some of that access could not be confirmed. Ask someone who manages project permissions to check the requirements below.'
-	if (reason === 'permission-denied')
-		return 'Your account could not save the folder list. Ask someone who manages project permissions to check your access to folder records.'
-	if (reason === 'limit-exceeded')
-		return 'The folder list or page inventory is larger than this sync supports. A developer can review the dataset and arrange a larger synchronization. No partial folder list was saved.'
-	if (reason === 'conflict')
-		return 'The folder list changed while we were checking it. Try again to use the latest saved list.'
-	if (
-		[
-			'invalid-response',
-			'invalid-registry',
-			'invalid-inventory',
-			'invalid-folder',
-			'collection-group',
-			'invalid-key',
-		].includes(reason)
-	)
-		return 'The saved folder or page data could not be used safely. Ask a developer or Studio administrator to check the folder registry and registered URL fields before syncing again.'
-	return 'We could not finish checking or saving the folder list. Check your connection and try again. Your pages and URLs have not been changed by this sync.'
-}
+import { folderOperationExplanation } from './folder-feedback.js'
 
 export function FolderSyncDialog({
 	folderSync,
@@ -117,7 +91,7 @@ export function FolderSyncDialog({
 							<Text size={1} weight="semibold">
 								Folder sync needs attention
 							</Text>
-							<Text size={1}>{explanation(result.reason)}</Text>
+							<Text size={1}>{folderOperationExplanation(result.reason)}</Text>
 							{result.accessIssues?.map((issue) => (
 								<Text key={issue.key} size={1}>
 									{issue.label} (
