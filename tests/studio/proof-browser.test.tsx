@@ -131,6 +131,7 @@ import { PagesBrowser as ProofBrowser } from '../../src/studio/pages/browser.js'
 import { PagesHeader as ProofHeader } from '../../src/studio/pages/header.js'
 import { BrowserStateProvider as ConfiguredProvider } from '../../src/studio/pages/browser-state.js'
 import { createPagesRuntime } from '../../src/studio/pages/runtime.js'
+import { FOLDER_SYNC_DELAY_MS } from '../../src/studio/folders/sync-controller.js'
 
 const theme = buildTheme()
 
@@ -253,6 +254,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 	afterEach(() => {
 		act(() => root.unmount())
 		container.remove()
+		vi.useRealTimers()
 		vi.restoreAllMocks()
 		vi.unstubAllGlobals()
 	})
@@ -383,6 +385,16 @@ describe('Pages Presentation adapter lifecycle', () => {
 			await Promise.resolve()
 		})
 	}
+	// The scheduled safety sync may read permissions during any browsing test.
+	// Assert the real boundary: opening or expanding UI does not write folders.
+	function expectNoFolderWrites() {
+		expect(native.mutate).not.toHaveBeenCalled()
+		for (const [request] of native.request.mock.calls) {
+			expect(request.url).toBe('/projects/testproject/datasets/test/acl')
+			expect(request.method ?? 'GET').toBe('GET')
+			expect(request.body).toBeUndefined()
+		}
+	}
 	function createFolderDialog() {
 		return [...document.querySelectorAll('[data-ui="Dialog"]')].find(
 			(element) => element.textContent?.includes('New subfolder'),
@@ -402,9 +414,14 @@ describe('Pages Presentation adapter lifecycle', () => {
 	}
 
 	it('opens navigator folder creation at root without moving the preview or edited document', async () => {
+		vi.useFakeTimers()
 		readableFolderFixture()
 		await render()
 		await openFolderCreate()
+		await act(async () => {
+			await vi.advanceTimersByTimeAsync(FOLDER_SYNC_DELAY_MS)
+		})
+		expect(native.request).toHaveBeenCalledOnce()
 		expect(createFolderDialog()).toBeTruthy()
 		expect(button('Nest inside: /').getAttribute('aria-label')).toBe(
 			'Nest inside: /',
@@ -412,7 +429,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(button('Create folder').disabled).toBe(true)
 		expect(native.navigate).not.toHaveBeenCalled()
 		expect(native.intent).not.toHaveBeenCalled()
-		expect(native.request).not.toHaveBeenCalled()
+		expectNoFolderWrites()
 		await click('Cancel')
 		expect(createFolderDialog()).toBeUndefined()
 	})
@@ -435,7 +452,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 		)
 		expect(native.navigate).not.toHaveBeenCalled()
 		expect(native.intent).not.toHaveBeenCalled()
-		expect(native.request).not.toHaveBeenCalled()
+		expectNoFolderWrites()
 	})
 
 	it('refreshes and expands new navigator folders without changing document selection or preview', async () => {
@@ -695,7 +712,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(container.textContent).toContain('No pages in this folder.')
 		expect(native.navigate).not.toHaveBeenCalled()
 		expect(native.mutate).not.toHaveBeenCalled()
-		expect(native.request).not.toHaveBeenCalled()
+		expectNoFolderWrites()
 	})
 
 	it('places an existing page inside its saved folder even without descendant pages', async () => {
@@ -735,7 +752,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 		)
 		expect(native.listen).toHaveBeenCalledTimes(1)
 		expect(native.mutate).not.toHaveBeenCalled()
-		expect(native.request).not.toHaveBeenCalled()
+		expectNoFolderWrites()
 	})
 
 	it('does not delay ordinary page browsing while saved-folder metadata is still loading', async () => {
@@ -752,7 +769,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 			type: 'kitProofPage',
 		})
 		expect(native.mutate).not.toHaveBeenCalled()
-		expect(native.request).not.toHaveBeenCalled()
+		expectNoFolderWrites()
 	})
 
 	it('refreshes saved folders through the shared listener and preserves expansion in the picker', async () => {
@@ -775,7 +792,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(native.listen).toHaveBeenCalledTimes(1)
 		expect(native.unsubscribe).not.toHaveBeenCalled()
 		expect(native.mutate).not.toHaveBeenCalled()
-		expect(native.request).not.toHaveBeenCalled()
+		expectNoFolderWrites()
 	})
 
 	it('does not show saved-folder rows from the previous perspective while its new session loads', async () => {
