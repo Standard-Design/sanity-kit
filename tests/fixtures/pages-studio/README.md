@@ -69,6 +69,22 @@ Native Sanity permissions still control the editor and create intent.
 
 ## Create fixture content deliberately
 
+### Review collection settings
+
+In **Fixture content**, open **Journal (settings proof) URL settings**. This
+singleton uses the private collection settings integration. You can enter a
+prefix such as `/journal`, inspect native validation, and save draft changes.
+Publishing is unavailable until the reviewed prefix-change workflow is added.
+
+This proof is intentionally separate from the existing Journal pages, which
+still store full item paths. It registers a `kitProofSlugPost` type to represent
+the slug-only collection contract; it does not migrate existing posts or seed
+content. Settings drafts do not yet change Pages, the URL field, or the website
+preview. Opening this entry uses the normal Sanity initial-value template;
+there is no startup seed or automatic publication.
+
+### Seed page fixtures
+
 `seed.ts` creates 14 new documents: four pages, eight posts, one alternate-path
 document, and one shared footer. It uses Sanity-generated IDs and the returned
 footer ID for references. It does not create a blog in the consuming app.

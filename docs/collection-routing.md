@@ -17,8 +17,9 @@ Supporting several websites in the same dataset is deferred.
 The implementation is a **private foundation**. A pure resolver validates supplied
 documents and builds the ordinary route configuration used by the existing URL
 helpers. A separate loader can now read those documents from Sanity. Neither is
-exported from a package entry point yet. They do not cache settings, write
-documents, publish changes, or add Studio controls. The existing public
+exported from a package entry point yet. A private Studio integration now adds
+settings documents and native draft editing. The loader and resolver still do
+not cache settings, write documents, or publish changes. The existing public
 `PagesRouteConfig` continues to require string prefixes.
 
 See [URL handling](url.md) for the existing storage and resolution rules, and
@@ -284,3 +285,76 @@ URLs: for example, through dynamic routes or a CMS catch-all alongside explicit
 application routes. It must use the resolved prefix consistently in routing,
 links, sitemaps, and preview. The kit does not rewrite route modules or move
 overview pages when a setting changes.
+
+## Editing settings in Studio (private integration)
+
+The private `withCollectionRoutingSettings(workspace, {routes})` wrapper adds
+one `sanityKitCollectionRoute` schema. `collectionRoutingSettingsItems(S, routes)`
+creates a native Structure entry for each collection with a document binding.
+Collections with prefixes set in code do not get an editable settings document.
+These helpers are not exported from the package yet.
+
+The consuming Studio chooses where to put the entries. For example, its Structure
+resolver can use the same `routes` registration:
+
+```ts
+structure: (S) =>
+	S.list()
+		.title('Content')
+		.items([
+			...S.documentTypeListItems().filter(
+				(item) => item.getId() !== 'sanityKitCollectionRoute',
+			),
+			S.listItem()
+				.id('collection-url-settings')
+				.title('Collection URL settings')
+				.child(
+					S.list()
+						.id('collection-url-settings')
+						.title('Collection URL settings')
+						.items(collectionRoutingSettingsItems(S, routes)),
+				),
+		])
+```
+
+The filter keeps these singletons out of generic content lists. The integration
+also removes their templates from ordinary creation menus. Opening a settings
+entry uses the configured document ID and initializes its immutable `collection`
+name. There is no `site` field and no separate index-page requirement for prefix
+storage. Existing Pages navigation still requires its configured overview page.
+
+Editors use Sanity's normal slug input to enter the complete prefix, such as
+`/journal`. Native draft autosave, field validation, read-only handling, and
+permission checks continue to apply. A missing or incorrectly bound document,
+and a release version, cannot be edited through this schema. Settings titles use
+the collection's configured display name. The stored collection key stays stable.
+
+Validation checks the prefix's format, length, app reservations, and overlap with
+code-configured collections. It does not fetch other settings or claim that the
+prefix is globally available. A complete collision check needs fresh settings,
+page URLs, and redirects, and belongs to the reviewed publish workflow. Sanity's
+ordinary slug uniqueness check is disabled here because its schema/field scope
+does not represent that full routing inventory.
+
+### What this slice deliberately cannot publish yet
+
+A visible notice explains that draft changes can be saved, but collection URL
+publishing is not available yet. Existing published settings remain unchanged.
+The only retained document action is Sanity's native **Discard changes**, with its
+normal permission checks. Publish, scheduling, deletion, unpublishing, duplication,
+release actions, and custom document actions are unavailable for this settings
+type until they have an explicit safe integration. Other document types keep
+their existing actions.
+
+Use the workspace wrapper, not the plugin by itself: its final action reducer runs
+after built-in tools and app reducers. A layout check refuses an unsafe later
+replacement that would restore publishing. This is a Studio workflow guard, not
+a Content Lake access rule; external writers can still bypass Studio validation.
+
+This slice does not connect settings drafts to the Pages navigator, URL field,
+or website preview automatically. The existing private loader and resolver can
+select draft or published prefixes, but those consumers still need to load and
+apply that context. The next dependent slices must add that integration, followed
+by reviewed prefix publishing with affected URLs, redirects, concurrency checks,
+and cache activation. Changing a settings draft alone does not activate a new
+live route or rewrite item slugs.
