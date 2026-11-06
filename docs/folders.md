@@ -590,42 +590,97 @@ bounds still apply. The projected redirect inventory also includes conservative
 metadata headroom. These are kit review bounds, not Sanity platform limits. An
 oversized move is refused rather than split into partially applied batches.
 
-### Required before enabling writes or UI
+### Applying a reviewed rename: private service foundation
 
-A later slice must implement and test all of these together:
+`createFolderRenameController` in `rename-write.ts` now adds a private service
+around the planner. It is not connected to a Rename button yet. A caller supplies
+routing configuration, a Sanity client, and a required `authorize` adapter. The
+controller has four operations:
 
-1. Load fresh, complete access-checked evidence and rebuild the entire reviewed
-   plan. Changed revisions, new document versions, new collisions, or changed
-   routing settings require a fresh review.
-2. Coordinate participating kit URL writers. A shared routing coordination record
-   is a proposal, not an implemented guarantee. All relevant writers must join
-   before it can protect against concurrent kit changes. It also needs a tested
-   stale-query barrier; merely reading and patching a revision does not establish
-   complete query visibility.
-3. Apply supported folder paths, page URL fields, redirect changes, and a durable
-   operation receipt in one bounded atomic operation, with revision guards and
-   new opaque redirect IDs. Measure the actual complete request, including the
-   receipt, before sending it. Do not publish unrelated draft content.
-4. Reconcile an uncertain response using that operation identity and durable
-   evidence before considering another write. A missing receipt in a stale query
-   is not proof of failure. Retrying must not create duplicate redirects or rename
-   an already-renamed folder again.
-5. Add the review modal, explicit live-impact confirmation, access/conflict
-   notices, and live acceptance. Website cache refresh remains a separate outcome
-   from the dataset change.
+- `review` loads the evidence and returns an immutable proposal for the editor.
+- `apply` checks that same proposal again and sends one bounded transaction.
+- `reconcile` checks the recorded outcome after a lost or uncertain response.
+- `getPending` recovers the identity of a write whose outcome is not yet known.
+
+Review and apply each check read access, load the raw registered page versions,
+folder registry, and redirect inventory, and rebuild the plan. Any changed
+inventory or revision requires a fresh review. The service accepts only review
+objects it created; passing a copied or edited object cannot authorize a write.
+The Studio integration must also confirm that the editor is still reviewing the
+same operation immediately before dispatch.
+
+#### Permissions and read-only fields
+
+The required authorization adapter receives the exact document IDs, schema types,
+field paths, and create/update operations. It must check the current user's
+permission for these lower-level mutations and evaluate document and field
+`readOnly` rules. Conditional rules may require loading complete documents; the
+service's URL projections are not enough for that check. Creating redirects and
+the operation receipt requires create permission too. A native Publish button
+being enabled is not sufficient evidence for this operation. Failed, missing, or
+unverified authorization stops the write. The service repeats authorization after
+refreshing the review evidence.
+
+#### What changes together
+
+The transaction patches folder paths by stable key, page URL fields by configured
+field path, and existing redirect destinations. Every changed existing document
+has an `ifRevisionID` guard. Published pages and matching drafts get separate
+URL-only patches; unrelated content and metadata remain untouched. Draft-only
+pages remain drafts. New redirects use opaque IDs and strict creates, so an
+unexpected record with the same ID makes the transaction fail instead of being
+overwritten.
+
+A strict-created operation receipt is part of the same transaction. It records the
+operation identity, reviewed plan, and generated redirect IDs. The full request,
+including that receipt and transaction ID, must fit within 1,048,576 bytes. The
+service sends one request with automatic retries disabled. It never divides an
+oversized rename into partial batches. This is a kit limit, not a Sanity platform
+limit.
+
+#### Recovering when the response is lost
+
+Before sending anything, the service saves the receipt identity in recovery
+storage and reads it back. If storage is unavailable, full, or does not preserve
+the value, the write does not start. The default is browser `sessionStorage`: it
+survives reloading the same tab, but it is not a promise of recovery after closing
+the tab or ending the browser session. An integration can supply a trusted
+storage adapter with stronger persistence. The stored receipt includes internal
+review details and must stay in appropriately protected storage.
+
+A confirmed response settles the operation. If the response is lost, malformed,
+or otherwise uncertain, the service reads the receipt directly through Sanity's
+Doc API. An exact matching receipt proves that the transaction committed. A
+missing, different, or unreadable receipt does **not** prove failure: the operation
+stays pending and a new rename is blocked. Rechecking never resends the write.
+Definitive request rejections settle as failures. Mounted controllers in the same
+JavaScript runtime share pending state; this is not a cross-tab or cross-user
+lock. Receipt cleanup and operational recovery after losing local storage still
+need an explicit maintenance policy before this workflow ships.
+
+#### Guarantees and remaining acceptance
 
 Sanity transactions are atomic, but GROQ queries use an eventually consistent
-search store. A prior query and guards on reviewed records cannot prevent an
-external writer from inserting a conflicting page or new version. These planners
-do not claim database-wide uniqueness or coordination that is not implemented.
-See [Sanity transactions](https://www.sanity.io/docs/content-lake/transactions).
+search store. Fresh reads and revision guards protect the reviewed records from
+being overwritten after they change. They cannot prevent another writer from
+creating a new conflicting document or draft version after the read. Native
+Studio field patches and initial-value templates do not join a shared lock, and
+this service does not pretend that they do. It does not guarantee database-wide
+URL uniqueness. See [Sanity transactions](https://www.sanity.io/docs/content-lake/transactions)
+and the [Mutation API](https://www.sanity.io/docs/http-reference/mutation).
 
-The offline tests in `tests/studio/folders-rename.test.ts` exercise the pure review
-contract, not transactions or live Studio behavior.
+The offline planner tests in `tests/studio/folders-rename.test.ts` cover the review
+contract. `tests/studio/folders-rename-write.test.ts` checks revision-guarded patch
+payloads, authorization failures, changed reviews, recovery persistence, uncertain
+responses, and concurrent mounted controllers. It also sends requests through the
+real Sanity client with a mocked HTTP transport to check serialization and retry
+behavior. These are not live backend transaction or Studio acceptance tests.
 
 ## What remains before the finished folder workflow
 
-The rename writer, concurrency/recovery foundation, review UI, and live acceptance
-remain separate work. Empty-folder removal does not move or remove populated
-folders. Coordinating mutable collection settings with folder operations remains
-part of the shared bulk-change work.
+The Rename review modal, explicit live-impact confirmation, access adapter,
+recovery notices, receipt maintenance policy, and live acceptance remain separate
+work. Website cache refresh is a separate outcome from the dataset change.
+Empty-folder removal does not move or remove populated folders. Coordinating
+mutable collection settings with folder operations remains part of the shared
+bulk-change work.

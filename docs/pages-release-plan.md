@@ -12,9 +12,10 @@ also passed verification, coverage, and package checks on GitHub.
 The collection navigation and explicit settings-ownership slice (`74ad993`) is
 also committed and pushed. The pure folder-rename planner (`7d388c5`) is now
 committed and pushed. Native redirect draft management (`18570b5`) is also
-committed and pushed. The next parallel round has produced reviewable redirect
-publishing, folder rename writing/recovery, and a settings-aware collection
-routing foundation. These changes are not yet committed.
+committed and pushed. Guarded redirect publishing (`0648541`) and the simpler
+Publish/Delete workflow (`b6d7516`) are now committed and pushed too. The next
+review slice is folder rename writing and recovery. The settings-aware collection
+routing foundation remains a separate, uncommitted slice.
 
 ## Parallel tracks
 
@@ -46,6 +47,8 @@ Completed work is reviewed and committed in separate slices.
   response can be checked without resending it. The proof Studio now enables
   the private publishing option. Live first-publish, destination-update, and
   retirement checks passed; draft-only remains a separate consumer option.
+  Normal Publish now runs these checks without a routine confirmation dialog.
+  Native Delete remains available, with a clearer warning for active redirects.
 - **Folders:** turn the approved rename plan into a bounded atomic write that
   changes only folder paths, page URL fields, and affected redirect destinations.
   Preserve unrelated draft content. The writer and recovery are implemented and
