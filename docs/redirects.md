@@ -2,7 +2,7 @@
 
 Status: the private snapshot foundation was approved on October 31, 2026. The
 private Sanity loader described below is also approved. The private request and
-consumer-cache boundary is now implemented for review. This is
+consumer-cache boundary is approved. A native Studio redirect draft editor is now implemented for review. This is
 not a public package entry point or an installed website redirect system.
 A separate private [Studio publication integration](url-field.md#editing-published-pages)
 can now create a redirect with a single-page URL change. The names, record shape, and bounds below describe
@@ -331,3 +331,97 @@ activation happened together. Existing browser caches are outside this process.
 paths, query handling, response headers, cache corruption and isolation,
 invalidation errors, shared-refresh cancellation, and a real SDK transport stub.
 No live frontend or cache-backend acceptance is claimed by these offline checks.
+
+## Preparing redirect drafts in Studio
+
+The private management checkpoint uses Sanity's ordinary document list and form.
+Editors can search redirects, inspect their old and destination URLs, create a
+manual redirect draft, and prepare changes to an existing rule. Sanity supplies
+document IDs, native permissions, autosave, validation indicators, and draft
+status. There is no separate custom list or replacement form control.
+
+The opt-in belongs to the existing `withUrlPublication()` integration:
+
+```ts
+withUrlPublication(studioConfig, {
+	routes,
+	redirectManagement: 'drafts',
+})
+```
+
+Add `redirectManagementItem(S)` to the consumer's Structure items where the
+Redirects list belongs. These helpers are still private source integrations,
+not new package exports. Without the option, generated redirects remain
+read-only and there is no creation template. With it, one native manual template
+starts with status 301, enabled true, and origin `manual`. It does not choose an
+ID or create a published document. The list can sort by old URL or last edited,
+and its preview shows destination, permanent/temporary type, enabled state, and
+manual/generated origin.
+
+The form has five fields:
+
+- **Old URL:** an exact path on this website, such as `/previous-name`.
+- **Destination URL:** another same-site path, such as `/new-name`. `/` is valid.
+- **Redirect type:** permanent (301) or temporary (302).
+- **Enabled:** turning it off prepares retirement in the draft.
+- **Created by:** read-only provenance. Editing a generated rule does not turn it
+  into a manually created rule.
+
+Local validation rejects unsafe or noncanonical paths, reserved source URLs,
+unsupported status codes, missing values, and a redirect to itself. Reservations
+come from the same route registration and extra reserved paths used by page
+publication. Destinations may point into reserved sections. Studio validation
+helps editors; it is not a Content Lake constraint on API writes.
+
+**This checkpoint saves drafts only.** Publishing, retiring a live rule,
+unpublishing, deleting, duplicating, and scheduling are not enabled. The workspace
+wrapper removes those actions after native and consumer action reducers run,
+while retaining Sanity's permission-aware discard-draft action. A layout check
+detects incorrectly installed action guards. Release versions are read-only.
+The form explains that the published rule remains active while its draft changes.
+A disabled draft therefore does **not** stop the live redirect yet.
+
+The guarded publish/retire service is the next step. It must review fresh complete
+routing and redirect evidence, check access and document versions, guard reviewed
+revisions, and reconcile an uncertain result before allowing another write.
+Changing the field schema alone would not provide those protections. These
+workspace guards also cannot stop an external API writer or a separately
+configured Studio from bypassing this integration.
+
+## Checking a proposed redirect draft
+
+`reviewRedirectDraft(candidate, inventory, policy)` is the private, pure graph
+check for the next reviewed publishing workflow. It does not fetch records,
+change documents, or authorize publication. The native draft form currently runs
+local field validation; it does not silently load and claim a complete graph on
+every keystroke.
+
+The caller supplies a bounded, complete published inventory. The helper replaces
+only the candidate's published counterpart, or adds it when this is a new draft,
+and runs the shared snapshot compiler on the **resulting** rules. It checks
+source conflicts, occupied page paths, app reservations, known destinations,
+loops, chains, and record/data limits. Errors identify affected field values and
+related redirect rows where the inventory provides them. This data can feed the
+same clickable conflict-row pattern as page publication.
+
+This ordering matters for repair: an invalid published redirect must not prevent
+an editor from correcting that very record. A valid replacement may fix its bad
+path, destination, or status. Other invalid rules remain visible and blocking;
+replacing one record does not discard or silently repair anything else. Duplicate
+published IDs, incomplete inventories, draft rows masquerading as published data,
+and release candidates are rejected before replacement.
+
+Success means the proposed graph is valid under the supplied evidence and policy.
+It does not prove read access, currentness, absence of concurrent new writers,
+publication permission, or safe handling of other pending drafts/releases. The
+later service must supply those checks. Explicitly updating a live redirect while
+preserving conflicting unpublished work remains deferred.
+
+Implementation lives in `src/studio/redirects/schema.tsx` and `review.ts`; the
+existing `src/studio/url/publication-plugin.tsx` owns registration and action
+finalization. Offline tests exercise native schema/template/action resolution,
+field feedback, repair semantics, graph conflicts, and published-only runtime
+reads. Live proof-Studio acceptance covered manual draft creation, autosave,
+native self-redirect validation, read-only provenance, and the absence of live
+actions. See the fixture acceptance log for the remaining access and release
+checks. Guarded manual publication remains outstanding.

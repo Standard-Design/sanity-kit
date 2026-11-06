@@ -883,3 +883,27 @@ and searching narrows the choices without creating anything. One eligible
 template remains a direct action, including when permissions exclude the other
 registered templates. Automated coverage also checks that a failed handoff
 keeps its Retry notice in the submenu and retries the selected template.
+
+## November 5 — native redirect draft management
+
+The live proof Studio loaded with both collection settings and redirect draft
+management enabled. **Fixture content → Redirects** displayed generated rules
+with destination, type, enabled state, and provenance in the native list. The
+list’s `+` opened a native manual template with 301, enabled, and manual defaults.
+
+Created the test draft `/redirect-editor-proof`. Entering the same path as its
+destination produced the native validation message explaining that a redirect
+cannot send visitors to the same URL. Changing the destination to `/about`
+cleared that error. Navigating away and back retained both saved values. The
+form offered Discard changes and no Publish action; the Published tab remained
+disabled for the new draft. Nothing was published.
+
+Inspected an existing generated rule without changing it. Its source and
+destination were editable, while Created by retained the read-only `url-change`
+value. The draft-only notice explained that the published rule remains active.
+The new manual draft remains available for review.
+
+Offline tests cover both workspace-wrapper orders, consumer action reducers,
+release guards, reservations, draft-only loading, and complete-graph review.
+Restricted-role behavior, release editing, failed network writes, and guarded
+manual publication were not exercised live in this pass.

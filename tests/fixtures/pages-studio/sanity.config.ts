@@ -12,6 +12,7 @@ import {
 	proofSlugPost,
 	proofCollectionArticle,
 } from './collection-settings.js'
+import { redirectManagementItem } from '../../../src/studio/redirects/schema.js'
 import { withUrlPublication } from '../../../src/studio/url/publication-plugin.js'
 
 const projectId = process.env.SANITY_STUDIO_PROJECT_ID
@@ -59,9 +60,12 @@ export default defineConfig(
 								.title('Fixture content')
 								.items([
 									...S.documentTypeListItems().filter(
-										(item) => item.getId() !== 'sanityKitCollectionRoute',
+										(item) =>
+											item.getId() !== 'sanityKitCollectionRoute' &&
+											item.getId() !== 'sanityKitRedirect',
 									),
 									S.divider(),
+									redirectManagementItem(S),
 									...collectionRoutingSettingsItems(
 										S,
 										proofCollectionSettingsRoutes,
@@ -120,7 +124,7 @@ export default defineConfig(
 					}),
 				],
 			},
-			{ routes: proofRoutes },
+			{ routes: proofRoutes, redirectManagement: 'drafts' },
 		),
 		{ routes: proofCollectionSettingsRoutes },
 	),

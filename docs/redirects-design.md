@@ -4,9 +4,10 @@ Status: proposed on October 31, 2026. **Not released.** A private
 [snapshot validator and lookup](redirects.md) is implemented and approved. A private
 published-rule loader is also approved. A private
 [single-page publication integration](url-field.md#editing-published-pages) is
-implemented and under review; live acceptance passed with and without redirects.
-Caching, HTTP handling, general Studio management, and bulk publication
-coordination remain future work. All API
+implemented; live acceptance passed with and without redirects. Private plain
+HTTP handling and consumer-owned caching are also implemented. Native redirect
+draft management is now implemented for review; guarded manual publishing,
+framework integration, and bulk publication coordination remain future work. All API
 names and configuration examples below are candidates for review, not exports
 that consumers can import today. This document does not approve the other open
 [Pages design proposals](pages-design-proposals.md).
@@ -473,3 +474,16 @@ appended to the kit's scope, not a replacement for project/dataset/policy
 isolation. Framework-specific React Router handling, concrete cache backends,
 verified activation after a content commit, and live consumer acceptance remain
 future work. This checkpoint does not make the internal helpers public exports.
+
+## Private Studio draft-management checkpoint
+
+The native searchable list and schema now support an explicit
+`redirectManagement: 'drafts'` option on the existing URL-publication integration.
+It enables draft creation/editing and keeps live mutation actions blocked. The
+form states that published rules remain active. The accompanying prospective
+check validates the resulting graph so editors can repair a bad published rule;
+unrelated invalid records still block it. See
+[the subsystem guide](redirects.md#preparing-redirect-drafts-in-studio) for exact
+boundaries. This is not completed manual publishing or retirement. The following
+service slice must add fresh evidence, permissions, version/revision checks, a
+reviewed write, and uncertain-result recovery before those actions are enabled.

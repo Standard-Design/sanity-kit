@@ -6,8 +6,6 @@
  */
 import {
 	definePlugin,
-	defineType,
-	defineField,
 	useWorkspace,
 	type DocumentActionComponent,
 	type LayoutProps,
@@ -17,6 +15,10 @@ import {
 	createPagesRegistry,
 	type PagesRouteConfig,
 } from '../../url/registry.js'
+import {
+	createRedirectSchema,
+	REDIRECT_MANUAL_TEMPLATE,
+} from '../redirects/schema.js'
 import { createUrlPublishAction } from './publication-action.js'
 import {
 	UrlPublicationProvider,
@@ -26,6 +28,8 @@ import type { UrlPublicationOptions } from './publication.js'
 
 export interface UrlPublicationPluginOptions extends UrlPublicationOptions {
 	readonly routes: PagesRouteConfig
+	/** Private opt-in editor foundation; live redirect publishing remains blocked. */
+	readonly redirectManagement?: 'drafts'
 }
 
 export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
@@ -33,6 +37,7 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 		// Field enablement and lazily created action wrappers must retain the same
 		// routing policy if the caller later changes its configuration object.
 		const routes = structuredClone(options.routes)
+		const editableRedirects = options.redirectManagement === 'drafts'
 		const publicationOptions: UrlPublicationOptions = options.reservedPaths
 			? { reservedPaths: [...options.reservedPaths] }
 			: {}
@@ -67,14 +72,19 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 					)
 			}
 			if (
-				workspace.document.actions({
-					schemaType: 'sanityKitRedirect',
-					versionType: 'draft',
-					releaseId: undefined,
-				}).length > 0
+				workspace.document
+					.actions({
+						schemaType: 'sanityKitRedirect',
+						versionType: 'draft',
+						releaseId: undefined,
+					})
+					.some(
+						(action) =>
+							!editableRedirects || action.action !== 'discardChanges',
+					)
 			)
 				throw new Error(
-					'Configure the Studio with withUrlPublication so generated redirects remain read-only after all document-action plugins are resolved.',
+					'Configure the Studio with withUrlPublication so redirect actions cannot change live rules before their guarded publishing workflow is installed.',
 				)
 			return (
 				<UrlPublicationProvider configKey={configKey}>
@@ -86,32 +96,38 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 			name: 'sanity-kit-url-publication',
 			studio: { components: { layout: Layout } },
 			schema: {
-				templates: (previous) =>
-					previous.filter(
+				templates: (previous) => [
+					...previous.filter(
 						(template) => template.schemaType !== 'sanityKitRedirect',
 					),
+					...(editableRedirects
+						? [
+								{
+									id: REDIRECT_MANUAL_TEMPLATE,
+									title: 'Redirect',
+									schemaType: 'sanityKitRedirect',
+									value: { status: 301, enabled: true, origin: 'manual' },
+								},
+							]
+						: []),
+				],
 				types: [
-					defineType({
-						name: 'sanityKitRedirect',
-						title: 'Redirect',
-						type: 'document',
-						// Generated rules are inspectable; rule editing/management is a later
-						// slice and must not offer unvalidated mutation of an active graph.
-						readOnly: true,
-						fields: [
-							defineField({ name: 'source', title: 'From', type: 'string' }),
-							defineField({ name: 'destination', title: 'To', type: 'string' }),
-							defineField({ name: 'status', type: 'number' }),
-							defineField({ name: 'enabled', type: 'boolean' }),
-							defineField({ name: 'origin', type: 'string' }),
+					createRedirectSchema({
+						editableDrafts: editableRedirects,
+						reservedPaths: [
+							...registry.excludePaths,
+							...(publicationOptions.reservedPaths ?? []),
 						],
-						preview: { select: { title: 'source', subtitle: 'destination' } },
+						reservedPathPrefixes: registry.reservedPathPrefixes,
 					}),
 				],
 			},
 			document: {
 				actions: (previous, context) => {
-					if (context.schemaType === 'sanityKitRedirect') return []
+					if (context.schemaType === 'sanityKitRedirect')
+						return editableRedirects && context.versionType !== 'version'
+							? previous.filter((action) => action.action === 'discardChanges')
+							: []
 					if (
 						!registry.types.some(
 							(type) => type.schemaType === context.schemaType,

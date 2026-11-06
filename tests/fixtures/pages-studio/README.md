@@ -157,8 +157,8 @@ button publishes the whole reviewed draft and its optional new redirect in one
 transaction. If older redirects point to the page, the dialog lists them and
 updates their destinations directly to the new URL in that same transaction.
 Turning off the checkbox skips only the new rule, not those reviewed updates. The fixture frontend does not yet serve these rules as HTTP
-redirects. Dynamic collection settings, folder rename/removal, redirect delivery,
-and automatic synchronization are separate work. This
+redirects. Dynamic collection-prefix integration, folder renaming, and redirect
+delivery remain separate work. Folder removal and synchronization are available. This
 factory is private and is not available through the package's `/studio` export.
 See [the URL-field guide](../../../docs/url-field.md) for access requirements,
 storage behavior, and concurrency limits.
@@ -268,3 +268,17 @@ previews, and permission-aware template choices remain pending.
 A5 adds the full compatibility/distribution checks and release
 documentation. No version bump, commit, publication, or deployment is implied
 by this fixture.
+
+## Redirect draft review
+
+Open **Fixture content → Redirects** to inspect generated rules or use the list’s
+`+` button to create a manual redirect. The fixture opts into
+`redirectManagement: 'drafts'` and installs `redirectManagementItem(S)` alongside
+its existing collection settings.
+
+The native form autosaves drafts and validates paths, required values, and
+self-redirects. **Created by** stays read-only. Only Discard changes is available;
+there is no Publish, Delete, Unpublish, Duplicate, or Schedule action in this
+checkpoint. Changes to an existing rule stay in its draft; the live rule is not
+changed by this editor. The `/redirect-editor-proof` draft is available for
+review and points to `/about`.

@@ -10,8 +10,9 @@ handling with optional consumer caching (`437540d`). The separate CI timing fix
 also passed verification, coverage, and package checks on GitHub.
 
 The collection navigation and explicit settings-ownership slice (`74ad993`) is
-also committed and pushed. The next review is the pure folder-rename planner;
-redirect draft management is prepared independently for the following review.
+also committed and pushed. The pure folder-rename planner (`7d388c5`) is now
+committed and pushed. Native redirect draft management is the current review;
+settings-aware collection routing and the bulk writer remain separate work.
 
 ## Parallel tracks
 
