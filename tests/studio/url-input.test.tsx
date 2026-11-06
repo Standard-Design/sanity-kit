@@ -210,6 +210,121 @@ describe('URL input draft workflow', () => {
 			},
 		}
 	}
+	it('edits a full pathname as text and uses the same guarded slug-object patch', async () => {
+		props = { ...props, inputMode: 'text' }
+		await render()
+		expect(host.querySelector('input')!.getAttribute('aria-label')).toBe(
+			'Full pathname',
+		)
+		expect(host.querySelector('input')!.value).toBe('/about/team')
+		expect(host.textContent).not.toContain('Folder ')
+		await save()
+		expect(native.prepare).not.toHaveBeenCalled()
+		await type('/company//leadership/')
+		await save()
+		expect(native.prepare).toHaveBeenCalledWith(
+			expect.objectContaining({ storedValue: '/company/leadership' }),
+			expect.any(AbortSignal),
+		)
+		expect(native.onChange).toHaveBeenCalledWith([
+			{ type: 'setIfMissing', value: { _type: 'slug' } },
+			{ type: 'set', value: '/company/leadership', path: ['current'] },
+		])
+	})
+	it.each([
+		['/company/team', '/company/hello-world'],
+		['/company/', '/company/hello-world'],
+		['/', '/hello-world'],
+		['', '/hello-world'],
+	])(
+		'generates only the final segment of a typed pathname %s',
+		async (typed, expected) => {
+			props = { ...props, inputMode: 'text' }
+			await render()
+			await type(typed)
+			await click('Generate')
+			expect(host.querySelector('input')!.value).toBe(expected)
+			expect(host.querySelector('input')!.getAttribute('aria-label')).toBe(
+				'Full pathname',
+			)
+			await save()
+			expect(native.prepare).toHaveBeenCalledWith(
+				expect.objectContaining({ storedValue: expected }),
+				expect.any(AbortSignal),
+			)
+		},
+	)
+	it('accepts an explicit homepage in text mode but blocks invalid and conflicting URLs', async () => {
+		props = { ...props, inputMode: 'text' }
+		await render()
+		await type('/')
+		await save()
+		expect(native.onChange).toHaveBeenCalledWith([
+			{ type: 'setIfMissing', value: { _type: 'slug' } },
+			{ type: 'set', value: '/', path: ['current'] },
+		])
+		native.onChange.mockClear()
+		native.prepare.mockClear()
+		await type('https://example.com/page')
+		await save()
+		expect(button('Generate').disabled).toBe(true)
+		expect(native.prepare).not.toHaveBeenCalled()
+		expect(native.onChange).not.toHaveBeenCalled()
+		native.prepare.mockResolvedValue({
+			status: 'blocked',
+			reason: 'url-in-use',
+		})
+		await type('/occupied')
+		await save()
+		expect(host.textContent).toContain('Another document already uses this URL')
+		expect(native.onChange).not.toHaveBeenCalled()
+	})
+	it.each([undefined, ''])(
+		'retains a contextual creation folder in text mode with initial value %s',
+		async (current) => {
+			createInFolder('page', '/company')
+			props = {
+				...props,
+				inputMode: 'text',
+				...(current === undefined ? {} : { value: { _type: 'slug', current } }),
+			}
+			await render()
+			expect(host.querySelector('input')!.value).toBe('/company/')
+			await save()
+			expect(native.prepare).not.toHaveBeenCalled()
+			await click('Generate')
+			await save()
+			expect(native.prepare).toHaveBeenCalledWith(
+				expect.objectContaining({ storedValue: '/company/hello-world' }),
+				expect.any(AbortSignal),
+			)
+		},
+	)
+	it('keeps explicit index creation and remote updates working in text mode', async () => {
+		createInFolder('index', '/company')
+		props = { ...props, inputMode: 'text' }
+		await render()
+		expect(host.querySelector('input')!.value).toBe('/company')
+		await save()
+		expect(native.prepare).toHaveBeenCalledWith(
+			expect.objectContaining({ storedValue: '/company' }),
+			expect.any(AbortSignal),
+		)
+		props = { ...props, value: { _type: 'slug', current: '/remote/team' } }
+		native.document = { ...native.document, pathname: props.value }
+		await render()
+		expect(host.querySelector('input')!.value).toBe('/remote/team')
+	})
+	it('keeps text controls read-only while allowing URL copying', async () => {
+		props = { ...props, inputMode: 'text', readOnly: true }
+		await render()
+		expect(host.querySelector('input')!.readOnly).toBe(true)
+		expect(button('Generate').disabled).toBe(true)
+		expect(button('Copy URL').disabled).toBe(false)
+		await save()
+		expect(native.prepare).not.toHaveBeenCalled()
+		expect(native.onChange).not.toHaveBeenCalled()
+	})
 	it('uses a creation folder as a prefix without silently creating its index page', async () => {
 		createInFolder('page')
 		await render()
@@ -767,32 +882,36 @@ describe('URL input draft workflow', () => {
 			expect.any(AbortSignal),
 		)
 	})
-	it('shows a locked collection prefix while storing only its slug', async () => {
-		native.document = {
-			_id: 'drafts.post1',
-			_type: 'post',
-			title: 'Post',
-			slug: { current: 'first' },
-		}
-		props = {
-			...props,
-			path: ['slug'],
-			value: { _type: 'slug', current: 'first' },
-		}
-		await render()
-		expect(host.textContent).toContain('/journal/')
-		expect(host.textContent).not.toContain('Folder ')
-		await type('second')
-		await save()
-		expect(native.prepare).toHaveBeenCalledWith(
-			{
-				document: native.document,
-				storedValue: 'second',
-				readOnly: false,
-			},
-			expect.any(AbortSignal),
-		)
-	})
+	it.each(['folders', 'text'] as const)(
+		'keeps the collection prefix locked in %s mode while storing only its slug',
+		async (inputMode) => {
+			native.document = {
+				_id: 'drafts.post1',
+				_type: 'post',
+				title: 'Post',
+				slug: { current: 'first' },
+			}
+			props = {
+				...props,
+				inputMode,
+				path: ['slug'],
+				value: { _type: 'slug', current: 'first' },
+			}
+			await render()
+			expect(host.textContent).toContain('/journal/')
+			expect(host.textContent).not.toContain('Folder ')
+			await type('second')
+			await save()
+			expect(native.prepare).toHaveBeenCalledWith(
+				{
+					document: native.document,
+					storedValue: 'second',
+					readOnly: false,
+				},
+				expect.any(AbortSignal),
+			)
+		},
+	)
 	it('refuses slash-separated slugs rather than silently moving a page', async () => {
 		await render()
 		await type('other/child')

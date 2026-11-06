@@ -12,6 +12,68 @@ publication plugin installed, editors can also edit drafts of published pages.
 Documents with release versions and `liveEdit` schemas remain protected. Without
 that plugin, the field still limits editing to unpublished documents.
 
+## Using the field without Pages
+
+The URL field does not require the Pages tool. It can appear in an ordinary
+Structure document editor, or in native Presentation, without installing
+`pagesTool`. The field and its publishing integration are separate from the
+Pages navigator. They remain private source integrations until their public
+package exports are finalized.
+
+Standalone use still needs the shared route registration. It tells the field
+which document types own URLs, where those values are stored, which collection
+prefixes apply, and which paths are reserved. Use the same registration for the
+field and the publishing integration. Install `withUrlPublication` to enable
+draft URL editing on published documents and review redirects when publishing
+a changed URL. That helper works independently of Pages.
+
+The folder picker also works without Pages. The field's own controller loads
+saved folders and folders implied by registered page URLs, and saves folder
+records when needed. It uses the same folder subsystem and permissions as the
+navigator; it does not need a mounted Pages tool to supply the folder list.
+Folder rename and removal remain navigator actions. Location hints from a
+Pages **Create page** action are optional; an ordinary Structure-created document
+does not need one.
+
+### Text input and stored strings are separate choices
+
+Set `inputMode: 'text'` on the field definition to replace an ordinary page's
+folder picker and final-segment input with one full-path text input. The default,
+`inputMode: 'folders'`, keeps the folder picker. For example:
+
+```ts
+defineSanityUrlField({
+	routes,
+	name: 'pathname',
+	title: 'URL',
+	inputMode: 'text',
+	options: { source: 'title' },
+})
+```
+
+Typing `/about/company/team` still places the page in `/about/company` and
+preserves its folder records through the same controller. Text mode uses the
+same cleanup, validation, uniqueness checks, read-only rules, autosave, and
+publish review as the picker. Enter `/` for the homepage. **Generate** replaces
+the final segment while preserving the typed parent path: `/about/team` becomes
+`/about/hello-world` for a title of “Hello World.” A trailing slash specifies a
+folder to append to; `/about/company/` generates `/about/company/hello-world`.
+Generation waits for malformed paths to be corrected. A blank input generates
+at the site root. A contextual creation action pre-fills its folder with a
+trailing slash, so Generate uses that folder unless the editor clears it.
+
+Collection items retain their fixed prefix beside the editable segment in both
+modes. Text mode does not make a collection prefix editable on individual items.
+In folder mode, an invalid existing page pathname can still appear in a full-path
+repair input; that recovery behavior is separate from the configuration option.
+
+The custom field currently uses Sanity's native slug object, storing its value
+in `current`. The shared routing helpers also support ordinary string fields
+such as `route: '/about/team'`. A consumer can register those fields and use a
+native string input, but doing so does not install this custom field's generation,
+cleanup, validation, or folder-saving behavior. Supporting string storage in
+the routing layer is not the same as supporting it in this input component.
+
 ### Editing published pages
 
 Published pages use the same normal draft URL editing as new pages. Changing the

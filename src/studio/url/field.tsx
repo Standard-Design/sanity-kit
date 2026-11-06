@@ -31,6 +31,8 @@ export interface SanityUrlFieldDefinition extends Omit<
 	'type' | 'options'
 > {
 	readonly routes: PagesRouteConfig
+	/** Page pathname controls only; collection prefixes remain locked. */
+	readonly inputMode?: 'folders' | 'text'
 	/** Native generation callbacks; uniqueness belongs to the shared URL space. */
 	readonly options?: Pick<SlugOptions, 'source' | 'maxLength' | 'slugify'>
 	readonly group?: string | string[]
@@ -43,7 +45,15 @@ export interface SanityUrlFieldDefinition extends Omit<
  * document's registered type determines storage and its fixed route prefix.
  */
 export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
-	const { routes, validation, options, ...native } = definition
+	const {
+		routes,
+		validation,
+		options,
+		inputMode = 'folders',
+		...native
+	} = definition
+	if (inputMode !== 'folders' && inputMode !== 'text')
+		throw new Error('URL inputMode must be "folders" or "text".')
 	const registry = createPagesRegistry(routes)
 	const publicationKey = urlPublicationConfigKey(routes)
 	// Take a copy so input, native validation, and uniqueness cannot disagree if
@@ -79,6 +89,7 @@ export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 			<SanityUrlInput
 				{...props}
 				routes={snapshot}
+				inputMode={inputMode}
 				allowPublishedDrafts={allowPublishedDrafts}
 				{...(creationContext ? { creationContext } : {})}
 			/>

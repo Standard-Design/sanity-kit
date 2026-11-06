@@ -96,6 +96,22 @@ function fixture(
 }
 
 describe('native URL field definition', () => {
+	it('keeps native slug storage and format validation with the text input option', async () => {
+		const { field, validate } = fixture({ inputMode: 'text' })
+		expect(field.type).toBe('slug')
+		expect(
+			await validate(document('page', 'pathname', '/company/team')),
+		).toEqual([])
+		expect(
+			await validate(document('page', 'pathname', '/company//team/')),
+		).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({
+					message: 'Remove repeated or trailing slashes from this URL.',
+				}),
+			]),
+		)
+	})
 	it('marks the compiled field as able to consume guarded creation hints', () => {
 		const { field } = fixture()
 		const schema = createSchema({

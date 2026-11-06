@@ -166,6 +166,7 @@ function CopyUrlButton({
 /** Kept private while the full field and publication integration are accepted. */
 export interface SanityUrlInputProps extends SlugInputProps {
 	routes: PagesRouteConfig
+	inputMode?: 'folders' | 'text'
 	/** Paired with the kit's publication action; never a live URL write. */
 	allowPublishedDrafts?: boolean
 	/** Native create-intent hint, already matched to this form by the adapter. */
@@ -219,6 +220,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 		routes,
 		allowPublishedDrafts,
 		creationContext,
+		inputMode = 'folders',
 		value,
 		schemaType,
 		path,
@@ -323,13 +325,22 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 			: registered?.pathMode === 'slug'
 				? (stored ?? '')
 				: ''
+	// Appearance never changes storage or collection prefix ownership. A folder
+	// creation hint remains an unsaved prefix until the editor supplies a segment.
+	const textMode = inputMode === 'text' && !registered?.collection
+	const initialFullPath = textMode
+		? stored ||
+			(creatingIndex
+				? creation?.pathname
+				: creation
+					? `${creation.pathname === '/' ? '' : creation.pathname}/`
+					: '')
+		: stored && !initial.ok && registered?.pathMode !== 'slug'
+			? stored
+			: undefined
 	const [prefix, setPrefix] = useState(initialPrefix)
 	const [slug, setSlug] = useState(initialSlug)
-	const [fullPath, setFullPath] = useState<string | undefined>(
-		stored && !initial.ok && registered?.pathMode !== 'slug'
-			? stored
-			: undefined,
-	)
+	const [fullPath, setFullPath] = useState(initialFullPath)
 	const [loaded, setLoaded] =
 		useState<Awaited<ReturnType<typeof editor.load>>>()
 	const [refresh, setRefresh] = useState(0)
@@ -373,6 +384,17 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 				? { ok: false as const, reason: 'missing-slug' as const }
 				: authoring.prepareParts(document?._type, { prefix, slug })
 			: authoring.prepareStored(document?._type, fullPath)
+	// Generate replaces the final segment of a typed path. A trailing slash means
+	// the editor supplied a folder; keep that whole folder and append the slug.
+	const generationPrefix = textMode
+		? !fullPath
+			? '/'
+			: candidate.ok
+				? fullPath.endsWith('/')
+					? candidate.value.url.pathname
+					: candidate.value.url.prefix
+				: undefined
+		: prefix
 	const dirty =
 		touched &&
 		(candidate.ok
@@ -420,17 +442,14 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 		setIndexHomepage(creatingIndex && creation?.pathname === '/')
 		setPrefix(initialPrefix)
 		setSlug(initialSlug)
-		setFullPath(
-			stored && !initial.ok && registered?.pathMode !== 'slug'
-				? stored
-				: undefined,
-		)
+		setFullPath(initialFullPath)
 	}, [
 		stored,
 		documentIdentity,
 		initialPrefix,
 		initialSlug,
 		initial.ok,
+		initialFullPath,
 		registered?.pathMode,
 		creatingIndex,
 		creation?.pathname,
@@ -483,7 +502,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 		)
 	}
 	async function generate() {
-		if (disabled || busy) return
+		if (disabled || busy || generationPrefix === undefined) return
 		changed()
 		const epoch = operation.current
 		const before = document
@@ -493,7 +512,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 				document: before,
 				schemaType,
 				path,
-				prefix,
+				prefix: generationPrefix,
 				readOnly: false,
 				context: {
 					projectId: workspace.projectId,
@@ -508,7 +527,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 			else {
 				setTouched(true)
 				setSlug(result.value.url.slug)
-				setFullPath(undefined)
+				setFullPath(textMode ? result.value.storedValue : undefined)
 			}
 		} finally {
 			if (operation.current === epoch) setBusy(false)
@@ -698,7 +717,8 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 					disabled={
 						disabled ||
 						busy ||
-						fullPath !== undefined ||
+						(fullPath !== undefined && !textMode) ||
+						generationPrefix === undefined ||
 						!schemaType.options?.source
 					}
 					onClick={() => void generate()}
