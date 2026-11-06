@@ -27,7 +27,7 @@ const registry = createPagesRegistry({
 			name: 'journal',
 			title: 'Journal',
 			itemsTitle: 'Posts',
-			overview: { schemaType: 'page', pathname: '/journal' },
+			index: { schemaType: 'page', pathname: '/journal' },
 			routePrefix: '/journal',
 			items: [{ schemaType: 'post', pathnameField: 'pathname.current' }],
 		},
@@ -46,11 +46,11 @@ import private compiled files.
   `/journal/first-post`. It does not contain just `first-post`.
 - A collection item can instead use `slugField: 'slug.current'` to store just
   `first-post`. Choose exactly one field mode per type. Ordinary pages and
-  overviews still use `pathnameField`. Neither mode creates a schema field.
+  index pages still use `pathnameField`. Neither mode creates a schema field.
 - `titleField` defaults to `title`. It supplies location-link text and the proof
   list's title; it does not replace Sanity's schema preview configuration.
 - `collections` defaults to an empty list. Each has a stable `name`, visible
-  `title`, an existing ordinary page as its `overview`, and registered item types.
+  `title`, an existing ordinary page as its `index`, and registered item types.
 - `itemsTitle` is the optional plural label above the collection's recent items,
   for example `Posts` under `Journal`. It defaults to the collection title.
   Supply the wording explicitly for irregular plurals, translations, or mixed
@@ -58,7 +58,7 @@ import private compiled files.
 - `routePrefix` limits item URLs to descendants, such as `/journal/first-post`.
   For `pathnameField`, it only checks the boundary. For `slugField`, it is joined
   to the stored segment when reading; the full URL is never written back. The
-  prefix itself is not an item URL; the overview is registered separately.
+  prefix itself is not an item URL; the index page is registered separately.
 - `excludePaths` lists exact app-owned URLs. With `['/']`, a page document cannot
   claim the homepage. `/about` is unaffected.
 - `reservedPathPrefixes` reserves entire app-owned sections. `['/account']`
@@ -71,19 +71,19 @@ The fixture intentionally keeps its CMS-owned homepage, so its exclusion list is
 empty. Standard Stack's planned page-only configuration would exclude `/`, which
 its app router currently owns. This slice does not change Standard Stack.
 
-## Collection overviews and app-owned routes
+## Collection index pages and app-owned routes
 
-For the initial Pages implementation, a collection overview must be backed by a
-Sanity document. **Document-free overview entries are deferred** until a real
-consumer needs them. There is no preview-only overview configuration in the
+For the initial Pages implementation, a collection index page must be backed by a
+Sanity document. **Document-free index page entries are deferred** until a real
+consumer needs them. There is no preview-only index page configuration in the
 current registry.
 
 A dedicated app route is not the same as a document-free page. For example, a
-React Router route at `/journal` can fetch an overview document for its title,
+React Router route at `/journal` can fetch an index page document for its title,
 introduction, and SEO, then query posts separately. The app still owns the layout,
-listing, and pagination. The overview document can contain only SEO fields; it
+listing, and pagination. The index page document can contain only SEO fields; it
 does not need a page builder. Register its type under `pages` and identify it in
-the collection's `overview`. This does not require a splat route. The current
+the collection's `index`. This does not require a splat route. The current
 registry still requires the document's configured pathname field to contain its
 complete path.
 
@@ -125,18 +125,18 @@ Changing a prefix changes derived URLs and must be coordinated with app routes
 and redirects. These helpers do not modify stored data or prevent duplicate
 writes. See the [consumer explanation](../../../docs/pages.md#full-paths-or-collection-slugs).
 
-### Document-free overviews remain deferred
+### Document-free index pages remain deferred
 
-The overview deferral concerns the **Pages navigator**, not what the frontend can show
-inside Presentation. An app-owned `/journal` page with no overview document can
+The index page deferral concerns the **Pages navigator**, not what the frontend can show
+inside Presentation. An app-owned `/journal` page with no index page document can
 still be reached through navigation inside the preview iframe. With Visual
 Editing enabled and source metadata preserved (or explicit edit targets supplied),
 overlays can open the Sanity documents and fields displayed there. For example,
 clicking a post title can open that post's title field even though the listing
 page has no document of its own.
 
-Without an overview document, there is no overview document to open, publish, or
-select as a document-backed overview entry in Pages. Overlays edit underlying
+Without an index page document, there is no index page document to open, publish, or
+select as a document-backed index page entry in Pages. Overlays edit underlying
 fields, not the query or app code that assembles the listing. Editors can control
 ordering or selection only when the app exposes suitable stored fields and uses
 them to build that listing.
@@ -150,7 +150,7 @@ a concrete use case requires more than native preview navigation and overlays.
 
 The registry copies and freezes its configuration so later changes to the app's
 input objects cannot change navigation unexpectedly. It rejects duplicate types,
-duplicate collection names, duplicate overview paths, and overlapping collection
+duplicate collection names, duplicate index page paths, and overlapping collection
 prefixes. A type cannot be both an ordinary page and a collection item, or belong
 to two collections. The initial model assigns whole types to collections; it does
 not divide one type using arbitrary filters.

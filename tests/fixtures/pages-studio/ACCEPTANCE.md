@@ -227,7 +227,7 @@ above establish acceptance for the future tree, collection browser, or statuses.
 
 - `pnpm verify` passed: formatting, build, lint, typecheck, and all 555 tests in
   23 files. The 40 new tests cover inferred ancestors, named index children,
-  collection grouping, missing/duplicate overviews, invalid paths, stable IDs,
+  collection grouping, missing/duplicate index pages, invalid paths, stable IDs,
   query field mappings, five-item previews, cursor boundaries, literal search,
   complete ordinary-page batch reads, errors, and aborts.
 - `pnpm test:package` passed the five frontend profiles, isolated Studio
@@ -356,7 +356,7 @@ is a separate, right-aligned number beside the collection item label, with no �
 suffix. Its accessible label identifies the collection and item count, and it
 remains hidden while loading or when the data is unavailable.
 Journal sets `itemsTitle: 'Posts'` rather than the former generic “Recent items”.
-The label has a size-3 (12px) top margin to separate it from the overview above.
+The label has a size-3 (12px) top margin to separate it from the index page above.
 
 ### Navigator header and search
 
@@ -468,7 +468,7 @@ permissions/release-perspective acceptance remain later work.
 
 ## Collection slug storage — October 30, 2026
 
-Collection items can opt into `slugField`, while ordinary pages, overviews, and
+Collection items can opt into `slugField`, while ordinary pages, index pages, and
 existing full-path item registrations keep their current storage. This is the
 read-side contract for the forthcoming locked-prefix input, not the input itself.
 
@@ -602,22 +602,22 @@ On October 26, native creation also saved the unpublished draft
 `drafts.10c7adf6-c489-4887-8200-3d64992e2a25`, titled
 “Pages proof: Incomplete draft”, with no pathname. It was not published.
 
-| Fixture          | Document ID              |
-| ---------------- | ------------------------ |
-| Shared footer    | `XCVfQiHlQYx1rGNar3CpZy` |
-| Home             | `3l1HxcLUM0txp4sT1SNGGy` |
-| About            | `XCVfQiHlQYx1rGNar3CqCM` |
-| Team             | `sa2SWBG3Hcc4ezU00NJIaa` |
-| Journal overview | `3l1HxcLUM0txp4sT1SNGR8` |
-| Post 1           | `XCVfQiHlQYx1rGNar3CrFc` |
-| Post 2           | `XCVfQiHlQYx1rGNar3Cs3W` |
-| Post 3           | `bFqdKmRLz7RAj1uG4gVE1J` |
-| Post 4           | `sa2SWBG3Hcc4ezU00NJJMK` |
-| Post 5           | `3eL1TgPV2dOrTeGog7ZAQU` |
-| Post 6           | `XCVfQiHlQYx1rGNar3CtTo` |
-| Post 7           | `3eL1TgPV2dOrTeGog7ZAlW` |
-| Post 8           | `3l1HxcLUM0txp4sT1SNGi4` |
-| Alternate path   | `XCVfQiHlQYx1rGNar3Cuau` |
+| Fixture            | Document ID              |
+| ------------------ | ------------------------ |
+| Shared footer      | `XCVfQiHlQYx1rGNar3CpZy` |
+| Home               | `3l1HxcLUM0txp4sT1SNGGy` |
+| About              | `XCVfQiHlQYx1rGNar3CqCM` |
+| Team               | `sa2SWBG3Hcc4ezU00NJIaa` |
+| Journal index page | `3l1HxcLUM0txp4sT1SNGR8` |
+| Post 1             | `XCVfQiHlQYx1rGNar3CrFc` |
+| Post 2             | `XCVfQiHlQYx1rGNar3Cs3W` |
+| Post 3             | `bFqdKmRLz7RAj1uG4gVE1J` |
+| Post 4             | `sa2SWBG3Hcc4ezU00NJJMK` |
+| Post 5             | `3eL1TgPV2dOrTeGog7ZAQU` |
+| Post 6             | `XCVfQiHlQYx1rGNar3CtTo` |
+| Post 7             | `3eL1TgPV2dOrTeGog7ZAlW` |
+| Post 8             | `3l1HxcLUM0txp4sT1SNGi4` |
+| Alternate path     | `XCVfQiHlQYx1rGNar3Cuau` |
 
 ## November 1 — single-page URL publication integration
 

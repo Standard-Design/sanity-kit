@@ -13,7 +13,7 @@ const page = { schemaType: 'page', pathnameField: 'pathname.current' }
 const journal: PageCollectionDefinition = {
 	name: 'journal',
 	title: 'Journal',
-	overview: { schemaType: 'page', pathname: '/journal' },
+	index: { schemaType: 'page', pathname: '/journal' },
 	routePrefix: '/journal',
 	items: [
 		{ schemaType: 'post', pathnameField: 'url.path', titleField: 'heading' },
@@ -38,7 +38,7 @@ describe('Pages route registration', () => {
 			collections: [
 				{
 					...journal,
-					overview: { ...journal.overview },
+					index: { ...journal.index },
 					items: journal.items.map((item) => ({ ...item })),
 				},
 			],
@@ -47,7 +47,7 @@ describe('Pages route registration', () => {
 		}
 		const registry = createPagesRegistry(input)
 		input.pages[0]!.pathnameField = 'changed'
-		input.collections[0]!.overview.pathname = '/changed'
+		input.collections[0]!.index.pathname = '/changed'
 		input.collections[0]!.items[0]!.pathnameField = 'changed'
 		input.excludePaths.push('/another')
 		input.reservedPathPrefixes.push('/settings')
@@ -57,7 +57,7 @@ describe('Pages route registration', () => {
 			pathMode: 'pathname',
 			titleField: 'title',
 		})
-		expect(registry.collections[0]?.overview.pathname).toBe('/journal')
+		expect(registry.collections[0]?.index.pathname).toBe('/journal')
 		expect(registry.types[1]?.pathField).toBe('url.path')
 		expect(registry.excludePaths).toEqual(['/private'])
 		expect(registry.reservedPathPrefixes).toEqual(['/account'])
@@ -67,7 +67,7 @@ describe('Pages route registration', () => {
 			registry.types[0],
 			registry.collections,
 			registry.collections[0],
-			registry.collections[0]?.overview,
+			registry.collections[0]?.index,
 			registry.collections[0]?.items,
 			registry.excludePaths,
 			registry.reservedPathPrefixes,
@@ -111,13 +111,13 @@ describe('Pages route registration', () => {
 				collections: [
 					{
 						...journal,
-						overview: { schemaType: 'missing', pathname: '/journal' },
+						index: { schemaType: 'missing', pathname: '/journal' },
 					},
 				],
 			},
 			'registered ordinary page type',
 		],
-		[{ ...config, excludePaths: ['/journal'] }, 'excluded overview'],
+		[{ ...config, excludePaths: ['/journal'] }, 'excluded index'],
 		[
 			{ ...config, collections: [{ ...journal, routePrefix: '/' }] },
 			'non-root',
@@ -148,7 +148,7 @@ describe('Pages route registration', () => {
 			createPagesRegistry({ ...config, reservedPathPrefixes: [prefix] }),
 		).toThrow()
 	})
-	it('rejects malformed prefix configuration and reserved collection overviews', () => {
+	it('rejects malformed prefix configuration and reserved collection index pages', () => {
 		expect(() =>
 			createPagesRegistry({
 				...config,
@@ -157,7 +157,7 @@ describe('Pages route registration', () => {
 		).toThrow('must be an array')
 		expect(() =>
 			createPagesRegistry({ ...config, reservedPathPrefixes: ['/journal'] }),
-		).toThrow('excluded overview')
+		).toThrow('excluded index')
 	})
 	it('rejects one item type used by two collections', () => {
 		expect(() =>
@@ -168,14 +168,14 @@ describe('Pages route registration', () => {
 					{
 						...journal,
 						name: 'news',
-						overview: { schemaType: 'page', pathname: '/news' },
+						index: { schemaType: 'page', pathname: '/news' },
 						routePrefix: '/news',
 					},
 				],
 			}),
 		).toThrow('registered more than once')
 	})
-	it('rejects duplicate overview paths even with different page types', () => {
+	it('rejects duplicate index page paths even with different page types', () => {
 		expect(() =>
 			createPagesRegistry({
 				pages: [page, { ...page, schemaType: 'landing' }],
@@ -184,7 +184,7 @@ describe('Pages route registration', () => {
 					{
 						...journal,
 						name: 'news',
-						overview: { schemaType: 'landing', pathname: '/journal' },
+						index: { schemaType: 'landing', pathname: '/journal' },
 						routePrefix: '/news',
 						items: [{ ...page, schemaType: 'news' }],
 					},
@@ -203,7 +203,7 @@ describe('Pages route registration', () => {
 						{
 							...journal,
 							name: 'news',
-							overview: { schemaType: 'page', pathname: '/news' },
+							index: { schemaType: 'page', pathname: '/news' },
 							routePrefix,
 							items: [{ ...page, schemaType: 'news' }],
 						},
@@ -221,7 +221,7 @@ describe('Pages route registration', () => {
 					{
 						...journal,
 						name: 'news',
-						overview: { schemaType: 'page', pathname: '/journalism' },
+						index: { schemaType: 'page', pathname: '/journalism' },
 						routePrefix: '/journalism',
 						items: [{ ...page, schemaType: 'news' }],
 					},
@@ -313,7 +313,7 @@ describe('Pages pathname policy', () => {
 		expect(registeredPathname(root, 'page', '/')).toBeUndefined()
 		expect(registeredPathname(root, 'page', '/anything')).toBeUndefined()
 	})
-	it('limits collection items to descendants and reserves overview paths', () => {
+	it('limits collection items to descendants and reserves index page paths', () => {
 		const registry = createPagesRegistry({
 			pages: [page, { ...page, schemaType: 'landing' }],
 			collections: [journal],

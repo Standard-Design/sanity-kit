@@ -1623,7 +1623,7 @@ describe('publication limit diagnostics', () => {
 					{
 						name: 'journal',
 						title: 'Journal',
-						overview: { schemaType: 'page', pathname: '/journal' },
+						index: { schemaType: 'page', pathname: '/journal' },
 						routePrefix: '/journal',
 						items: [
 							{

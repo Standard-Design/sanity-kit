@@ -6,23 +6,29 @@
  * @see docs/collection-routing.md
  */
 import { CogIcon } from '@sanity/icons/Cog'
-import { Card, Stack, Text } from '@sanity/ui'
+import { Card, Stack, Text, TextInput } from '@sanity/ui'
 import {
 	defineField,
 	definePlugin,
 	defineType,
 	useWorkspace,
+	useFormValue,
 	type DocumentActionComponent,
 	type LayoutProps,
 	type ObjectInputProps,
 	type SingleWorkspace,
+	type StringInputProps,
+	type SlugInputProps,
 } from 'sanity'
 import type { StructureBuilder } from 'sanity/structure'
+import { CollectionDisplayNamesProvider } from './display-names.js'
+import { CollectionSettingsContext } from './settings-context.js'
 import { pagePathname } from '../../url/registry.js'
 import { isReservedPath } from '../../url/reservations.js'
 import {
 	COLLECTION_ROUTE_TYPE,
 	MAX_COLLECTION_PREFIX_LENGTH,
+	MAX_COLLECTION_DISPLAY_NAME_LENGTH,
 	createCollectionRouting,
 	type CollectionRoutingConfig,
 } from '../../url/settings/resolve.js'
@@ -36,13 +42,21 @@ function registration(routes: CollectionRoutingConfig) {
 	const config = structuredClone(routes)
 	createCollectionRouting(config)
 	const entries = (config.collections ?? []).flatMap((collection) =>
-		typeof collection.routePrefix === 'string'
+		!collection.settingsDocumentId
 			? []
 			: [
 					{
 						name: collection.name,
-						title: collection.title,
-						documentId: collection.routePrefix.documentId,
+						title:
+							collection.displayName?.value ??
+							collection.title ??
+							collection.name,
+						displayName: collection.displayName,
+						prefix:
+							typeof collection.routePrefix === 'string'
+								? { mode: 'locked' as const, value: collection.routePrefix }
+								: collection.routePrefix,
+						documentId: collection.settingsDocumentId,
 						templateId: `${COLLECTION_ROUTE_TYPE}-${collection.name}`,
 					},
 				],
@@ -58,6 +72,7 @@ function registration(routes: CollectionRoutingConfig) {
 export function validateCollectionPrefix(
 	value: unknown,
 	routes: CollectionRoutingConfig,
+	currentCollection?: string,
 ): true | string {
 	if (typeof value !== 'string' || !value)
 		return 'Enter a URL prefix, such as /journal.'
@@ -73,13 +88,21 @@ export function validateCollectionPrefix(
 	if (isReservedPath(value, routes.excludePaths, routes.reservedPathPrefixes))
 		return 'This URL is reserved by the app. Choose another prefix.'
 	if (
-		routes.collections?.some(
-			(collection) =>
-				typeof collection.routePrefix === 'string' &&
-				(value === collection.routePrefix ||
-					value.startsWith(`${collection.routePrefix}/`) ||
-					collection.routePrefix.startsWith(`${value}/`)),
-		)
+		routes.collections?.some((collection) => {
+			if (collection.name === currentCollection) return false
+			const prefix =
+				typeof collection.routePrefix === 'string'
+					? collection.routePrefix
+					: collection.routePrefix?.mode === 'locked'
+						? collection.routePrefix.value
+						: undefined
+			return (
+				prefix !== undefined &&
+				(value === prefix ||
+					value.startsWith(`${prefix}/`) ||
+					prefix.startsWith(`${value}/`))
+			)
+		})
 	)
 		return 'This prefix overlaps a collection whose URL is set in code. Choose another prefix.'
 	return true
@@ -91,12 +114,20 @@ function DraftSettingsInput(props: ObjectInputProps) {
 			<Card padding={3} radius={2} tone="caution">
 				<Text size={1}>
 					You can save draft changes here. Publishing collection URL changes is
-					not available yet. The current published prefix stays in use.
+					not available yet. Changes here do not change live URLs.
 				</Text>
 			</Card>
 			{props.renderDefault(props)}
 		</Stack>
 	)
+}
+
+/** Organizational identity is visible for reference, never an editable control. */
+export function CollectionIdentifierInput({
+	value,
+	elementProps,
+}: StringInputProps) {
+	return <TextInput {...elementProps} value={value ?? ''} readOnly disabled />
 }
 
 /** Keep Sanity's permission-aware discard action; no live-routing actions yet. */
@@ -113,6 +144,37 @@ export const collectionRoutingSettings =
 			const id = document?._id?.replace(/^drafts\./u, '')
 			return entries.find((entry) => entry.documentId === id)
 		}
+		// Read locked values from configuration, including on older documents whose
+		// stored values differ. Displaying them must not silently rewrite content.
+		function DisplayNameInput(props: StringInputProps) {
+			const document = useFormValue([]) as { _id?: string }
+			const setting = entryFor(document)?.displayName
+			return setting?.mode === 'locked' ? (
+				<TextInput
+					{...props.elementProps}
+					value={setting.value}
+					readOnly
+					disabled
+				/>
+			) : (
+				props.renderDefault(props)
+			)
+		}
+		function PrefixInput(props: SlugInputProps) {
+			const document = useFormValue([]) as { _id?: string }
+			const setting = entryFor(document)?.prefix
+			return setting?.mode === 'locked' ? (
+				<TextInput
+					{...props.elementProps}
+					value={setting.value}
+					readOnly
+					disabled
+				/>
+			) : (
+				props.renderDefault(props)
+			)
+		}
+
 		function Layout(props: LayoutProps) {
 			const workspace = useWorkspace()
 			const actions = workspace.document.actions({
@@ -124,7 +186,13 @@ export const collectionRoutingSettings =
 				throw new Error(
 					'Collection settings require withCollectionRoutingSettings at the workspace boundary so native publication cannot bypass the URL-change review.',
 				)
-			return props.renderDefault(props)
+			return (
+				<CollectionSettingsContext.Provider value={config}>
+					<CollectionDisplayNamesProvider routes={config}>
+						{props.renderDefault(props)}
+					</CollectionDisplayNamesProvider>
+				</CollectionSettingsContext.Provider>
+			)
 		}
 		return {
 			name: 'sanity-kit-collection-routing-settings',
@@ -136,15 +204,21 @@ export const collectionRoutingSettings =
 					),
 					...entries.map((entry) => ({
 						id: entry.templateId,
-						title: `${entry.title} URL settings`,
+						title: `${entry.title} collection settings`,
 						schemaType: COLLECTION_ROUTE_TYPE,
-						value: { collection: entry.name },
+						value: {
+							collection: entry.name,
+							displayName: entry.title,
+							...(entry.prefix?.value === undefined
+								? {}
+								: { prefix: { _type: 'slug', current: entry.prefix.value } }),
+						},
 					})),
 				],
 				types: [
 					defineType({
 						name: COLLECTION_ROUTE_TYPE,
-						title: 'Collection URL settings',
+						title: 'Collection settings',
 						type: 'document',
 						icon: CogIcon,
 						components: { input: DraftSettingsInput },
@@ -162,38 +236,90 @@ export const collectionRoutingSettings =
 							}),
 						fields: [
 							defineField({
-								name: 'collection',
-								title: 'Collection',
+								name: 'displayName',
+								title: 'Display name',
 								type: 'string',
-								readOnly: true,
-								validation: (rule) => rule.required(),
+								description:
+									'The collection name shown in Studio. Changing it does not change URLs. A name set as locked in configuration is read-only.',
+								readOnly: ({ document }) =>
+									entryFor(document)?.displayName?.mode === 'locked',
+								components: { input: DisplayNameInput },
+								validation: (rule) =>
+									rule.custom((value, context) =>
+										entryFor(context.document)?.displayName?.mode ===
+											'locked' ||
+										value === undefined ||
+										(typeof value === 'string' &&
+											value.trim().length > 0 &&
+											value.length <= MAX_COLLECTION_DISPLAY_NAME_LENGTH)
+											? true
+											: 'Enter a name between 1 and 100 characters.',
+									),
 							}),
 							defineField({
 								name: 'prefix',
 								title: 'URL prefix',
 								type: 'slug',
 								description:
-									'The path before each item’s slug, such as /journal. Changing it does not move listing pages or rewrite item slugs.',
+									'The path before each item’s slug, such as /journal. Changing it does not move listing pages or rewrite item slugs. A prefix set as locked in configuration is read-only.',
+								readOnly: ({ document }) =>
+									entryFor(document)?.prefix?.mode === 'locked',
+								components: { input: PrefixInput },
 								// Sanity's default slug uniqueness is scoped to this field/type,
 								// not all resolved page URLs. The reviewed publisher will check
 								// the complete routing inventory instead.
 								options: { isUnique: () => true },
 								validation: (rule) =>
-									rule
-										.required()
-										.custom((value) =>
-											validateCollectionPrefix(value?.current, config),
-										),
+									rule.custom((value, context) => {
+										const entry = entryFor(context.document)
+										return entry?.prefix?.mode === 'locked'
+											? true
+											: validateCollectionPrefix(
+													value?.current,
+													config,
+													entry?.name,
+												)
+									}),
+							}),
+							defineField({
+								name: 'collection',
+								title: 'Collection identifier',
+								type: 'string',
+								description: 'Read-only string that identifies the collection',
+								readOnly: true,
+								components: { input: CollectionIdentifierInput },
+								validation: (rule) => rule.required(),
 							}),
 						],
 						preview: {
-							select: { collection: 'collection', prefix: 'prefix.current' },
-							prepare: ({ collection, prefix }) => ({
-								title:
-									entries.find((entry) => entry.name === collection)?.title ??
-									'Collection URL settings',
-								subtitle: typeof prefix === 'string' ? prefix : 'No prefix yet',
-							}),
+							select: {
+								id: '_id',
+								collection: 'collection',
+								displayName: 'displayName',
+								prefix: 'prefix.current',
+							},
+							prepare: ({ id, collection, displayName, prefix }) => {
+								const entry =
+									entries.find((item) => item.name === collection) ??
+									entryFor(typeof id === 'string' ? { _id: id } : undefined)
+								const name =
+									entry?.displayName?.mode === 'locked'
+										? entry.displayName.value
+										: typeof displayName === 'string' && displayName.trim()
+											? displayName.trim()
+											: entry?.title
+								return {
+									title: name
+										? `${name} collection settings`
+										: 'Collection settings',
+									subtitle:
+										entry?.prefix?.mode === 'locked'
+											? entry.prefix.value
+											: typeof prefix === 'string'
+												? prefix
+												: 'No prefix yet',
+								}
+							},
 						},
 					}),
 				],
@@ -216,8 +342,8 @@ export const collectionRoutingSettings =
 
 /**
  * Place these items under the app's chosen settings list. The explicit document
- * ID and initial template bind new drafts to their collection. Code-fixed
- * prefixes have no settings entry because the app owns those values.
+ * ID and initial template bind new drafts to their collection. Collections with
+ * settingsDocumentId have an entry, regardless of which settings are locked.
  */
 export function collectionRoutingSettingsItems(
 	S: StructureBuilder,
@@ -226,14 +352,14 @@ export function collectionRoutingSettingsItems(
 	return registration(routes).entries.map((entry) =>
 		S.listItem()
 			.id(entry.documentId)
-			.title(`${entry.title} URL settings`)
+			.title(`${entry.title} collection settings`)
 			.icon(CogIcon)
 			.child(
 				S.document()
 					.id(entry.documentId)
 					.documentId(entry.documentId)
 					.schemaType(COLLECTION_ROUTE_TYPE)
-					.title(`${entry.title} URL settings`)
+					.title(`${entry.title} collection settings`)
 					.initialValueTemplate(entry.templateId),
 			),
 	)

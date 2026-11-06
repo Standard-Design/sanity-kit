@@ -14,10 +14,20 @@ export const proofRoutes = {
 			name: 'journal',
 			title: 'Journal',
 			itemsTitle: 'Posts',
-			overview: { schemaType: 'kitProofPage', pathname: '/journal' },
+			index: { schemaType: 'kitProofPage', pathname: '/journal' },
 			routePrefix: '/journal',
 			items: [
 				{ schemaType: 'kitProofPost', pathnameField: 'pathname.current' },
+			],
+		},
+		{
+			name: 'articles',
+			title: 'Articles',
+			itemsTitle: 'Articles',
+			index: { schemaType: 'kitProofPage', pathname: '/articles' },
+			routePrefix: '/articles',
+			items: [
+				{ schemaType: 'kitProofCollectionArticle', slugField: 'slug.current' },
 			],
 		},
 	],

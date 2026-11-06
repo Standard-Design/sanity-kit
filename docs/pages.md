@@ -46,7 +46,7 @@ export default defineConfig({
 					name: 'journal',
 					title: 'Journal',
 					itemsTitle: 'Posts',
-					overview: { schemaType: 'page', pathname: '/journal' },
+					index: { schemaType: 'page', pathname: '/journal' },
 					routePrefix: '/journal',
 					items: [{ schemaType: 'post', pathnameField: 'pathname.current' }],
 				},
@@ -228,12 +228,12 @@ This keeps them from maintaining separate lists of document types and URL fields
 
 For example, the registry can describe these documents:
 
-| Document         | Stored path                                 | Registration                                           |
-| ---------------- | ------------------------------------------- | ------------------------------------------------------ |
-| About page       | `/about` in `pathname.current`              | Ordinary page                                          |
-| Journal overview | `/journal` in `pathname.current`            | Ordinary page, also identified as the Journal overview |
-| Journal post     | `/journal/first-post` in `pathname.current` | Collection item under the `/journal` prefix            |
-| Slug-only post   | `first-post` in `slug.current`              | Collection item; Pages adds `/journal` when reading    |
+| Document           | Stored path                                 | Registration                                             |
+| ------------------ | ------------------------------------------- | -------------------------------------------------------- |
+| About page         | `/about` in `pathname.current`              | Ordinary page                                            |
+| Journal index page | `/journal` in `pathname.current`            | Ordinary page, also identified as the Journal index page |
+| Journal post       | `/journal/first-post` in `pathname.current` | Collection item under the `/journal` prefix              |
+| Slug-only post     | `first-post` in `slug.current`              | Collection item; Pages adds `/journal` when reading      |
 
 Ordinary pages store a **complete pathname**, starting with `/`. Collection
 items can use the same format or opt into slug-only storage. Each item type
@@ -250,7 +250,7 @@ collections: [
 		name: 'journal',
 		title: 'Journal',
 		itemsTitle: 'Posts',
-		overview: { schemaType: 'page', pathname: '/journal' },
+		index: { schemaType: 'page', pathname: '/journal' },
 		routePrefix: '/journal',
 		items: [{ schemaType: 'post', slugField: 'slug.current' }],
 	},
@@ -283,8 +283,8 @@ are checked across both modes and ordinary page types; the generated resolver
 does not choose an arbitrary document. These lookup checks do not prevent saving
 duplicate URLs.
 
-The collection overview remains an ordinary document at `/journal`; an empty
-item slug does not turn that item into the overview. Exclusions still apply to
+The collection index page remains an ordinary document at `/journal`; an empty
+item slug does not turn that item into the index page. Exclusions still apply to
 the resulting full URL. Changing a slug-only collection's configured prefix
 changes its derived URLs without changing documents, so coordinate that change
 with the website's routes and redirect policy. Switching an existing type from
@@ -292,11 +292,11 @@ with the website's routes and redirect policy. Switching an existing type from
 configuration alone does not strip prefixes from stored values. No migration
 or dataset writes are performed by this slice.
 
-The registry describes existing schemas. It does not add fields, create overview
+The registry describes existing schemas. It does not add fields, create index page
 documents, fetch content, save URLs, or register frontend routes. Setup checks
 configuration first, then checks that the registered document types and string
 fields exist in Studio's compiled schema. It does not prove that the dataset
-contains a matching overview document.
+contains a matching index page document.
 
 This is also separate from the kit's [React Router registry](react-router.md).
 That registry connects document types to rendering and metadata handlers in the
@@ -402,11 +402,11 @@ Open picker/menu triggers suppress their tooltip, and full page titles remain
 available in accessible names as well as the styled tooltip.
 
 Page search matches titles and stored paths across all ordinary pages and
-overviews, including collapsed folders. Results appear as a flat list. Clearing
+index pages, including collapsed folders. Results appear as a flat list. Clearing
 search restores the previous expansion state. Collection items are not included
 in this search; the search hint explains that boundary.
 
-Each expanded collection shows its document-backed overview, any ordinary
+Each expanded collection shows its document-backed index page, any ordinary
 nested pages, five recently edited items, and a total for the active perspective.
 The label adds “Recent” to the collection's `itemsTitle`, such as **Recent posts**
 under **Journal**.
@@ -414,7 +414,7 @@ Consumers supply the plural wording explicitly, including irregular words,
 translated labels, or an umbrella name for a collection with multiple types.
 When omitted, it falls back to the collection title; schema names are not
 automatically pluralized. The label has 12px of space above it to separate it
-from the overview. Section labels and helper text use the same size as page subtitles.
+from the index page. Section labels and helper text use the same size as page subtitles.
 **Browse all posts** uses the configured plural item label, lowercased for the
 sentence. Its right side shows the full collection count followed by a chevron,
 so the total cannot be mistaken for the number of recent items shown above.
@@ -422,7 +422,7 @@ The accessible button name explicitly calls it a total. The count is hidden whil
 loading or when unavailable. This left-aligned selectable row uses the same
 native hover, pressed, and focus colors as page rows. Without `itemsTitle`, the
 wording falls back to the collection title. It opens that collection inside the browser without
-changing either native pane. Missing or ambiguous overview documents are shown
+changing either native pane. Missing or ambiguous index page documents are shown
 explicitly instead of inventing a page.
 
 Collection search waits 200 ms after typing, then queries matching titles and
@@ -561,10 +561,10 @@ them without creating or editing folder documents:
   folder.** Saved and inferred paths merge into one folder row; saving a folder
   does not invent an index page or create a preview URL.
 - Collection items do not become ordinary page-tree entries. The collection
-  group holds its overview separately, so that document appears only once.
-  Ordinary pages beneath the overview URL are still retained in that group.
-- A missing overview leaves an empty overview slot, not an invented document or
-  a document-free route to select. Duplicate overviews stay visible as separate
+  group holds its index page separately, so that document appears only once.
+  Ordinary pages beneath the index page URL are still retained in that group.
+- A missing index page leaves an empty index page slot, not an invented document or
+  a document-free route to select. Duplicate index pages stay visible as separate
   candidates; the helper does not choose one. The existing native resolver also
   refuses ambiguous URL matches.
 - Missing, invalid, and app-excluded paths go into an unfiled list. Valid paths
@@ -603,7 +603,7 @@ Collections use separate queries:
 - The tree preview requests only five most recently edited items and a total
   count. The count includes all registered item types visible in the chosen
   perspective, including incomplete items without usable paths. It excludes the
-  overview and is not a published-page count.
+  index page and is not a published-page count.
 - Browsing requests 50 items plus one look-ahead item. That extra item tells the
   caller whether another batch exists; it is not displayed or skipped. The next
   cursor records the last displayed item's update time and ID.
@@ -715,20 +715,20 @@ page. When the sidebar replaces the picker, the header does not try to focus
 the now-removed button. These behaviors belong to the plugin's header adapter, not to
 the route registry or frontend router.
 
-## Collection overviews and document-free routes
+## Collection index pages and document-free routes
 
 A collection currently groups item types, such as posts, and identifies an ordinary page
-as its overview. The overview needs a Sanity document in the current registration. It
+as its index page. The index page needs a Sanity document in the current registration. It
 can contain only SEO fields: the app may own the listing layout and fetch posts
-separately. A document-backed overview does not require a page builder or a splat
+separately. A document-backed index page does not require a page builder or a splat
 route.
 
-Document-free overview entries in the Pages navigator are deferred. That does
+Document-free index page entries in the Pages navigator are deferred. That does
 not prevent reaching an app-owned listing through links in the preview iframe.
 With the frontend's Visual Editing setup and source metadata, overlays can still
-open the posts or other Sanity content shown there. There is simply no overview
+open the posts or other Sanity content shown there. There is simply no index page
 document to select or edit. Overlays edit stored fields, not the app's query or
-listing code. See the [full distinction](../tests/fixtures/pages-studio/ROUTING.md#collection-overviews-and-app-owned-routes).
+listing code. See the [full distinction](../tests/fixtures/pages-studio/ROUTING.md#collection-index-pages-and-app-owned-routes).
 
 ## Design decisions and remaining work
 
@@ -810,7 +810,7 @@ code-configured prefixes are implemented in the current routing foundation.
 
 **Preferred proposal, not finalized:** use one routing-settings document per
 collection for editor-controlled prefixes, rather than deriving the prefix from
-an overview page. Keep the collection's stable identity separate from its mutable
+an index page. Keep the collection's stable identity separate from its mutable
 URL prefix. Fixed-prefix consumers should not need an editable settings document
 just to supply the prefix.
 
@@ -818,15 +818,15 @@ Under that proposal, a collection could have zero, one, or many pages displaying
 its items. A page at `/insights` could list posts whose URLs begin with `/journal`.
 Changing that page's pathname would not move the posts; changing the item prefix
 would not move that page. A prefix does not itself create an index page. Whether
-the navigator should designate an optional overview shortcut, and how it selects
-that document, remain open. The current overview registration has not changed.
+the navigator should designate an optional index page shortcut, and how it selects
+that document, remain open. The current index page registration has not changed.
 
-This is distinct from a document-free overview entry: we are not proposing a
-synthetic page to select when no page document exists. Document-free overview
+This is distinct from a document-free index page entry: we are not proposing a
+synthetic page to select when no page document exists. Document-free index page
 entries remain deferred. Approved October 31: preview a draft settings prefix,
 then explicitly publish the reviewed routing change. Published traffic keeps the
 published prefix until that change. No item slugs or independently located listing
-pages are rewritten. The settings schema, registration binding, optional overview
+pages are rewritten. The settings schema, registration binding, optional index page
 association, and activation implementation still need design.
 
 Although the item storage does not change, activation must still check the
@@ -859,7 +859,7 @@ to be specified.
 - Do not show an Index badge. Pages have subtitle paths and status indicators;
   folders do not have subtitle paths.
 - Use the Pages header for root-level actions rather than a Site root folder.
-- Include a Journal section with its overview and post browsing.
+- Include a Journal section with its index page and post browsing.
 - Retain both the website preview and native document pane.
 
 Folder actions belong in this navigator. **New subfolder** is available from
@@ -890,12 +890,56 @@ chooser opens one eligible choice directly, offers a chooser for several, and
 explains when no choice is available. Folder actions additionally require the
 kit’s URL field on an ordinary page type. The kit does not auto-publish.
 See [page creation](#choose-which-pages-editors-can-create) for configuration and
-failure behavior. Collection-specific choices and consumer-defined template
-parameters remain future work.
+failure behavior. Consumer-defined template parameters remain future work.
 
 Pages creation currently supports ordinary drafts. When a release or variant is
 selected, the picker asks editors to switch to Drafts before creating a page.
 It does not silently change their selected perspective.
+
+### Collection actions and appearance
+
+Collections use Sanity's stacked-document icon to distinguish them from ordinary
+folders. Their chevrons, indentation, text, and interaction states stay consistent
+with the rest of the tree. The optional `collectionUi` configuration controls
+creation choices and appearance without changing the collection's routing rules:
+
+```ts
+pagesTool({
+	...routes,
+	previewUrl: 'http://localhost:3000',
+	collectionUi: {
+		journal: {
+			itemTitle: 'post',
+			create: [{ schemaType: 'post', templateId: 'post' }],
+			// icon: MyCollectionIcon,
+		},
+	},
+})
+```
+
+The key, `journal`, must match a registered collection. Its creation choices must
+belong to that collection's item types. `itemTitle` supplies the singular action
+label, such as **Create post**; without it the label is **Create item**. Omit
+`create` or use an empty list to hide creation controls. An optional React icon
+component replaces the default collection icon.
+
+The collection's `…` menu and its browse view's header `+` use the same choices
+and native permission checks. One eligible choice opens directly. Several offer
+the native chooser or submenu, depending on where creation started. Creation
+opens an ordinary draft and never publishes it or changes folder records.
+
+The `…` menu also offers **Settings** when the workspace has a matching
+[collection settings registration](collection-routing.md). It opens the fixed
+settings document in the current native editor pane and keeps the website
+preview in place. If the settings document is new, its native template supplies
+the collection identity. A matching name alone is not enough: the registered
+item types and slug fields must also agree. Code-configured prefixes have no
+editable settings document and show no Settings action.
+
+Settings navigation does not yet connect settings drafts to Pages routing or
+preview. The current Pages registration still supplies string prefixes; loading
+settings throughout those consumers and publishing prefix changes are later
+checkpoints in the [parallel release plan](pages-release-plan.md).
 
 ### URL field and folder picker
 
@@ -1060,17 +1104,17 @@ uniqueness constraint. Storing complete paths does not create parent references
 or make descendant paths update automatically. Code-owned collection prefixes
 must not become editor-renamable through this workflow.
 
-### Details still to harden — updated October 31
+### Details still to harden — updated November 5
 
-- **Collection settings:** finalize the preferred per-collection document
-  arrangement, fields, registration, optional overview relationship, and the
-  controlled publication integration. The draft-preview/published-activation
-  lifecycle is agreed.
+- **Collection settings:** the per-collection document, private registration,
+  and native draft editor are implemented. Connect settings to Pages, URL fields,
+  and preview, then add controlled prefix publication. Collection menus, item
+  creation, and distinct icons are approved as described above.
 - **Folder implementation:** complete schema registration and coordination for
   removal and bulk moves. The bounded private registry, guarded additive writes,
   URL-field and navigator folder creation, and background synchronization are
-  implemented. Empty-only removal is agreed, but still needs its own concurrency
-  and permission checks.
+  implemented, including empty-only removal with fresh access and occupancy
+  checks. Bulk rename and move coordination remain outstanding.
 - **Bulk-change implementation:** prove permissions, revision guards, new-document
   race handling, size bounds, recovery, and cache/redirect coordination. The
   URL-only write policy and initial release-version refusal are agreed.
@@ -1159,3 +1203,13 @@ The distribution now has a separate `/studio` entry. The A1 observations above
 were collected before extraction into the reusable plugin; new checks are dated
 separately in the acceptance record. Keep this guide, source comments, configuration examples, and acceptance
 record up to date as each implementation slice replaces a planned behavior.
+
+### Collection names and locked settings
+
+Collection settings can independently make the display name and URL prefix
+editable defaults or locked values from code. Saved editable names update the
+matching collection's navigator label, browse heading, and search label. The
+settings document heading uses that name too. The identifier stays read-only at
+the bottom of the form. Renaming a collection does not change URLs or item labels.
+See [collection routing settings](collection-routing.md#defaults-and-locked-settings)
+for the configuration and the difference between a prefix default and a live route.

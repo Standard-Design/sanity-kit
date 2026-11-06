@@ -260,6 +260,12 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 	const registered = registry.types.find(
 		(type) => type.schemaType === document?._type,
 	)
+	// Both storage modes belong to a collection. Only slug-mode type metadata
+	// carries routePrefix, so empty legacy pathname fields must look up the group
+	// itself instead of accidentally starting at the site root.
+	const collection = registry.collections.find(
+		(group) => group.name === registered?.collection,
+	)
 	const expected = registered?.pathField.split('.')
 	const validField =
 		expected?.at(-1) === 'current' &&
@@ -309,7 +315,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 		? initial.value.url.prefix
 		: indexProposal?.ok
 			? indexProposal.value.url.prefix
-			: (creation?.pathname ?? registered?.routePrefix ?? '/')
+			: (creation?.pathname ?? collection?.routePrefix ?? '/')
 	const initialSlug = initial.ok
 		? initial.value.url.slug
 		: indexProposal?.ok
@@ -726,6 +732,7 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 				</>
 			)}
 			{!disabled &&
+				!registered?.collection &&
 				prefix === '/' &&
 				slug === '' &&
 				fullPath === undefined &&

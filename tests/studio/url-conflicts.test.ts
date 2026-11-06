@@ -19,7 +19,7 @@ const config = {
 			name: 'journal',
 			title: 'Journal',
 			routePrefix: '/journal',
-			overview: { schemaType: 'page', pathname: '/insights' },
+			index: { schemaType: 'page', pathname: '/insights' },
 			items: [
 				{ schemaType: 'post', slugField: 'slug.current' },
 				{ schemaType: 'legacy', pathnameField: 'url' },
@@ -29,7 +29,7 @@ const config = {
 			name: 'news',
 			title: 'News',
 			routePrefix: '/news',
-			overview: { schemaType: 'page', pathname: '/news' },
+			index: { schemaType: 'page', pathname: '/news' },
 			items: [{ schemaType: 'newsItem', slugField: 'slug.current' }],
 		},
 	],
@@ -242,7 +242,7 @@ describe('URL occupancy checks', () => {
 		})
 	})
 
-	it('does not hide a stored collision because its type cannot own that overview', async () => {
+	it('does not hide a stored collision because its type cannot own that index page', async () => {
 		const { check } = transport([
 			{ _id: 'wrong-owner', _type: 'landing', _rev: '1', url: '/insights' },
 		])

@@ -97,7 +97,7 @@ without drafts or publication. Frontend rendering does not need this registry.
 Collection groups belong to route registration. They are not saved folder records,
 and collection item documents do not create folders during synchronization.
 
-Today a collection group appears at its configured **overview pathname**, which
+Today a collection group appears at its configured **index page pathname**, which
 can differ from its item prefix. For example, the Journal group might be at
 `/content/journal` while posts use `/posts/:slug`. The registry can save `/content`
 but cannot also save `/content/journal` as an ordinary folder.
@@ -257,7 +257,7 @@ succeeds; it is never used as write evidence.
 
 The sidebar and page picker share the same folder resource and existing change
 listener. Registry changes refresh the list, and reconnect/periodic reads repair
-missed notifications. Search still searches pages and overviews, not folder names.
+missed notifications. Search still searches pages and index pages, not folder names.
 See [the Pages data architecture](pages.md#shared-live-data-loading).
 
 ## Proposed bounds for this implementation

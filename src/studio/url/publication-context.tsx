@@ -27,9 +27,9 @@ export function urlPublicationConfigKey(routes: PagesRouteConfig) {
 				title: collection.title,
 				itemsTitle: collection.itemsTitle ?? collection.title,
 				routePrefix: collection.routePrefix,
-				overview: {
-					schemaType: collection.overview.schemaType,
-					pathname: collection.overview.pathname,
+				index: {
+					schemaType: collection.index.schemaType,
+					pathname: collection.index.pathname,
 				},
 			})),
 		excludePaths: [...registry.excludePaths].sort(),

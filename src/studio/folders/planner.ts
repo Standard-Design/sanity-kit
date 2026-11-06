@@ -112,14 +112,14 @@ export function createFolderPlanner(options: {
 }) {
 	const registry = createPagesRegistry(options.routes)
 	const id = 'sanityKit.folders'
-	// Collection groups live at the overview URL in today's navigator, which may
+	// Collection groups live at the index page URL in today's navigator, which may
 	// differ from the item prefix. Descendant ordinary folders remain permissible.
 	const groups = new Set(
-		registry.collections.map((item) => item.overview.pathname),
+		registry.collections.map((item) => item.index.pathname),
 	)
 	for (const collection of registry.collections)
 		if (
-			!canonicalPath(collection.overview.pathname) ||
+			!canonicalPath(collection.index.pathname) ||
 			!canonicalPath(collection.routePrefix)
 		)
 			throw new Error('Folder planning needs canonical collection paths.')
@@ -313,8 +313,8 @@ export function createFolderPlanner(options: {
 					return failed('limit-exceeded')
 			}
 		}
-		// The navigator also infers ancestors of configured collection overviews,
-		// including when no overview document exists yet.
+		// The navigator also infers ancestors of configured collection index pages,
+		// including when no index page document exists yet.
 		for (const group of groups)
 			for (const parent of ancestors(group))
 				if (!groups.has(parent)) inferred.add(parent)

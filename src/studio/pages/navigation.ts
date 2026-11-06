@@ -32,8 +32,8 @@ export interface NavigationCollection {
 	title: string
 	pathname: string
 	/** Zero means missing; more than one is ambiguous. Never pick an arbitrary one. */
-	overviews: NavigationPage[]
-	/** Ordinary pages nested below the overview URL remain visible here. */
+	indexPages: NavigationPage[]
+	/** Ordinary pages nested below the index page URL remain visible here. */
 	children: NavigationNode[]
 }
 
@@ -79,8 +79,8 @@ export function buildNavigationTree(
 			key: `collection:${collection.name}`,
 			name: collection.name,
 			title: collection.title,
-			pathname: collection.overview.pathname,
-			overviews: [],
+			pathname: collection.index.pathname,
+			indexPages: [],
 			children: [],
 		}),
 	)
@@ -90,10 +90,10 @@ export function buildNavigationTree(
 	const collectionByPath = new Map(
 		collections.map((collection) => [collection.pathname, collection]),
 	)
-	const overviewTypes = new Map(
+	const indexTypes = new Map(
 		registry.collections.map((collection) => [
 			collection.name,
-			collection.overview.schemaType,
+			collection.index.schemaType,
 		]),
 	)
 	const ordinaryTypes = new Set(
@@ -155,21 +155,21 @@ export function buildNavigationTree(
 		if (path && canGroup(path)) ensureAncestors(path)
 	}
 	for (const collection of collections) {
-		// A missing overview still has a collection group. It is not a fabricated
-		// overview page, and offers no invented editor ID or preview selection.
+		// A missing index page still has a collection group. It is not a fabricated
+		// index page, and offers no invented editor ID or preview selection.
 		if (canGroup(collection.pathname)) ensureAncestors(collection.pathname)
 	}
 	for (const group of groups.values()) {
 		const parent = canGroup(group.pathname) ? parentPath(group.pathname) : '/'
 		// The root is represented by the Pages heading, even when a collection's
-		// overview itself lives at /. Do not put every site page in that collection.
+		// index page itself lives at /. Do not put every site page in that collection.
 		;(parent === '/' ? roots : groups.get(parent)!.children).push(group)
 	}
 	for (const document of pages) {
 		const entry = page(document)
 		const collection = collectionByPath.get(entry.pathname ?? '')
-		if (collection && overviewTypes.get(collection.name) === document._type)
-			collection.overviews.push(entry)
+		if (collection && indexTypes.get(collection.name) === document._type)
+			collection.indexPages.push(entry)
 		else if (!entry.pathname || !canGroup(entry.pathname)) unfiled.push(entry)
 		else {
 			// /about belongs inside /about when descendants or a saved record
@@ -197,7 +197,7 @@ export function buildNavigationTree(
 	for (const folder of folders.values())
 		sortNodes(folder.children, folder.pathname)
 	for (const collection of collections) {
-		sortNodes(collection.overviews, collection.pathname)
+		sortNodes(collection.indexPages, collection.pathname)
 		sortNodes(collection.children, collection.pathname)
 	}
 	sortNodes(unfiled, '')

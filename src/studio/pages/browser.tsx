@@ -176,8 +176,8 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 			>
 				{search && (
 					<Text size={1} muted>
-						Search covers pages and overviews. Browse a collection to search its
-						items.
+						Search covers pages and index pages. Browse a collection to search
+						its items.
 					</Text>
 				)}
 			</BrowserHeader>

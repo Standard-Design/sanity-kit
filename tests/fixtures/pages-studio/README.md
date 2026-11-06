@@ -19,11 +19,11 @@ resolver overrides, and remaining work. The A1 live integration checks are now
 complete; see the dated observations in [ACCEPTANCE.md](ACCEPTANCE.md). This does
 not mean the finished navigator or an npm release is available.
 
-Collection overviews will initially require a Sanity document, including an
-SEO-only document. Document-free overview entries are deferred; this does not
+Collection index pages will initially require a Sanity document, including an
+SEO-only document. Document-free index page entries are deferred; this does not
 prevent navigating to an app-owned route in Presentation and editing its
 Sanity-backed content through overlays. See
-[collection overviews and app-owned routes](ROUTING.md#collection-overviews-and-app-owned-routes).
+[collection index pages and app-owned routes](ROUTING.md#collection-index-pages-and-app-owned-routes).
 
 ## Run the proof
 

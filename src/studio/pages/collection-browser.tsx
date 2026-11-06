@@ -1,3 +1,4 @@
+import { useCollectionTitleResolver } from '../collections/settings-context.js'
 /**
  * Collection mode replaces only the browser, never the preview/editor panes.
  * Search is server-side and debounced. Scrolling requests the next bounded batch;
@@ -19,6 +20,10 @@ import { PageRow } from './page-row.js'
 import { DataWarning } from './data-warning.js'
 import { BrowserHeader } from './browser-header.js'
 import { TooltipButton } from './tooltip.js'
+import {
+	CollectionCreateButton,
+	CollectionActions,
+} from './collection-actions.js'
 
 export function CollectionBrowser({
 	name,
@@ -31,6 +36,7 @@ export function CollectionBrowser({
 	const definition = runtime.registry.collections.find(
 		(item) => item.name === name,
 	)!
+	const collectionTitle = useCollectionTitleResolver()(definition)
 	const query = state.collectionQueries[name] ?? ''
 	const [search, setSearch] = useState(query)
 	const session = usePagesDataSession()
@@ -80,8 +86,14 @@ export function CollectionBrowser({
 			style={{ height: fitContent ? 'auto' : '100%', minHeight: 0 }}
 		>
 			<BrowserHeader
-				title={definition.title}
-				searchLabel={`Search ${definition.title}`}
+				title={collectionTitle}
+				actions={
+					<>
+						<CollectionCreateButton name={name} />
+						<CollectionActions name={name} />
+					</>
+				}
+				searchLabel={`Search ${collectionTitle}`}
 				query={query}
 				onQueryChange={(next) => {
 					saved.current = 0

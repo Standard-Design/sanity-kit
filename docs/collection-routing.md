@@ -25,19 +25,85 @@ not cache settings, write documents, or publish changes. The existing public
 See [URL handling](url.md) for the existing storage and resolution rules, and
 [Pages design decisions](pages-design-proposals.md) for the broader editor plan.
 
-## Fixed prefixes and editable prefixes
+## Defaults and locked settings
 
-Each collection chooses one source for its prefix:
+The display name and URL prefix each have their own ownership setting:
 
-- A string in application configuration, such as `/journal`. Editors cannot
-  override that prefix with a settings document.
-- A binding to one settings document, such as `{documentId: 'journal-routing'}`.
-  The selected published or draft version of that document supplies the prefix.
+- **Default:** configuration supplies a starting value. Editors can change it in
+  the collection settings document.
+- **Locked:** configuration owns the value. Studio shows it in a disabled,
+  read-only field. Saved values cannot override it.
+
+For example, editors can rename Articles while its `/articles` prefix stays fixed:
+
+```ts
+{
+  name: 'articles',
+  settingsDocumentId: 'articles-settings',
+  displayName: {mode: 'default', value: 'Articles'},
+  routePrefix: {
+    mode: 'locked',
+    value: '/articles',
+  },
+  index: {schemaType: 'page', pathname: '/articles'},
+  items: [{schemaType: 'article', slugField: 'slug.current'}],
+}
+```
+
+Change either `mode` independently. Both can be editable, both can be locked, or
+one can be locked while the other is editable. `settingsDocumentId` belongs to the
+collection because one document holds all of its editable settings. It is required
+when either setting explicitly uses `mode: 'default'`, or when the URL prefix is
+omitted. Both settings can be locked without any settings document. Supplying an
+ID still exposes their read-only form if that is useful.
+
+The collection's stable `name` remains its identity; the display name is only a
+label. `title` remains available as a fallback for older configuration, but it is
+not necessary when `displayName.value` supplies the label. Without either, the
+stable collection name is the fallback.
+
+Default values initialize new settings documents through Sanity's initial-value
+template. Changing a default later does not overwrite existing saved values.
+An absent display name falls back to the configured name, since that only affects
+Studio labels. A default **URL prefix is not a runtime fallback**: missing,
+unpublished, invalid, or unreadable routing settings still produce a routing
+error. A draft prefix never becomes live merely because it matches the default.
+
+Locked values are taken directly from configuration, even when an older settings
+document contains different values. Showing a locked field does not rewrite that
+document. The routing loader does not need to read settings for locked prefixes.
+Changing a locked prefix in code changes routing when that configuration is
+applied; it does not create redirects or run the Studio publish review. Coordinate
+that change with application routes and redirects before deploying it.
+
+A plain string prefix remains shorthand for a locked prefix. It can now coexist
+with `settingsDocumentId` and an editable display name.
+
+Omitting `routePrefix` means the prefix is editable with no initial value. The
+settings form starts with an empty prefix, and URL resolution requires a valid
+saved setting. For example:
+
+```ts
+{
+  name: 'articles',
+  settingsDocumentId: 'articles-settings',
+  displayName: {mode: 'default', value: 'Articles'},
+  index: {schemaType: 'page', pathname: '/insights'},
+  items: [{schemaType: 'post', slugField: 'slug.current'}],
+}
+```
+
+Omitting `displayName` allows an editable name when a settings document is bound;
+otherwise the configured `title` or stable `name` supplies its code-owned label.
+
+The previous private `routePrefix.documentId` location is replaced by
+`settingsDocumentId`; update configuration rather than changing stored documents.
+The collection page property is now `index`, previously `overview`. It still
+identifies an ordinary document and need not match the item URL prefix.
 
 The binding identifies the document explicitly. The kit never guesses it from a
-document title, overview page, or matching prefix. Each collection needs its own
-settings document. There is no default prefix to fall back to if that document
-is missing or invalid.
+document title, index page, or matching prefix. Each bound collection needs its
+own settings document.
 
 For example, the private configuration can contain:
 
@@ -48,8 +114,8 @@ const routing = createCollectionRouting({
 		{
 			name: 'journal',
 			title: 'Journal',
-			routePrefix: { documentId: 'journal-routing' },
-			overview: { schemaType: 'page', pathname: '/insights' },
+			settingsDocumentId: 'journal-routing',
+			index: { schemaType: 'page', pathname: '/insights' },
 			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 	],
@@ -61,10 +127,10 @@ This is an internal API example, not a supported package import. The returned
 read. The application supplies the project and dataset when it loads them; this
 pure helper has no client or connection settings.
 
-The overview remains `/insights` even when the item prefix changes from
+The index remains `/insights` even when the item prefix changes from
 `/journal` to `/blog`. Other pages that list posts also keep their own URLs. The
-existing Pages registry still requires a document-backed overview for each
-registered collection. This slice does not add document-free overviews.
+existing Pages registry still requires a document-backed index for each
+registered collection. This slice does not add document-free index pages.
 
 ## The stored settings document
 
@@ -273,7 +339,7 @@ snapshot for the requested mode. Future consumer integration must use its result
 before calling the existing URL helpers. Any cache must distinguish project, dataset,
 bindings, and perspective. Draft reads must never reuse public-only coverage.
 
-Studio integration will supply the settings schema and controls. A prefix change
+Studio integration supplies the settings schema and draft controls. A prefix change
 can then be previewed as a draft before a reviewed routing change is published.
 Publishing needs checks for conflicting page URLs, concurrent edits, redirects,
 and cache invalidation. Those are separate from resolving an already-loaded
@@ -284,14 +350,15 @@ The consuming application still decides how React Router recognizes collection
 URLs: for example, through dynamic routes or a CMS catch-all alongside explicit
 application routes. It must use the resolved prefix consistently in routing,
 links, sitemaps, and preview. The kit does not rewrite route modules or move
-overview pages when a setting changes.
+index pages when a setting changes.
 
 ## Editing settings in Studio (private integration)
 
 The private `withCollectionRoutingSettings(workspace, {routes})` wrapper adds
 one `sanityKitCollectionRoute` schema. `collectionRoutingSettingsItems(S, routes)`
 creates a native Structure entry for each collection with a document binding.
-Collections with prefixes set in code do not get an editable settings document.
+Settings entries depend on `settingsDocumentId`, independently of the prefix
+mode. A collection without that property has no settings entry.
 These helpers are not exported from the package yet.
 
 The consuming Studio chooses where to put the entries. For example, its Structure
@@ -321,13 +388,28 @@ The filter keeps these singletons out of generic content lists. The integration
 also removes their templates from ordinary creation menus. Opening a settings
 entry uses the configured document ID and initializes its immutable `collection`
 name. There is no `site` field and no separate index-page requirement for prefix
-storage. Existing Pages navigation still requires its configured overview page.
+storage. Existing Pages navigation still requires its configured index page.
 
 Editors use Sanity's normal slug input to enter the complete prefix, such as
 `/journal`. Native draft autosave, field validation, read-only handling, and
 permission checks continue to apply. A missing or incorrectly bound document,
-and a release version, cannot be edited through this schema. Settings titles use
-the collection's configured display name. The stored collection key stays stable.
+and a release version, cannot be edited through this schema. Settings headings use the effective display name, such as **Articles collection
+settings**. Sanity may show its generic new-document heading until the first save.
+The stored collection key stays stable.
+
+The read-only **Collection identifier** field appears at the bottom of the form.
+It displays the stable key and cannot receive typing focus. Its description is
+“Read-only string that identifies the collection”. Above it, **Display name** and
+**URL prefix** each follow their own configured default/locked mode.
+
+Editable names update the document heading and matching Pages collection labels
+after Sanity autosaves the draft. The listener waits until saved changes are
+visible to queries before refreshing. This prevents a refresh from reading the previous name just after a save. This metadata
+read does not load or activate a prefix. A locked name always comes from code. Native Structure settings-list
+labels use the configured name; the document heading uses the effective name.
+Changing a name does not change identifiers, item slugs, URLs, or explicitly
+configured item labels such as “Posts” and “Create post”. Metadata-read failures
+fall back to the configured label without blocking navigation.
 
 Validation checks the prefix's format, length, app reservations, and overlap with
 code-configured collections. It does not fetch other settings or claim that the
@@ -351,10 +433,96 @@ after built-in tools and app reducers. A layout check refuses an unsafe later
 replacement that would restore publishing. This is a Studio workflow guard, not
 a Content Lake access rule; external writers can still bypass Studio validation.
 
-This slice does not connect settings drafts to the Pages navigator, URL field,
-or website preview automatically. The existing private loader and resolver can
+This slice connects saved display names to matching Pages collection labels. It
+does not connect draft URL prefixes to the navigator, URL field, or website preview. The existing private loader and resolver can
 select draft or published prefixes, but those consumers still need to load and
 apply that context. The next dependent slices must add that integration, followed
 by reviewed prefix publishing with affected URLs, redirects, concurrency checks,
 and cache activation. Changing a settings draft alone does not activate a new
 live route or rewrite item slugs.
+
+## Collection actions in Pages
+
+Pages now has collection-specific controls. They are Studio UI configuration,
+separate from the plain route registration:
+
+```ts
+pagesTool({
+	...resolvedRoutes,
+	previewUrl: 'https://preview.example.com',
+	collectionUi: {
+		journal: {
+			itemTitle: 'post',
+			create: [
+				{ schemaType: 'post', templateId: 'post', title: 'Post' },
+				{
+					schemaType: 'post',
+					templateId: 'postWithIntro',
+					title: 'Post with intro',
+				},
+			],
+			// Optional: a React icon component from the consumer's Studio.
+			icon: DocumentsIcon,
+		},
+	},
+})
+```
+
+`collectionUi` is keyed by the collection's registered `name`. `itemTitle` is the
+singular label used in **Create post**; it defaults to **Create item**, without
+guessing how to singularize a plural title. `create` explicitly lists the allowed
+native types and templates, just like the Pages header's creation setting. These
+choices must belong to that collection. They do not inherit the Pages header's
+choices, and they do not grant permission to create documents.
+
+The collection `…` menu offers creation. A single permitted template is a direct
+action; several open a native submenu. Loading, denied access, template problems,
+and retry behavior use the same checks as ordinary page creation. The collection
+browse header's `+` opens those same choices. Creation opens an ordinary native
+draft and never publishes it or supplies a folder-placement hint. The collection's
+route registration still determines how its URL field handles the item's slug.
+
+Collection rows use Sanity's `DocumentsIcon` by default. Consumers may pass another
+React icon component, including native memo/forwardRef icons. The icon and UI
+choices remain in the Studio runtime; they never enter the pure URL registry,
+settings documents, or frontend routing results. Folders keep their existing icon
+and actions. Collections do not gain folder removal or rename actions.
+
+### Opening settings without moving the website preview
+
+**Settings** appears only when the installed `withCollectionRoutingSettings`
+registration binds that collection to a settings document. Pages reads this
+registration from the settings plugin's context, so it does not accept another
+settings ID or prefix source in `collectionUi`. The name, item types, and stored
+slug fields must match; a legacy full-path collection with the same name is not
+treated as that settings-backed collection.
+
+The link opens the configured singleton in the current native editor pane. It
+preserves the preview URL, viewport, and preview perspective and clears parameters
+belonging to the previously edited document. It also carries the singleton's
+initial-value template, so a settings document that has not been saved yet starts
+with the correct collection identity. Opening the menu or following the link
+performs no direct dataset mutation. Native editing saves the draft normally.
+
+This access does **not** make Pages settings-aware yet. Pages, URL fields, and the
+proof website still use their supplied fixed route configuration. Draft prefixes
+remain inactive, and prefix publishing stays guarded. Saved display names update
+matching Pages labels independently. A later slice will load
+settings, choose the correct draft/published context, and feed the resolved routes
+to those consumers. There is no silent fallback from unavailable settings to a
+code prefix in the settings resolver.
+
+### Reviewing this UI in the proof Studio
+
+The existing Journal content and `kitProofJournalRouting` identity are preserved.
+That separate settings proof now demonstrates a locked name and editable prefix. Journal's menu offers a direct **Create post** action and no Settings
+link because its existing posts store complete pathnames.
+
+A separate **Articles** collection demonstrates the new matched contract. It uses
+`kitProofCollectionArticle` slug documents, the new `kitProofArticleRouting`
+settings ID, and two creation templates. Its menu shows **Create article** with a
+submenu and **Settings**; **Browse all articles** has the same choices behind `+`.
+Articles demonstrates an editable default name and a locked `/articles` prefix.
+Its disabled prefix remains visible beside the editable name. Pages and preview
+still use their supplied `/articles` routes until settings resolution is integrated.
+No existing Journal content or settings identity needs to be migrated.

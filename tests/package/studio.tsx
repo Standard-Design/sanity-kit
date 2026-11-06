@@ -1,10 +1,18 @@
 /** Compiles and bundles from an installed tarball, never from source aliases. */
 import { defineConfig, defineType, defineField } from 'sanity'
+import { DocumentsIcon } from '@sanity/icons/Documents'
 import {
 	pagesTool,
 	type PagesToolOptions,
+	type PagesCollectionUiOptions,
 	type PageCollectionItemDefinition,
 } from '@standard-design/sanity-kit/studio'
+
+const journalUi = {
+	itemTitle: 'post',
+	icon: DocumentsIcon,
+	create: [{ schemaType: 'post', templateId: 'post' }],
+} satisfies PagesCollectionUiOptions
 
 const options = {
 	name: 'pages',
@@ -15,12 +23,13 @@ const options = {
 		{
 			name: 'journal',
 			title: 'Journal',
-			overview: { schemaType: 'page', pathname: '/journal' },
+			index: { schemaType: 'page', pathname: '/journal' },
 			routePrefix: '/journal',
 			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 	],
 	excludePaths: ['/'],
+	collectionUi: { journal: journalUi },
 	create: { schemaType: 'page', templateId: 'page' },
 } satisfies PagesToolOptions
 

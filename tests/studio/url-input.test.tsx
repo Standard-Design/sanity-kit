@@ -73,7 +73,7 @@ const routes = {
 			name: 'journal',
 			title: 'Journal',
 			routePrefix: '/journal',
-			overview: { schemaType: 'page', pathname: '/journal' },
+			index: { schemaType: 'page', pathname: '/journal' },
 			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 	],
@@ -657,6 +657,116 @@ describe('URL input draft workflow', () => {
 		expect(labels.children[1]!.getAttribute('aria-hidden')).toBe('true')
 	})
 
+	it.each([undefined, { _type: 'slug' as const, current: '' }])(
+		'starts an empty full-path collection field at its group prefix (%j)',
+		async (value) => {
+			native.document = {
+				_id: 'drafts.post1',
+				_type: 'post',
+				title: 'Hello World',
+			}
+			props = {
+				...props,
+				value,
+				routes: {
+					...routes,
+					collections: [
+						{
+							...routes.collections[0]!,
+							items: [
+								{ schemaType: 'post', pathnameField: 'pathname.current' },
+							],
+						},
+					],
+				},
+			}
+			await render()
+			expect(host.querySelector('[data-url-folder]')?.textContent).toBe(
+				'/journal/',
+			)
+			expect(host.textContent).not.toContain('Use as homepage')
+			expect(host.textContent).not.toContain('Folder /')
+			await save()
+			expect(native.onChange).not.toHaveBeenCalled()
+			await type('first-post')
+			await save()
+			expect(native.prepare).toHaveBeenCalledWith(
+				expect.objectContaining({ storedValue: '/journal/first-post' }),
+				expect.any(AbortSignal),
+			)
+			expect(native.onChange).toHaveBeenCalledWith(
+				expect.arrayContaining([
+					expect.objectContaining({
+						type: 'set',
+						value: '/journal/first-post',
+						path: ['current'],
+					}),
+				]),
+			)
+		},
+	)
+	it('generates a full-path collection URL under its configured prefix without a folder hint', async () => {
+		native.document = {
+			_id: 'drafts.post1',
+			_type: 'post',
+			title: 'Hello World',
+		}
+		props = {
+			...props,
+			value: undefined,
+			routes: {
+				...routes,
+				collections: [
+					{
+						...routes.collections[0]!,
+						items: [{ schemaType: 'post', pathnameField: 'pathname.current' }],
+					},
+				],
+			},
+		}
+		await render()
+		await click('Generate')
+		await save()
+		expect(native.prepare).toHaveBeenCalledWith(
+			expect.objectContaining({ storedValue: '/journal/hello-world' }),
+			expect.any(AbortSignal),
+		)
+		expect(host.querySelector('[data-url-folder]')?.textContent).toBe(
+			'/journal/',
+		)
+	})
+	it('preserves a stored nested full-path collection prefix', async () => {
+		native.document = {
+			_id: 'drafts.post1',
+			_type: 'post',
+			title: 'First post',
+			pathname: { current: '/journal/archive/first-post' },
+		}
+		props = {
+			...props,
+			value: { _type: 'slug', current: '/journal/archive/first-post' },
+			routes: {
+				...routes,
+				collections: [
+					{
+						...routes.collections[0]!,
+						items: [{ schemaType: 'post', pathnameField: 'pathname.current' }],
+					},
+				],
+			},
+		}
+		await render()
+		expect(host.querySelector('[data-url-folder]')?.textContent).toBe(
+			'/journal/archive/',
+		)
+		expect(host.querySelector('input')?.value).toBe('first-post')
+		await type('updated-post')
+		await save()
+		expect(native.prepare).toHaveBeenCalledWith(
+			expect.objectContaining({ storedValue: '/journal/archive/updated-post' }),
+			expect.any(AbortSignal),
+		)
+	})
 	it('shows a locked collection prefix while storing only its slug', async () => {
 		native.document = {
 			_id: 'drafts.post1',

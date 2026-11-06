@@ -12,7 +12,7 @@ const registry = createPagesRegistry({
 		{
 			name: 'journal',
 			title: 'Journal',
-			overview: { schemaType: 'page', pathname: '/journal' },
+			index: { schemaType: 'page', pathname: '/journal' },
 			routePrefix: '/journal',
 			items: [{ schemaType: 'post', pathnameField: 'path' }],
 		},
@@ -29,7 +29,7 @@ function allPages(nodes: NavigationNode[]): string[] {
 			? [node.document._id]
 			: node.kind === 'folder'
 				? allPages(node.children)
-				: [...allPages(node.overviews), ...allPages(node.children)],
+				: [...allPages(node.indexPages), ...allPages(node.children)],
 	)
 }
 
@@ -165,7 +165,7 @@ describe('Pages navigator hierarchy', () => {
 			],
 		})
 	})
-	it('keeps overview and posts out of the generic page list', () => {
+	it('keeps index page and posts out of the generic page list', () => {
 		const { roots } = buildNavigationTree(registry, [
 			page('journal', '/journal'),
 			{ ...page('post', '/journal/post'), _type: 'post' },
@@ -174,11 +174,11 @@ describe('Pages navigator hierarchy', () => {
 		expect(roots[0]).toMatchObject({
 			kind: 'collection',
 			name: 'journal',
-			overviews: [{ document: { _id: 'journal' } }],
+			indexPages: [{ document: { _id: 'journal' } }],
 		})
 		expect(allPages(roots)).toEqual(['journal'])
 	})
-	it('does not duplicate a collection group when ordinary pages live beneath its overview', () => {
+	it('does not duplicate a collection group when ordinary pages live beneath its index page', () => {
 		const { roots } = buildNavigationTree(registry, [
 			page('journal', '/journal'),
 			page('authors', '/journal/authors'),
@@ -191,9 +191,9 @@ describe('Pages navigator hierarchy', () => {
 		})
 		expect(allPages(roots)).toEqual(['journal', 'authors', 'person'])
 	})
-	it('represents missing and duplicate overviews without inventing or choosing a document', () => {
+	it('represents missing and duplicate index pages without inventing or choosing a document', () => {
 		const empty = buildNavigationTree(registry, [])
-		expect(empty.roots).toMatchObject([{ kind: 'collection', overviews: [] }])
+		expect(empty.roots).toMatchObject([{ kind: 'collection', indexPages: [] }])
 		const duplicate = buildNavigationTree(registry, [
 			page('b', '/journal'),
 			page('a', '/journal'),
@@ -241,7 +241,7 @@ describe('Pages navigator hierarchy', () => {
 		).toBeUndefined()
 		expect(input[3]?.pathname).toBe('/a//b')
 	})
-	it('ignores unregistered documents and wrong-type overview paths stay unfiled', () => {
+	it('ignores unregistered documents and wrong-type index page paths stay unfiled', () => {
 		const alternate = createPagesRegistry({
 			pages: [
 				{ schemaType: 'page', pathnameField: 'path' },
@@ -281,14 +281,14 @@ describe('Pages navigator hierarchy', () => {
 		expect(input.map((document) => document._id)).toEqual(['b', 'a', 'z'])
 	})
 	it.each(['/', '/news/journal', '/news/journal/'])(
-		'handles overview path %s independently of the item prefix',
+		'handles index path %s independently of the item prefix',
 		(pathname) => {
 			const custom = createPagesRegistry({
 				pages: [{ schemaType: 'page', pathnameField: 'path' }],
 				collections: [
 					{
 						...registry.collections[0]!,
-						overview: { schemaType: 'page', pathname },
+						index: { schemaType: 'page', pathname },
 						routePrefix: '/posts',
 					},
 				],

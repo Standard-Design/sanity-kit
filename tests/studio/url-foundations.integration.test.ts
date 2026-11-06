@@ -13,8 +13,8 @@ const routing = createCollectionRouting({
 		{
 			name: 'journal',
 			title: 'Journal',
-			routePrefix: { documentId: 'journal-routing' },
-			overview: { schemaType: 'page', pathname: '/insights' },
+			settingsDocumentId: 'journal-routing',
+			index: { schemaType: 'page', pathname: '/insights' },
 			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 	],
@@ -93,7 +93,7 @@ describe('private URL foundations together', () => {
 		expect(post).toEqual(before)
 	})
 
-	it('keeps collection prefixes out of inferred folders and leaves overview URLs alone', () => {
+	it('keeps collection prefixes out of inferred folders and leaves index page URLs alone', () => {
 		for (const mode of ['published', 'drafts'] as const) {
 			const selected = context(mode)
 			const result = createFolderPlanner({

@@ -10,6 +10,7 @@ import {
 import {
 	proofCollectionSettingsRoutes,
 	proofSlugPost,
+	proofCollectionArticle,
 } from './collection-settings.js'
 import { withUrlPublication } from '../../../src/studio/url/publication-plugin.js'
 
@@ -29,9 +30,17 @@ export default defineConfig(
 				projectId,
 				dataset,
 				schema: {
-					types: [...schemaTypes, proofSlugPost],
+					types: [...schemaTypes, proofSlugPost, proofCollectionArticle],
 					templates: (previous) => [
 						...previous,
+						{
+							id: 'kitProofArticleWithIntro',
+							title: 'Article with intro',
+							schemaType: 'kitProofCollectionArticle',
+							value: {
+								body: 'This introduction comes from the article template.',
+							},
+						},
 						{
 							id: 'kitProofPageWithIntro',
 							title: 'Page with intro',
@@ -62,6 +71,31 @@ export default defineConfig(
 					pagesTool({
 						...proofRoutes,
 						name: 'pages-proof',
+						collectionUi: {
+							journal: {
+								itemTitle: 'post',
+								create: {
+									schemaType: 'kitProofPost',
+									templateId: 'kitProofPost',
+									title: 'Post',
+								},
+							},
+							articles: {
+								itemTitle: 'article',
+								create: [
+									{
+										schemaType: 'kitProofCollectionArticle',
+										templateId: 'kitProofCollectionArticle',
+										title: 'Article',
+									},
+									{
+										schemaType: 'kitProofCollectionArticle',
+										templateId: 'kitProofArticleWithIntro',
+										title: 'Article with intro',
+									},
+								],
+							},
+						},
 						title: 'Pages proof',
 						previewUrl:
 							process.env.SANITY_STUDIO_PREVIEW_ORIGIN ??

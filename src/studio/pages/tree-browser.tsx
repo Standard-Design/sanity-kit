@@ -1,3 +1,4 @@
+import { useCollectionTitleResolver } from '../collections/settings-context.js'
 /**
  * Render saved and inferred folders, real named index pages, and recent collection
  * items. Folders are navigation only: expansion never selects or writes content.
@@ -10,6 +11,8 @@ import { Box, Button, Card, Flex, Stack, Text } from '@sanity/ui'
 import { ChevronDownIcon } from '@sanity/icons/ChevronDown'
 import { ChevronRightIcon } from '@sanity/icons/ChevronRight'
 import { FolderIcon } from '@sanity/icons/Folder'
+import { DocumentsIcon } from '@sanity/icons/Documents'
+import { CollectionActions } from './collection-actions.js'
 import { EllipsisHorizontalIcon } from '@sanity/icons/EllipsisHorizontal'
 import { TrashIcon } from '@sanity/icons/Trash'
 import { AddIcon } from '@sanity/icons/Add'
@@ -51,7 +54,8 @@ function RecentItems({ node }: { node: NavigationCollection }) {
 	const collection = runtime.registry.collections.find(
 		(item) => item.name === node.name,
 	)!
-	const itemsTitle = collection.itemsTitle ?? collection.title
+	const displayTitle = useCollectionTitleResolver()(collection)
+	const itemsTitle = collection.itemsTitle ?? displayTitle
 	const itemLabel = itemsTitle.toLowerCase()
 	const browseTitle = `Browse all ${itemLabel}`
 	const hasTotal = !loading && !error && !disconnected
@@ -216,6 +220,7 @@ export function TreeRows({
 	onCreateFolder: (pathname: string) => void
 }) {
 	const { state, setState, runtime } = useBrowserState()
+	const collectionTitle = useCollectionTitleResolver()
 	const { preview } = usePresentationParams()
 	const current = runtime.model.previewedDocument(documents, preview)
 	return (
@@ -232,8 +237,23 @@ export function TreeRows({
 					)
 				const open = !state.collapsed.includes(node.key)
 				// Change only the display label, never the path or stable expansion key.
-				const label = node.kind === 'folder' ? node.name : node.title
+				const definition =
+					node.kind === 'collection'
+						? runtime.registry.collections.find(
+								(item) => item.name === node.name,
+							)
+						: undefined
+				const label =
+					node.kind === 'folder'
+						? node.name
+						: definition
+							? collectionTitle(definition)
+							: node.title
 				const title = label.replace(/^./u, (letter) => letter.toUpperCase())
+				const Icon =
+					node.kind === 'collection'
+						? (runtime.collectionUi[node.name]?.icon ?? DocumentsIcon)
+						: FolderIcon
 				return (
 					// Separate disclosed contents from the next sibling without adding
 					// trailing space at every nesting level. Match the Posts label gap.
@@ -273,11 +293,14 @@ export function TreeRows({
 										style={{ display: 'flex', alignItems: 'center', gap: 8 }}
 									>
 										{open ? <ChevronDownIcon /> : <ChevronRightIcon />}
-										<FolderIcon />
+										<Icon />
 										{title}
 									</span>
 								</Text>
 							</Card>
+							{node.kind === 'collection' && (
+								<CollectionActions name={node.name} />
+							)}
 							{node.kind === 'folder' && (
 								<FolderActions
 									node={node}
@@ -297,21 +320,21 @@ export function TreeRows({
 								)}
 								{node.kind === 'collection' && (
 									<>
-										{node.overviews.length === 0 && (
+										{node.indexPages.length === 0 && (
 											<Box padding={2}>
 												<Text size={1} muted>
-													No overview page
+													No index page
 												</Text>
 											</Box>
 										)}
-										{node.overviews.length > 1 && (
+										{node.indexPages.length > 1 && (
 											<Box padding={2}>
 												<Text size={1} muted>
-													Multiple overview pages share this URL.
+													Multiple index pages share this URL.
 												</Text>
 											</Box>
 										)}
-										{node.overviews.map((page) => (
+										{node.indexPages.map((page) => (
 											<PageRow
 												key={page.key}
 												document={page.document}

@@ -17,15 +17,15 @@ const config = {
 			name: 'journal',
 			title: 'Journal',
 			itemsTitle: 'Posts',
-			routePrefix: { documentId: 'journal-routing' },
-			overview: { schemaType: 'page', pathname: '/insights' },
+			settingsDocumentId: 'journal-routing',
+			index: { schemaType: 'page', pathname: '/insights' },
 			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 		{
 			name: 'news',
 			title: 'News',
 			routePrefix: '/news',
-			overview: { schemaType: 'page', pathname: '/latest' },
+			index: { schemaType: 'page', pathname: '/latest' },
 			items: [{ schemaType: 'newsItem', slugField: 'slug.current' }],
 		},
 	],
@@ -54,6 +54,396 @@ function success(result: CollectionRoutingResult) {
 }
 
 describe('private collection routing settings', () => {
+	it('supports an editable name and omitted prefix using one collection-level binding', () => {
+		const routing = createCollectionRouting({
+			pages: config.pages,
+			collections: [
+				{
+					name: 'journal',
+					settingsDocumentId: 'journal-routing',
+					displayName: { mode: 'default', value: 'Articles' },
+					index: config.collections[0]!.index,
+					items: config.collections[0]!.items,
+				},
+			],
+		})
+		expect(routing.documentIds).toEqual(['journal-routing'])
+		expect(routing.resolve(snapshot([]), 'published')).toMatchObject({
+			ok: false,
+			reason: 'settings-missing',
+		})
+		const resolved = success(
+			routing.resolve(snapshot([settings('/blog')]), 'published'),
+		)
+		expect(resolved.routes.collections?.[0]).toMatchObject({
+			title: 'Articles',
+			routePrefix: '/blog',
+		})
+	})
+
+	it('allows both locked fields without a settings document or redundant title', () => {
+		const routing = createCollectionRouting({
+			pages: config.pages,
+			collections: [
+				{
+					name: 'journal',
+					displayName: { mode: 'locked', value: 'Articles' },
+					routePrefix: { mode: 'locked', value: '/articles' },
+					index: config.collections[0]!.index,
+					items: config.collections[0]!.items,
+				},
+			],
+		})
+		expect(routing.documentIds).toEqual([])
+		expect(
+			success(routing.resolve(undefined, 'published')).routes.collections?.[0],
+		).toMatchObject({ title: 'Articles', routePrefix: '/articles' })
+	})
+
+	it('uses title then stable name when no display-name policy is supplied', () => {
+		const collection = {
+			name: 'journal',
+			routePrefix: '/journal',
+			index: config.collections[0]!.index,
+			items: config.collections[0]!.items,
+		}
+		for (const [definition, title] of [
+			[collection, 'journal'],
+			[{ ...collection, title: 'Journal' }, 'Journal'],
+		] as const) {
+			const routing = createCollectionRouting({
+				pages: config.pages,
+				collections: [definition],
+			})
+			expect(
+				success(routing.resolve(undefined, 'published')).routes.collections?.[0]
+					?.title,
+			).toBe(title)
+		}
+	})
+
+	it.each([
+		{},
+		{ routePrefix: { mode: 'default', value: '/journal' } },
+		{
+			routePrefix: '/journal',
+			displayName: { mode: 'default', value: 'Articles' },
+		},
+		{
+			routePrefix: { mode: 'locked', value: '/journal' },
+			displayName: { mode: 'default', value: 'Articles' },
+		},
+	])(
+		'requires a settings ID when configuration requests editable fields: %j',
+		(fields) => {
+			expect(() =>
+				createCollectionRouting({
+					pages: config.pages,
+					collections: [
+						{
+							name: 'journal',
+							index: config.collections[0]!.index,
+							items: config.collections[0]!.items,
+							...fields,
+						},
+					],
+				} as CollectionRoutingConfig),
+			).toThrow('require settingsDocumentId')
+		},
+	)
+
+	it.each([
+		{ documentId: 'journal-routing' },
+		{ documentId: 'journal-routing', mode: 'default', value: '/journal' },
+		{ documentId: 'journal-routing', mode: 'locked', value: '/journal' },
+	])('rejects the superseded nested settings identity: %j', (routePrefix) => {
+		expect(() =>
+			createCollectionRouting({
+				pages: config.pages,
+				collections: [
+					{
+						...config.collections[0]!,
+						routePrefix,
+					},
+				],
+			} as CollectionRoutingConfig),
+		).toThrow('prefixes need')
+	})
+
+	it('keeps explicit locked settings independent of stored values and read availability', () => {
+		const routing = createCollectionRouting({
+			...config,
+			collections: [
+				{
+					...config.collections[0]!,
+					displayName: { mode: 'locked', value: 'Articles' },
+					settingsDocumentId: 'journal-routing',
+					routePrefix: {
+						mode: 'locked',
+						value: '/articles',
+					},
+				},
+			],
+		})
+		expect(routing.documentIds).toEqual([])
+		for (const perspective of ['published', 'drafts'] as const) {
+			for (const input of [
+				undefined,
+				{ status: 'unavailable' },
+				snapshot([
+					{ ...settings('/changed'), displayName: 'Changed' },
+					{
+						...settings('/', 'drafts.journal-routing'),
+						displayName: 'Draft name',
+					},
+				]),
+			]) {
+				const result = success(routing.resolve(input, perspective))
+				expect(result.routes.collections?.[0]).toMatchObject({
+					title: 'Articles',
+					routePrefix: '/articles',
+				})
+				expect(
+					result.resolveUrl({ _type: 'post', slug: { current: 'story' } }),
+				).toMatchObject({ ok: true, value: { pathname: '/articles/story' } })
+				expect(result.settings).toEqual([])
+			}
+		}
+	})
+
+	it('uses configured defaults only to seed Studio, never as missing or invalid routing data', () => {
+		const routing = createCollectionRouting({
+			...config,
+			collections: [
+				{
+					...config.collections[0]!,
+					displayName: { mode: 'default', value: 'Articles' },
+					settingsDocumentId: 'journal-routing',
+					routePrefix: {
+						mode: 'default',
+						value: '/initial',
+					},
+				},
+			],
+		})
+		expect(routing.documentIds).toEqual(['journal-routing'])
+		expect(routing.resolve(undefined, 'published')).toMatchObject({
+			ok: false,
+			reason: 'settings-unavailable',
+		})
+		expect(routing.resolve(snapshot([]), 'published')).toMatchObject({
+			ok: false,
+			reason: 'settings-missing',
+		})
+		expect(
+			routing.resolve(
+				snapshot([settings('/', 'journal-routing')]),
+				'published',
+			),
+		).toMatchObject({ ok: false, reason: 'settings-invalid' })
+		expect(
+			routing.resolve(
+				snapshot([settings('/draft', 'drafts.journal-routing')]),
+				'published',
+			),
+		).toMatchObject({ ok: false, reason: 'settings-missing' })
+		const result = success(
+			routing.resolve(
+				snapshot([
+					{ ...settings('/saved'), displayName: 'Stored Studio label' },
+					settings('/preview', 'drafts.journal-routing'),
+				]),
+				'published',
+			),
+		)
+		expect(result.routes.collections?.[0]).toMatchObject({
+			title: 'Articles',
+			routePrefix: '/saved',
+		})
+		expect(
+			success(
+				routing.resolve(
+					snapshot([settings('/preview', 'drafts.journal-routing')]),
+					'drafts',
+				),
+			).routes.collections?.[0]?.routePrefix,
+		).toBe('/preview')
+	})
+
+	it.each(['default', 'locked'] as const)(
+		'allows %s names independently of locked or editable prefixes',
+		(mode) => {
+			for (const prefixMode of ['default', 'locked'] as const) {
+				const routing = createCollectionRouting({
+					...config,
+					collections: [
+						{
+							...config.collections[0]!,
+							displayName: { mode, value: 'Articles' },
+							settingsDocumentId: 'journal-routing',
+							routePrefix: {
+								mode: prefixMode,
+								value: '/articles',
+							},
+						},
+					],
+				})
+				const result = success(
+					routing.resolve(snapshot([settings('/saved')]), 'published'),
+				)
+				expect(result.routes.collections?.[0]?.title).toBe('Articles')
+				expect(result.routes.collections?.[0]?.routePrefix).toBe(
+					prefixMode === 'locked' ? '/articles' : '/saved',
+				)
+			}
+		},
+	)
+
+	it.each([
+		{ mode: 'default', value: '' },
+		{ mode: 'locked', value: '  ' },
+		{ mode: 'locked', value: 'x'.repeat(101) },
+		{ mode: 'editable', value: 'Articles' },
+		{ mode: 'default' },
+		{ value: 'Articles' },
+		'Articles',
+		null,
+	])('rejects invalid display-name policy %j', (displayName) => {
+		expect(() =>
+			createCollectionRouting({
+				...config,
+				collections: [{ ...config.collections[0]!, displayName }],
+			} as CollectionRoutingConfig),
+		).toThrow('display names need')
+	})
+
+	it.each([
+		{ mode: 'default', value: '/' },
+		{ mode: 'locked', value: '/bad//path' },
+		{ mode: 'default', value: '/bad/' },
+		{ mode: 'editable', value: '/articles' },
+		{ mode: 'default' },
+		{ value: '/articles' },
+		{ mode: undefined, value: undefined },
+	])('rejects invalid prefix policy %j', (policy) => {
+		expect(() =>
+			createCollectionRouting({
+				...config,
+				collections: [
+					{
+						...config.collections[0]!,
+						settingsDocumentId: 'journal-routing',
+						routePrefix: policy,
+					},
+				],
+			} as CollectionRoutingConfig),
+		).toThrow('prefixes need')
+	})
+
+	it('validates identities and slug-only items even when a binding is locked', () => {
+		const locked = {
+			...config.collections[0]!,
+			settingsDocumentId: 'journal-routing',
+			routePrefix: {
+				mode: 'locked' as const,
+				value: '/articles',
+			},
+		}
+		expect(() =>
+			createCollectionRouting({
+				...config,
+				collections: [
+					locked,
+					{
+						...config.collections[1]!,
+						settingsDocumentId: 'journal-routing',
+					},
+				],
+			}),
+		).toThrow('own settings document')
+		expect(() =>
+			createCollectionRouting({
+				...config,
+				collections: [
+					{
+						...locked,
+						settingsDocumentId: 'drafts.journal-routing',
+					},
+				],
+			}),
+		).toThrow('non-dotted published document ID')
+		expect(() =>
+			createCollectionRouting({
+				...config,
+				collections: [
+					{
+						...locked,
+						items: [{ schemaType: 'post', pathnameField: 'pathname.current' }],
+					},
+				],
+			}),
+		).toThrow('slug-only')
+	})
+
+	it('checks overlap between explicit locks, string prefixes, and resolved defaults', () => {
+		const locked = {
+			...config.collections[0]!,
+			settingsDocumentId: 'journal-routing',
+			routePrefix: {
+				mode: 'locked' as const,
+				value: '/news',
+			},
+		}
+		expect(() =>
+			createCollectionRouting({
+				...config,
+				collections: [locked, config.collections[1]!],
+			}),
+		).toThrow('overlapping routePrefix')
+		const routing = createCollectionRouting({
+			...config,
+			collections: [
+				{
+					...config.collections[0]!,
+					settingsDocumentId: 'journal-routing',
+					routePrefix: {
+						mode: 'default',
+						value: '/initial',
+					},
+				},
+				{
+					...config.collections[1]!,
+					settingsDocumentId: 'news-routing',
+					routePrefix: {
+						mode: 'locked',
+						value: '/news',
+					},
+				},
+			],
+		})
+		expect(routing.documentIds).toEqual(['journal-routing'])
+		expect(
+			routing.resolve(snapshot([settings('/news/nested')]), 'published'),
+		).toEqual({ ok: false, reason: 'routing-conflict' })
+	})
+
+	it('snapshots explicit policy values before callers mutate them', () => {
+		const displayName = { mode: 'locked' as const, value: 'Articles' }
+		const routePrefix = {
+			mode: 'locked' as const,
+			value: '/articles',
+		}
+		const routing = createCollectionRouting({
+			...config,
+			collections: [{ ...config.collections[0]!, displayName, routePrefix }],
+		})
+		displayName.value = 'Changed'
+		routePrefix.value = '/changed'
+		expect(
+			success(routing.resolve(undefined, 'published')).routes.collections?.[0],
+		).toMatchObject({ title: 'Articles', routePrefix: '/articles' })
+	})
+
 	it('accepts a public published snapshot but requires confirmed draft coverage for preview', () => {
 		const routing = createCollectionRouting(config)
 		const publicSnapshot = { ...snapshot([settings()]), coverage: 'published' }
@@ -110,7 +500,7 @@ describe('private collection routing settings', () => {
 			reason: 'settings-invalid',
 		})
 	})
-	it('combines stored slugs with settings without moving overview pages or fixed prefixes', () => {
+	it('combines stored slugs with settings without moving index pages or fixed prefixes', () => {
 		const routing = createCollectionRouting(config)
 		expect(routing.documentIds).toEqual(['journal-routing'])
 		const record = settings('/blog')
@@ -131,7 +521,7 @@ describe('private collection routing settings', () => {
 		expect(
 			result.resolveUrl({ _type: 'newsItem', slug: { current: 'story' } }),
 		).toMatchObject({ ok: true, value: { pathname: '/news/story' } })
-		expect(result.routes.collections?.[0]?.overview.pathname).toBe('/insights')
+		expect(result.routes.collections?.[0]?.index.pathname).toBe('/insights')
 		expect(result.routes.collections?.[0]?.routePrefix).toBe('/blog')
 		expect(result.settings).toEqual([
 			{
@@ -192,7 +582,8 @@ describe('private collection routing settings', () => {
 		const input = structuredClone(config)
 		const second = {
 			...input.collections[1]!,
-			routePrefix: { documentId: 'news-routing' },
+			settingsDocumentId: 'news-routing',
+			routePrefix: { mode: 'default' as const, value: '/news' },
 		}
 		const routing = createCollectionRouting({
 			...input,
@@ -245,7 +636,8 @@ describe('private collection routing settings', () => {
 	it('rejects overlapping dynamic prefixes and ancestor overlaps with fixed collections', () => {
 		const dynamic = {
 			...config.collections[1]!,
-			routePrefix: { documentId: 'news-routing' },
+			settingsDocumentId: 'news-routing',
+			routePrefix: { mode: 'default' as const, value: '/news' },
 		}
 		const routing = createCollectionRouting({
 			...config,
@@ -396,7 +788,15 @@ describe('private collection routing settings', () => {
 		).toThrow('slug-only')
 		const fixed = createCollectionRouting({
 			...config,
-			collections: [{ ...legacy, routePrefix: '/journal' }],
+			collections: [
+				{
+					...config.collections[1]!,
+					name: 'journal',
+					index: legacy.index,
+					items: legacy.items,
+					routePrefix: '/journal',
+				},
+			],
 		})
 		expect(
 			success(fixed.resolve(null, 'published')).resolveUrl({
@@ -419,7 +819,7 @@ describe('private collection routing settings', () => {
 			createCollectionRouting({
 				...config,
 				collections: [
-					{ ...config.collections[0]!, routePrefix: { documentId } },
+					{ ...config.collections[0]!, settingsDocumentId: documentId },
 				],
 			}),
 		).toThrow('non-dotted published document ID')
@@ -433,7 +833,7 @@ describe('private collection routing settings', () => {
 					config.collections[0]!,
 					{
 						...config.collections[1]!,
-						routePrefix: { documentId: 'journal-routing' },
+						settingsDocumentId: 'journal-routing',
 					},
 				],
 			}),
@@ -461,8 +861,8 @@ describe('private collection routing settings', () => {
 		const collections = Array.from({ length: 101 }, (_, i) => ({
 			...config.collections[0]!,
 			name: `collection${i}`,
-			overview: { schemaType: 'page', pathname: `/overview${i}` },
-			routePrefix: { documentId: `routing${i}` },
+			index: { schemaType: 'page', pathname: `/index${i}` },
+			settingsDocumentId: `routing${i}`,
 			items: [{ schemaType: `item${i}`, slugField: 'slug.current' }],
 		}))
 		expect(() => createCollectionRouting({ ...config, collections })).toThrow(
@@ -515,10 +915,8 @@ describe('private collection routing settings', () => {
 	it('snapshots configuration and returns immutable contexts independent of later document changes', () => {
 		const mutable = structuredClone(config)
 		const routing = createCollectionRouting(mutable)
-		Object.assign(mutable.collections[0]!.routePrefix, {
-			documentId: 'changed',
-		})
-		mutable.collections[0]!.overview.pathname = '/changed'
+		mutable.collections[0]!.settingsDocumentId = 'changed'
+		mutable.collections[0]!.index.pathname = '/changed'
 		mutable.excludePaths.push('/blog/story')
 		const document = settings('/blog')
 		const result = success(routing.resolve(snapshot([document]), 'published'))
@@ -526,7 +924,7 @@ describe('private collection routing settings', () => {
 		expect(
 			result.resolveUrl({ _type: 'post', slug: { current: 'story' } }),
 		).toMatchObject({ ok: true, value: { pathname: '/blog/story' } })
-		expect(result.routes.collections?.[0]?.overview.pathname).toBe('/insights')
+		expect(result.routes.collections?.[0]?.index.pathname).toBe('/insights')
 		expect(Object.isFrozen(result.routes.collections?.[0])).toBe(true)
 		expect(Object.isFrozen(result.settings)).toBe(true)
 		expect(Object.isFrozen(routing.documentIds)).toBe(true)

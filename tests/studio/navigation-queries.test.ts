@@ -17,7 +17,7 @@ const registry = createPagesRegistry({
 		{
 			name: 'journal',
 			title: 'Journal',
-			overview: { schemaType: 'page', pathname: '/journal' },
+			index: { schemaType: 'page', pathname: '/journal' },
 			routePrefix: '/journal',
 			items: [
 				{ schemaType: 'post', pathnameField: 'path' },

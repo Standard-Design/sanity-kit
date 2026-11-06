@@ -366,16 +366,17 @@ export function PageCreationContent({
 	)
 }
 
-type FolderCreationActionProps = {
+type PageCreationActionProps = {
 	runtime: PagesRuntime
-	context: { mode: 'page' | 'index'; pathname: string }
+	context?: { mode: 'page' | 'index'; pathname: string } | undefined
+	title: string
 	disabled: boolean
 	onSingle: () => void
 	onCreated: () => void
 }
 
 /** Resolve permissions before choosing a direct action or a native submenu. */
-export function FolderPageCreationAction(props: FolderCreationActionProps) {
+export function PageCreationMenuAction(props: PageCreationActionProps) {
 	return (
 		<CreationCheckBoundary fallback={<FolderTemplateSubmenu {...props} />}>
 			<ResolvedFolderCreationAction {...props} />
@@ -383,17 +384,19 @@ export function FolderPageCreationAction(props: FolderCreationActionProps) {
 	)
 }
 
-function ResolvedFolderCreationAction(props: FolderCreationActionProps) {
+function ResolvedFolderCreationAction(props: PageCreationActionProps) {
 	const context = useMemo(
-		() => ({ ...props.context, registry: props.runtime.registry }),
+		() =>
+			props.context
+				? { ...props.context, registry: props.runtime.registry }
+				: undefined,
 		[props.context, props.runtime.registry],
 	)
 	const { options, loading } = usePageCreationOptions(
 		props.runtime.createChoices,
 		context,
 	)
-	const title =
-		props.context.mode === 'page' ? 'Create page' : 'Create index page'
+	const title = props.title
 	if (loading || options.filter((option) => option.granted).length === 1)
 		return (
 			<MenuItem
@@ -408,16 +411,17 @@ function ResolvedFolderCreationAction(props: FolderCreationActionProps) {
 
 /** Hovering a submenu only reveals choices; it never starts document creation. */
 function FolderTemplateSubmenu({
+	title,
 	runtime,
 	context,
 	disabled,
 	onCreated,
-}: FolderCreationActionProps) {
+}: PageCreationActionProps) {
 	return (
 		<MenuGroup
 			role="menuitem"
 			aria-haspopup="menu"
-			text={context.mode === 'page' ? 'Create page' : 'Create index page'}
+			text={title}
 			icon={DocumentIcon}
 			disabled={disabled}
 			popover={{
@@ -449,14 +453,32 @@ function FolderTemplateSubmenu({
 	)
 }
 
+/** Existing folder callers retain their contextual URL initialization. */
+export function FolderPageCreationAction(
+	props: Omit<PageCreationActionProps, 'title' | 'context'> & {
+		context: { mode: 'page' | 'index'; pathname: string }
+	},
+) {
+	return (
+		<PageCreationMenuAction
+			{...props}
+			title={
+				props.context.mode === 'page' ? 'Create page' : 'Create index page'
+			}
+		/>
+	)
+}
+
 /** Match the native creator's compact search popover, anchored to the local +. */
 export function PageCreateDialog({
+	title = 'Create page',
 	runtime,
 	anchor,
 	onClose,
 	onCreated,
 	context,
 }: {
+	title?: string
 	runtime: PagesRuntime
 	anchor: HTMLButtonElement
 	onClose: () => void
@@ -499,7 +521,7 @@ export function PageCreateDialog({
 						ref={panel}
 						id={`${id}-create-page`}
 						role="dialog"
-						aria-label="Create page"
+						aria-label={title}
 						aria-modal="true"
 						tabIndex={-1}
 						style={{

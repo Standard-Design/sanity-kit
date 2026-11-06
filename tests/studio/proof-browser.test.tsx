@@ -127,6 +127,7 @@ vi.mock('sanity/router', () => ({
 }))
 
 import { BrowserStateProvider } from '../fixtures/pages-studio/browser-state.js'
+import { proofRoutes } from '../fixtures/pages-studio/routes.js'
 import { PagesBrowser as ProofBrowser } from '../../src/studio/pages/browser.js'
 import { PagesHeader as ProofHeader } from '../../src/studio/pages/header.js'
 import { BrowserStateProvider as ConfiguredProvider } from '../../src/studio/pages/browser-state.js'
@@ -668,7 +669,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 				{
 					name: 'journal',
 					title: 'Journal',
-					overview: { schemaType: 'kitProofPage', pathname: '/journal/' },
+					index: { schemaType: 'kitProofPage', pathname: '/journal/' },
 					routePrefix: '/journal',
 					items: [
 						{ schemaType: 'kitProofPost', pathnameField: 'pathname.current' },
@@ -815,7 +816,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 					name: 'journal',
 					title: 'Journal',
 					itemsTitle: 'Posts',
-					overview: { schemaType: 'page', pathname: '/journal' },
+					index: { schemaType: 'page', pathname: '/journal' },
 					routePrefix: '/journal',
 					items: [{ schemaType: 'post', slugField: 'slug.current' }],
 				},
@@ -1734,12 +1735,16 @@ describe('Pages Presentation adapter lifecycle', () => {
 
 	it('shares resources and one listener between header, sidebar, and picker', async () => {
 		await render()
-		expect(native.fetch).toHaveBeenCalledTimes(4)
+		expect(native.fetch).toHaveBeenCalledTimes(
+			3 + proofRoutes.collections.length,
+		)
 		expect(native.listen).toHaveBeenCalledTimes(1)
 		await click('Toggle navigator')
 		await click('Choose page')
 		// The header keeps its identity resource alive; reopened tree resources refresh.
-		expect(native.fetch).toHaveBeenCalledTimes(7)
+		expect(native.fetch).toHaveBeenCalledTimes(
+			5 + 2 * proofRoutes.collections.length,
+		)
 		expect(native.unsubscribe).not.toHaveBeenCalled()
 	})
 	it('does not show previous-perspective rows while a new perspective loads', async () => {

@@ -21,7 +21,7 @@ const registry = createPagesRegistry({
 		{
 			name: 'journal',
 			title: 'Journal',
-			overview: { schemaType: 'page', pathname: '/journal' },
+			index: { schemaType: 'page', pathname: '/journal' },
 			routePrefix: '/journal',
 			items: [{ schemaType: 'post', pathnameField: 'path' }],
 		},
@@ -145,7 +145,7 @@ describe('Generated native Presentation resolvers', () => {
 			]),
 		).toBeNull()
 	})
-	it('does not let an item replace its overview at the same path', async () => {
+	it('does not let an item replace its index page at the same path', async () => {
 		expect(
 			await resolveDocument('/journal', [
 				...documents,

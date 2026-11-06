@@ -27,6 +27,7 @@ export const BrowserContext = createContext<{
 		anchor: HTMLButtonElement,
 		context?: { mode: 'page' | 'index'; pathname: string },
 	) => void
+	showCollectionCreate: (anchor: HTMLButtonElement, collection: string) => void
 	pageCreateOpen: boolean
 	showFolderSync: () => void
 	showFolderRemove: (pathname: string) => void

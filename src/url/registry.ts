@@ -37,8 +37,8 @@ export interface PageCollectionDefinition {
 	readonly title: string
 	/** Plural item label, e.g. “Posts” or “People”; defaults to the collection title. */
 	readonly itemsTitle?: string
-	/** An existing ordinary page is the collection's overview, not a second item. */
-	readonly overview: { readonly schemaType: string; readonly pathname: string }
+	/** An existing ordinary page is the collection's index page, not a second item. */
+	readonly index: { readonly schemaType: string; readonly pathname: string }
 	/** Bounds full-path items; also supplies the locked prefix for slug-only items. */
 	readonly routePrefix: string
 	/** A schema type belongs to exactly one collection, or to ordinary pages. */
@@ -183,7 +183,7 @@ export function storedPagePathname(
  * native resolvers; createSanityUrlResolver() uses the same setup on the frontend.
  *
  * This checks definitions, not stored documents. validatePagesSchema() separately
- * checks that the configured fields exist; neither check creates an overview or
+ * checks that the configured fields exist; neither check creates an index page or
  * proves that every document already has a usable, unique URL.
  */
 export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
@@ -288,29 +288,29 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 			throw new Error(
 				`Collection "${collection.name}" needs a non-empty itemsTitle.`,
 			)
-		const overview = collection.overview
+		const indexPage = collection.index
 		if (
-			!overview ||
+			!indexPage ||
 			!types.some(
 				(type) =>
-					type.schemaType === overview.schemaType &&
+					type.schemaType === indexPage.schemaType &&
 					type.collection === undefined,
 			)
 		)
 			throw new Error(
-				`Collection "${collection.name}" must use a registered ordinary page type for its overview.`,
+				`Collection "${collection.name}" must use a registered ordinary page type for its index page.`,
 			)
 		const pathname = requiredPath(
-			overview.pathname,
-			`${collection.name}.overview.pathname`,
+			indexPage.pathname,
+			`${collection.name}.index.pathname`,
 		)
 		if (isReservedPath(pathname, excludePaths, reservedPathPrefixes))
 			throw new Error(
-				`Collection "${collection.name}" cannot use an excluded overview path.`,
+				`Collection "${collection.name}" cannot use an excluded index path.`,
 			)
-		if (collections.some((item) => item.overview.pathname === pathname))
+		if (collections.some((item) => item.index.pathname === pathname))
 			throw new Error(
-				`Multiple collections claim the overview path "${pathname}".`,
+				`Multiple collections claim the index path "${pathname}".`,
 			)
 		const routePrefix = requiredPath(
 			collection.routePrefix,
@@ -354,7 +354,7 @@ export function createPagesRegistry(config: PagesRouteConfig): PagesRegistry {
 				...(collection.itemsTitle === undefined
 					? {}
 					: { itemsTitle: collection.itemsTitle }),
-				overview: Object.freeze({ schemaType: overview.schemaType, pathname }),
+				index: Object.freeze({ schemaType: indexPage.schemaType, pathname }),
 				routePrefix,
 				items,
 			}),
@@ -391,11 +391,11 @@ export function registeredPathname(
 	)
 		return undefined
 	const owner = registry.collections.find(
-		(collection) => collection.overview.pathname === path,
+		(collection) => collection.index.pathname === path,
 	)
 	if (
 		owner &&
-		(type.collection !== undefined || owner.overview.schemaType !== schemaType)
+		(type.collection !== undefined || owner.index.schemaType !== schemaType)
 	)
 		return undefined
 	if (type.collection !== undefined) {

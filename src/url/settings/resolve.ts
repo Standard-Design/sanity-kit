@@ -17,17 +17,27 @@ export const COLLECTION_ROUTE_TYPE = 'sanityKitCollectionRoute'
 export const MAX_SETTINGS_COLLECTIONS = 100
 export const MAX_SETTINGS_DOCUMENTS = 1000
 export const MAX_COLLECTION_PREFIX_LENGTH = 2048
+export const MAX_COLLECTION_DISPLAY_NAME_LENGTH = 100
 
-/** A configured singleton identity, never inferred from an overview page. */
-export interface CollectionPrefixBinding {
-	readonly documentId: string
+/** A default seeds a new settings draft; a locked value remains owned by code. */
+export interface CollectionSettingValue {
+	readonly mode: 'default' | 'locked'
+	readonly value: string
 }
 
+/** Settings identity and field ownership are independent collection options. */
 export interface SettingsCollectionDefinition extends Omit<
 	PageCollectionDefinition,
-	'routePrefix'
+	'routePrefix' | 'title'
 > {
-	readonly routePrefix: string | CollectionPrefixBinding
+	/** Optional code label; the stable name is the final fallback. */
+	readonly title?: string
+	/** One explicit settings singleton, never inferred from an index page. */
+	readonly settingsDocumentId?: string
+	/** Omit to let editors supply the first prefix in the settings document. */
+	readonly routePrefix?: string | CollectionSettingValue
+	/** Studio label ownership is independent of URL-prefix ownership. */
+	readonly displayName?: CollectionSettingValue
 }
 
 export interface CollectionRoutingConfig extends Omit<
@@ -101,6 +111,15 @@ function canonicalPrefix(value: unknown): value is string {
 	)
 }
 
+function validSetting(value: unknown): value is CollectionSettingValue {
+	return (
+		record(value) &&
+		(own(value, 'mode') === 'default' || own(value, 'mode') === 'locked') &&
+		typeof own(value, 'value') === 'string' &&
+		Object.keys(value).every((key) => key === 'mode' || key === 'value')
+	)
+}
+
 /** Return the registry's immutable copies, not mutable caller-owned definitions. */
 function routeConfig(registry: PagesRegistry): PagesRouteConfig {
 	return Object.freeze({
@@ -122,7 +141,9 @@ function routeConfig(registry: PagesRegistry): PagesRouteConfig {
 }
 
 /**
- * Snapshot app configuration once. Dynamic prefixes have no fallback. Temporary
+ * Snapshot app configuration once. Editable prefixes have no runtime fallback:
+ * their default value only seeds Studio drafts. Locked prefixes never read a
+ * document, even if Studio has an associated settings form. Temporary
  * setup-only prefixes let the existing registry validate every other setting;
  * those placeholders never escape into results or become document URLs.
  */
@@ -132,53 +153,87 @@ export function createCollectionRouting(config: CollectionRoutingConfig) {
 	const definitions: readonly SettingsCollectionDefinition[] =
 		config.collections ?? []
 	const bindings = new Map<string, string>()
+	const settingsIds = new Set<string>()
 	const fixedPrefixes: string[] = []
 	for (const collection of definitions) {
 		if (!collection) throw new Error('Invalid collection registration.')
-		if (typeof collection.routePrefix === 'string') {
-			if (!canonicalPrefix(collection.routePrefix))
+		if (
+			collection.displayName !== undefined &&
+			(!validSetting(collection.displayName) ||
+				!collection.displayName.value.trim() ||
+				collection.displayName.value.length >
+					MAX_COLLECTION_DISPLAY_NAME_LENGTH)
+		)
+			throw new Error(
+				'Collection display names need a default or locked mode and a value between 1 and 100 characters.',
+			)
+		const prefix = collection.routePrefix
+		if (typeof prefix === 'string') {
+			if (!canonicalPrefix(prefix))
 				throw new Error(
 					'Collection routing needs canonical, non-root fixed prefixes.',
 				)
-			fixedPrefixes.push(collection.routePrefix)
-			continue
+			fixedPrefixes.push(prefix)
+		} else if (prefix !== undefined) {
+			if (!validSetting(prefix) || !canonicalPrefix(prefix.value))
+				throw new Error(
+					'Collection prefixes need a default or locked mode and a canonical, non-root value.',
+				)
+			if (prefix.mode === 'locked') fixedPrefixes.push(prefix.value)
 		}
-		const binding = collection.routePrefix
-		const documentId = record(binding) ? own(binding, 'documentId') : undefined
-		if (
-			!record(binding) ||
-			typeof documentId !== 'string' ||
-			!/^[A-Za-z0-9_][A-Za-z0-9_-]{0,120}$/u.test(documentId) ||
-			['drafts', 'versions'].includes(documentId)
-		)
+		const editablePrefix =
+			prefix === undefined ||
+			(typeof prefix !== 'string' && prefix.mode === 'default')
+		const documentId = collection.settingsDocumentId
+		if (documentId !== undefined) {
+			if (
+				typeof documentId !== 'string' ||
+				!/^[A-Za-z0-9_][A-Za-z0-9_-]{0,120}$/u.test(documentId) ||
+				['drafts', 'versions'].includes(documentId)
+			)
+				throw new Error(
+					'Settings bindings need a non-dotted published document ID (1–121 characters).',
+				)
+			if (settingsIds.has(documentId))
+				throw new Error('Each collection needs its own settings document.')
+			if (
+				!Array.isArray(collection.items) ||
+				collection.items.some(
+					(item: unknown) =>
+						!record(item) ||
+						typeof own(item, 'slugField') !== 'string' ||
+						own(item, 'pathnameField') !== undefined,
+				)
+			)
+				throw new Error(
+					'Settings-backed collections require slug-only item fields.',
+				)
+			settingsIds.add(documentId)
+		} else if (editablePrefix || collection.displayName?.mode === 'default') {
 			throw new Error(
-				'Settings bindings need a non-dotted published document ID (1–121 characters).',
+				'Editable collection settings require settingsDocumentId.',
 			)
-		if ([...bindings.values()].includes(documentId))
-			throw new Error('Each collection needs its own settings document.')
-		if (
-			!Array.isArray(collection.items) ||
-			collection.items.some(
-				(item: unknown) =>
-					!record(item) ||
-					typeof own(item, 'slugField') !== 'string' ||
-					own(item, 'pathnameField') !== undefined,
-			)
-		)
-			throw new Error(
-				'Settings-backed collections require slug-only item fields.',
-			)
-		bindings.set(collection.name, documentId)
+		}
+		if (editablePrefix) bindings.set(collection.name, documentId!)
 	}
-	if (bindings.size > MAX_SETTINGS_COLLECTIONS)
+	if (settingsIds.size > MAX_SETTINGS_COLLECTIONS)
 		throw new Error(
 			`At most ${MAX_SETTINGS_COLLECTIONS} settings-backed collections are supported.`,
 		)
 	let placeholderIndex = 0
 	const usedPrefixes = [...fixedPrefixes]
-	const temporary = definitions.map((collection) => {
+	const temporary = definitions.map((definition) => {
+		const collection = {
+			...definition,
+			title:
+				definition.displayName?.value.trim() ??
+				definition.title ??
+				definition.name,
+		}
 		if (typeof collection.routePrefix === 'string')
 			return { ...collection, routePrefix: collection.routePrefix }
+		if (collection.routePrefix?.mode === 'locked')
+			return { ...collection, routePrefix: collection.routePrefix.value }
 		let prefix: string
 		do {
 			prefix = `/_sanity-kit-settings-${placeholderIndex++}`
@@ -208,7 +263,7 @@ export function createCollectionRouting(config: CollectionRoutingConfig) {
 	const documentIds = Object.freeze([...bindings.values()])
 
 	return Object.freeze({
-		/** IDs a later loader must read, with draft counterparts for preview. */
+		/** Editable-prefix IDs a loader must read; locked settings need no read. */
 		documentIds,
 		resolve(
 			snapshot: unknown,

@@ -15,7 +15,7 @@ const { model } = createPagesRuntime({
 			name: 'journal',
 			title: 'Journal',
 			routePrefix: '/journal',
-			overview: { schemaType: 'page', pathname: '/journal' },
+			index: { schemaType: 'page', pathname: '/journal' },
 			items: [{ schemaType: 'post', pathnameField: 'path' }],
 		},
 	],

@@ -102,7 +102,7 @@ export function createUrlEditController(
 	)
 		throw new Error('URL editing needs a concrete project and dataset.')
 	const groups = new Set(
-		registry.collections.map((group) => group.overview.pathname),
+		registry.collections.map((group) => group.index.pathname),
 	)
 	let epoch = 0
 	let busy = false

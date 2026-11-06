@@ -15,8 +15,8 @@ const config = {
 		{
 			name: 'journal',
 			title: 'Journal',
-			routePrefix: { documentId: 'journal-routing' },
-			overview: { schemaType: 'page', pathname: '/insights' },
+			settingsDocumentId: 'journal-routing',
+			index: { schemaType: 'page', pathname: '/insights' },
 			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 	],
@@ -64,6 +64,35 @@ const preview = {
 } as const
 
 describe('private collection routing settings loader', () => {
+	it.each(['/journal', { mode: 'locked' as const, value: '/journal' }])(
+		'does not fetch routing data for a name-only settings binding with fixed prefix %j',
+		async (routePrefix) => {
+			const client = transport()
+			client.withConfig.mockImplementation(() => {
+				throw new Error('No routing read is needed')
+			})
+			const loader = createCollectionRoutingLoader(
+				{
+					pages: config.pages,
+					collections: [
+						{
+							...config.collections[0]!,
+							displayName: { mode: 'default', value: 'Articles' },
+							routePrefix,
+						},
+					],
+				},
+				client,
+			)
+			expect(loader.documentIds).toEqual([])
+			const result = await loader.load({ perspective: 'drafts' })
+			expect(result.ok).toBe(true)
+			if (!result.ok) throw new Error(result.reason)
+			expect(result.value.routes.collections?.[0]?.routePrefix).toBe('/journal')
+			expect(client.withConfig).not.toHaveBeenCalled()
+		},
+	)
+
 	it('loads only configured published IDs with explicit raw uncached options', async () => {
 		const client = transport([
 			setting(),
@@ -96,7 +125,7 @@ describe('private collection routing settings loader', () => {
 		expect(
 			result.value.resolveUrl({ _type: 'post', slug: { current: 'first' } }),
 		).toMatchObject({ ok: true, value: { pathname: '/journal/first' } })
-		expect(result.value.routes.collections?.[0]?.overview.pathname).toBe(
+		expect(result.value.routes.collections?.[0]?.index.pathname).toBe(
 			'/insights',
 		)
 		expect(result.value.settings[0]?.documentId).toBe('journal-routing')
@@ -188,20 +217,17 @@ describe('private collection routing settings loader', () => {
 		const collections = Array.from({ length: 100 }, (_, i) => ({
 			...config.collections[0]!,
 			name: `collection${i}`,
-			routePrefix: { documentId: `routing-${i}` },
-			overview: { schemaType: 'page', pathname: `/overview-${i}` },
+			settingsDocumentId: `routing-${i}`,
+			index: { schemaType: 'page', pathname: `/index-${i}` },
 			items: [{ schemaType: `item${i}`, slugField: 'slug.current' }],
 		}))
 		const documents = collections.flatMap((collection, i) => [
 			{
-				...setting(`/live-${i}`, collection.routePrefix.documentId),
+				...setting(`/live-${i}`, collection.settingsDocumentId),
 				collection: collection.name,
 			},
 			{
-				...setting(
-					`/preview-${i}`,
-					`drafts.${collection.routePrefix.documentId}`,
-				),
+				...setting(`/preview-${i}`, `drafts.${collection.settingsDocumentId}`),
 				collection: collection.name,
 			},
 		])
@@ -356,7 +382,7 @@ describe('private collection routing settings loader', () => {
 		const mutable = structuredClone(config)
 		const client = transport()
 		const loader = createCollectionRoutingLoader(mutable, client)
-		mutable.collections[0]!.routePrefix.documentId = 'changed'
+		mutable.collections[0]!.settingsDocumentId = 'changed'
 		client.fetch.mockImplementation((_query, params) => {
 			params.ids.push('unexpected')
 			return Promise.resolve([setting('/other', 'unexpected')])

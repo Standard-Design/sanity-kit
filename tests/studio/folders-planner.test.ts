@@ -16,7 +16,7 @@ const routes = {
 			name: 'journal',
 			title: 'Journal',
 			routePrefix: '/posts',
-			overview: { schemaType: 'page', pathname: '/content/journal' },
+			index: { schemaType: 'page', pathname: '/content/journal' },
 			items: [
 				{ schemaType: 'post', slugField: 'slug.current' },
 				{ schemaType: 'legacyPost', pathnameField: 'path' },
@@ -56,7 +56,7 @@ describe('private folder registry plans', () => {
 	})
 	it('requires canonical collection configuration', () => {
 		const changed = structuredClone(routes)
-		changed.collections[0]!.overview.pathname = '/content//journal'
+		changed.collections[0]!.index.pathname = '/content//journal'
 		expect(() => createFolderPlanner({ routes: changed })).toThrow(
 			'canonical collection',
 		)
@@ -296,7 +296,7 @@ describe('private folder registry plans', () => {
 			),
 		).toMatchObject({ ok: true, value: { operation: 'unchanged', added: [] } })
 	})
-	it('retains ancestors required by collection groups even without overview documents', () => {
+	it('retains ancestors required by collection groups even without index page documents', () => {
 		expect(planner.planSynchronize(null, inventory(), keys())).toMatchObject({
 			ok: true,
 			value: { document: { folders: [{ pathname: '/content' }] } },
@@ -458,7 +458,7 @@ describe('private folder registry plans', () => {
 	it('snapshots route configuration', () => {
 		const mutable = structuredClone(routes),
 			model = createFolderPlanner({ routes: mutable })
-		mutable.collections[0]!.overview.pathname = '/elsewhere'
+		mutable.collections[0]!.index.pathname = '/elsewhere'
 		expect(model.planCreate(null, '/content/journal', keys())).toEqual({
 			ok: false,
 			reason: 'collection-group',

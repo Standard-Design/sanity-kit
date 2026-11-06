@@ -19,7 +19,7 @@ const routes = {
 			name: 'journal',
 			title: 'Journal',
 			routePrefix: '/posts',
-			overview: { schemaType: 'page', pathname: '/journal' },
+			index: { schemaType: 'page', pathname: '/journal' },
 			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 	],

@@ -14,8 +14,8 @@ const config = {
 		{
 			name: 'journal',
 			title: 'Journal',
-			routePrefix: { documentId: 'journal-routing' },
-			overview: { schemaType: 'page', pathname: '/insights' },
+			settingsDocumentId: 'journal-routing',
+			index: { schemaType: 'page', pathname: '/insights' },
 			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 	],
@@ -143,9 +143,9 @@ describe('loaded routing foundations', () => {
 			ok: true,
 			value: { pathname: '/blog/story' },
 		})
-		const overview = { ...page, pathname: { current: '/insights' } }
+		const indexPage = { ...page, pathname: { current: '/insights' } }
 		for (const context of [publicContext, previewContext])
-			expect(context.value.resolveUrl(overview)).toMatchObject({
+			expect(context.value.resolveUrl(indexPage)).toMatchObject({
 				ok: true,
 				value: { pathname: '/insights' },
 			})

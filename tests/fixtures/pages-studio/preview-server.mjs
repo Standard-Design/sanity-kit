@@ -28,11 +28,11 @@ const bundle = await build({
 	platform: 'browser',
 })
 const query = `{
-  "page": *[_type in ["kitProofPage", "kitProofPost", "kitProofLanding"] && coalesce(pathname.current, route) == $path][0]{
-    _id, _type, title, body, "pathname": coalesce(pathname.current, route),
+  "page": *[_type in ["kitProofPage", "kitProofPost", "kitProofLanding", "kitProofCollectionArticle"] && coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => "/articles/" + slug.current)) == $path][0]{
+    _id, _type, title, body, "pathname": coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => "/articles/" + slug.current)),
     "shared": select(shared->_type == "kitProofShared" => shared->{_id, _type, title, body})
   },
-  "links": *[_type in ["kitProofPage", "kitProofPost", "kitProofLanding"] && defined(coalesce(pathname.current, route))] | order(_id asc)[0...50]{title, "pathname": coalesce(pathname.current, route)}
+  "links": *[_type in ["kitProofPage", "kitProofPost", "kitProofLanding", "kitProofCollectionArticle"] && defined(coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => "/articles/" + slug.current)))] | order(_id asc)[0...50]{title, "pathname": coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => "/articles/" + slug.current))}
 }`
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pages fixture preview</title><link rel="stylesheet" href="/fixture-client.css"><style>body{font:18px/1.6 system-ui;margin:3rem;color:#20232b}nav{font-size:14px}footer{border-top:1px solid #ddd;margin-top:5rem;padding:2rem 0}</style></head><body><main>Loading fixture preview…</main><script type="module" src="/fixture-client.js"></script></body></html>`
 

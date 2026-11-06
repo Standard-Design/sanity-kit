@@ -176,7 +176,7 @@ publish the reviewed routing change. Public traffic continues using the publishe
 prefix until activation. Item documents retain their slugs; no per-post URL rewrite
 is needed. Independently located listing pages do not move. One settings document
 per collection remains the preferred arrangement; its concrete schema,
-registration, and optional overview relationship still need finalization.
+registration, and optional index page relationship still need finalization.
 
 The small storage change does not eliminate activation work. The kit must validate
 the newly resolved URLs, review old/new URLs for redirects, use the correct
@@ -317,7 +317,7 @@ parameters remain proposals. The private location hint is not that public API.
   bounded reads, additive writer, saved-folder display, URL-field creation,
   background synchronization, and navigator folder-creation controls are
   implemented. Removal and bulk moves need their own safety checks.
-- Settings registration/schema and any optional overview shortcut. Draft preview
+- Settings registration/schema and any optional index page shortcut. Draft preview
   followed by reviewed publication is decided; action and cache coordination need
   implementation design.
 - Public field/settings APIs, their failure codes, and creation template parameters.

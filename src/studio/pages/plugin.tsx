@@ -21,6 +21,7 @@ export const pagesTool = definePlugin<PagesToolOptions>((options) => {
 		excludePaths,
 		reservedPathPrefixes,
 		create,
+		collectionUi,
 		resolve,
 		...native
 	} = options
@@ -29,6 +30,7 @@ export const pagesTool = definePlugin<PagesToolOptions>((options) => {
 	void collections
 	void excludePaths
 	void reservedPathPrefixes
+	void collectionUi
 	void create
 	return {
 		name: 'sanity-kit-pages',

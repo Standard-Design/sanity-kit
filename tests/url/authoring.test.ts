@@ -14,7 +14,7 @@ const config = {
 			name: 'journal',
 			title: 'Journal',
 			routePrefix: '/journal',
-			overview: { schemaType: 'page', pathname: '/insights' },
+			index: { schemaType: 'page', pathname: '/insights' },
 			items: [
 				{ schemaType: 'post', slugField: 'slug.current' },
 				{ schemaType: 'legacy', pathnameField: 'url' },

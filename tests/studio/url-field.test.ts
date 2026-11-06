@@ -25,7 +25,7 @@ const routes: PagesRouteConfig = {
 			name: 'journal',
 			title: 'Journal',
 			routePrefix: '/journal',
-			overview: { schemaType: 'page', pathname: '/journal' },
+			index: { schemaType: 'page', pathname: '/journal' },
 			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 	],

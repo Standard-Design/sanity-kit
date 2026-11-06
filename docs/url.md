@@ -41,7 +41,7 @@ export const pageRoutes = {
 			title: 'Journal',
 			itemsTitle: 'Posts',
 			routePrefix: '/journal',
-			overview: { schemaType: 'page', pathname: '/insights' },
+			index: { schemaType: 'page', pathname: '/insights' },
 			items: [{ schemaType: 'post', slugField: 'slug.current' }],
 		},
 	],
@@ -57,9 +57,17 @@ It validates and copies configuration; later mutations to the original object
 do not change its behavior.
 
 The current registration still requires at least one ordinary page type and a
-document-backed overview for each collection. That overview can have a different
+document-backed index page for each collection. That index page can have a different
 path from the item prefix, as `/insights` does above. This does not yet introduce
-overview-free registration or settings-backed prefixes.
+index-page-free registration or settings-backed prefixes.
+
+### Updating an earlier configuration
+
+The collection property previously named `overview` is now `index`. Rename that
+configuration key and keep its `schemaType` and `pathname` values unchanged. This
+is a configuration change only: existing Sanity documents, IDs, and URLs do not
+need a data migration. The index remains an ordinary page and may live at a
+pathname different from the collection item prefix.
 
 ## Resolve a query result
 
@@ -106,15 +114,15 @@ field paths, or overlapping collection prefixes. Fix these in app configuration.
 Calling the resolver with ordinary missing or invalid query data gives
 `{ok: false, reason}`. Failed results have no `value`:
 
-| Reason              | Meaning                                                                                      |
-| ------------------- | -------------------------------------------------------------------------------------------- |
-| `missing-document`  | The document is `null` or `undefined`.                                                       |
-| `invalid-document`  | It is not an object with its own nonempty string `_type`.                                    |
-| `unregistered-type` | Its type is not registered.                                                                  |
-| `missing-value`     | The field is absent, `null`, or empty after Stega cleanup.                                   |
-| `invalid-value`     | The value is not a valid pathname or single-segment slug.                                    |
-| `disallowed-path`   | The URL is excluded, outside its collection prefix, or claimed by a different overview type. |
-| `noncanonical-path` | An otherwise allowed full path has repeated or trailing slashes.                             |
+| Reason              | Meaning                                                                                        |
+| ------------------- | ---------------------------------------------------------------------------------------------- |
+| `missing-document`  | The document is `null` or `undefined`.                                                         |
+| `invalid-document`  | It is not an object with its own nonempty string `_type`.                                      |
+| `unregistered-type` | Its type is not registered.                                                                    |
+| `missing-value`     | The field is absent, `null`, or empty after Stega cleanup.                                     |
+| `invalid-value`     | The value is not a valid pathname or single-segment slug.                                      |
+| `disallowed-path`   | The URL is excluded, outside its collection prefix, or claimed by a different index page type. |
+| `noncanonical-path` | An otherwise allowed full path has repeated or trailing slashes.                               |
 
 The resolver never changes `/about//team/` into `/about/team`. That could produce
 a link different from the app's exact lookup. The private input handles cleanup
@@ -129,7 +137,7 @@ resolution, not missing document data.
 ## How this relates to other kit features
 
 - **Pages:** shares configuration validation, storage mapping, excluded paths,
-  and overview/collection ownership checks. Studio checks its compiled schema
+  and index page/collection ownership checks. Studio checks its compiled schema
   separately; the frontend resolver needs no schema.
 - **Links:** use the pathname when preparing app-owned internal link data.
   Existing link helpers and query fragments are not automatically rewired.
@@ -196,7 +204,7 @@ registered string-field path, and the string that would be stored there:
 - An existing full-path collection item still stores its complete pathname.
 
 The three resolved URL parts are never written as three separate fields.
-Preparation respects excluded paths, overview ownership, and collection
+Preparation respects excluded paths, index page ownership, and collection
 boundaries. It refuses mappings into reserved document metadata such as `_id`.
 Configured collection prefixes must already be canonical; authoring setup rejects
 noncanonical prefixes rather than silently changing application configuration.

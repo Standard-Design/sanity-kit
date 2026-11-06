@@ -3,7 +3,11 @@
  * frontend entry: importing it loads Sanity's native Studio runtime.
  */
 export { pagesTool } from './pages/plugin.js'
-export type { PagesToolOptions, PagesCreateOptions } from './pages/runtime.js'
+export type {
+	PagesToolOptions,
+	PagesCreateOptions,
+	PagesCollectionUiOptions,
+} from './pages/runtime.js'
 export type {
 	PagesRouteConfig,
 	PageTypeDefinition,

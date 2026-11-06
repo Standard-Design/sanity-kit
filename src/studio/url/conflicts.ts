@@ -109,7 +109,7 @@ export function createUrlConflictChecker(
 		const pathname = prepared.value.url.pathname
 		const params: Record<string, unknown> = { publishedId, pathname }
 		// Do not reuse the navigator's ownership-filtered lookup. Even a document
-		// stored under the wrong overview type can occupy the proposed URL. Compare
+		// stored under the wrong index page type can occupy the proposed URL. Compare
 		// every full-path type, plus each collection whose slug could produce it.
 		// Equality on stored fields avoids concatenating every item's URL in GROQ.
 		const clauses = registry.types.flatMap((type, index) => {
