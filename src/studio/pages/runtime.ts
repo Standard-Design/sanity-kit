@@ -7,6 +7,8 @@ import type { PresentationPluginOptions } from 'sanity/presentation'
 import type { ComponentType } from 'react'
 import { createPagesRegistry, type PagesRouteConfig } from './registry.js'
 import { createBrowserModel } from './model.js'
+import { createPageResolvers } from './resolvers.js'
+import type { CollectionRoutingSnapshot } from '../collections/routing-session.js'
 
 /** One explicitly allowed native template. Studio supplies its default title. */
 export interface PagesCreateOptions {
@@ -204,3 +206,28 @@ export function createPagesRuntime(options: PagesToolOptions) {
 	})
 }
 export type PagesRuntime = ReturnType<typeof createPagesRuntime>
+
+/**
+ * Private integration seam: create navigation queries and native Presentation
+ * resolvers from the very same successful settings snapshot. A caller should
+ * memoize by snapshot identity. New settings yield new resolver arrays, allowing
+ * native main-document lookup to refresh without remounting Presentation.
+ *
+ * Loading/error results deliberately have no runtime: no stale or placeholder
+ * URL can escape. The store's separate settingsDocuments list lets the future
+ * error shell keep Settings accessible. pagesTool does not call this yet; URL
+ * authoring and publish checks must adopt the same context before live wiring.
+ */
+export function resolveCollectionPagesRuntime(
+	snapshot: CollectionRoutingSnapshot,
+	options: Omit<PagesToolOptions, keyof PagesRouteConfig>,
+) {
+	if (snapshot.status !== 'ready') return snapshot
+	const runtime = createPagesRuntime({ ...options, ...snapshot.value.routes })
+	return {
+		status: 'ready' as const,
+		perspective: snapshot.perspective,
+		runtime,
+		resolve: createPageResolvers(runtime.registry, options.resolve),
+	}
+}

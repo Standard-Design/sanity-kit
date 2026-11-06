@@ -13,9 +13,9 @@ The collection navigation and explicit settings-ownership slice (`74ad993`) is
 also committed and pushed. The pure folder-rename planner (`7d388c5`) is now
 committed and pushed. Native redirect draft management (`18570b5`) is also
 committed and pushed. Guarded redirect publishing (`0648541`) and the simpler
-Publish/Delete workflow (`b6d7516`) are now committed and pushed too. The next
-review slice is folder rename writing and recovery. The settings-aware collection
-routing foundation remains a separate, uncommitted slice.
+Publish/Delete workflow (`b6d7516`) are now committed and pushed too. The folder
+rename writing and recovery slice (`148827e`) is also committed and pushed.
+The settings-aware collection routing foundation is now the next review slice.
 
 ## Parallel tracks
 

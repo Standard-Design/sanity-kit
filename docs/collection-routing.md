@@ -526,3 +526,78 @@ Articles demonstrates an editable default name and a locked `/articles` prefix.
 Its disabled prefix remains visible beside the editable name. Pages and preview
 still use their supplied `/articles` routes until settings resolution is integrated.
 No existing Journal content or settings identity needs to be migrated.
+
+## Private Studio routing sessions
+
+A new private read boundary prepares the next integration step. It is not yet
+installed by `pagesTool`, the URL field, or the proof website. Existing Studio
+behavior and publishing controls are unchanged.
+
+For example, a collection can have a published `/articles` prefix and an edited
+`/journal` prefix in its settings draft. The published session must keep returning
+`/articles`, while the draft session can resolve `/journal` for preview. This
+shared source of routing information will let the navigator, URL field, and
+preview agree on which version they are showing when those integrations land.
+
+`createCollectionRoutingStore(config, client, options)` belongs to one tool and
+one Sanity client. It snapshots the registration and supplies separate sessions
+for published and draft views. The sessions share neither resolved URLs nor
+requests across those views. There is no package-wide cache.
+
+Each session exposes `getSnapshot()`, `subscribe()`, and `retry()`. Its result is
+one of three states:
+
+- **Loading:** a routing check is in progress. Previously resolved URLs are not
+  included, so a caller cannot accidentally continue using an obsolete prefix.
+- **Ready:** the result contains validated routes, the shared URL resolver, and
+  the exact settings revisions used to resolve them.
+- **Unavailable:** settings are missing, invalid, unreadable, or disconnected.
+  The result gives a reason rather than substituting a default prefix.
+
+The store's separate `settingsDocuments` list contains the configured editor
+identities and labels. A future navigator can therefore keep Settings accessible
+while routing is unavailable. This list does not contain fallback URLs.
+
+Published sessions read only published settings. Draft sessions prefer a saved
+draft and otherwise use the published version. An invalid draft blocks draft
+resolution; it does not silently fall back to the published prefix. The caller
+must provide `confirmDraftVisibility(requiredDraftIds, signal)` before draft
+settings can be read. That check must establish access to every required draft;
+successfully querying visible documents is not enough. The check runs again on
+each refresh, and a missing or failed check returns `access-unconfirmed`.
+
+String prefixes and locked prefix values resolve directly from configuration.
+They need no routing query, listener, or draft-access check, even if the collection
+has a settings document for its editable display name. Default prefix values
+still only initialize new settings documents. The index page keeps its own
+pathname when an item prefix changes.
+
+The listener watches the exact configured identities using raw perspective and
+query-visible notifications. Waiting for query visibility matters: a mutation
+notification must not trigger a read before the changed value can be queried.
+Welcome and mutation events refresh the session. A reconnect removes the old
+routes until a new welcome event permits a fresh read. Failed requests and ended
+connections also remove old routes. Retry repeats the check, and transports that
+ignore cancellation cannot restore a superseded response. The last unsubscribe
+releases the listener and aborts work; disposing the store closes every session.
+Retry during a reconnect waits for that welcome too, so a successful query alone
+cannot restore routes while future settings changes could still go unnoticed.
+
+Only published and draft perspectives are supported here. Release stacks and
+content variants return `unsupported-perspective` instead of being treated as
+drafts. This restriction applies to the private session, not to existing fixed
+Pages configurations.
+
+`resolveCollectionPagesRuntime(snapshot, options)` is the matching private Pages
+integration boundary. For a ready snapshot, it builds both the navigation model
+and native Presentation resolvers from the same resolved routes. A changed
+snapshot produces new resolver arrays, which the later Presentation wrapper can
+pass through without remounting the tool. Loading and unavailable snapshots
+produce no runtime. Explicit consumer resolver overrides retain their existing
+replacement behavior and remain the consumer's responsibility.
+
+This checkpoint does **not** claim that native Presentation, URL input validation,
+uniqueness checks, or publishing now follow settings changes. Those paths still
+capture fixed route configuration. They must adopt the same routing context
+together before dynamic prefixes become an exposed Pages option. In particular,
+settings reads do not authorize publishing a changed prefix or creating redirects.
