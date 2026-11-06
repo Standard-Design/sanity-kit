@@ -504,10 +504,128 @@ own the removal rule. Dedicated offline tests in `folders-remove.test.ts` and
 uncertain outcomes, replacement identities, and editor feedback. These checks do
 not replace live Studio acceptance.
 
+## Reviewing a folder rename: planning foundation
+
+The private `createFolderRenamePlanner({routes})` in `rename.ts` can now describe
+a proposed rename and refuse unsafe input. This is a **pure planning foundation**:
+it does not load a dataset, change documents, offer a Rename button, or make a
+later write safe by itself. There is no public package export yet.
+
+For example, renaming `/about` to `company` proposes `/company`, moves its saved
+subfolders to matching paths, and lists every affected page's old and new URL.
+Only the final folder segment can be renamed in this first plan. Moving a folder
+into a different parent, merging folders, and swapping occupied URLs are separate
+operations and are not supported.
+
+### What the planner receives
+
+The caller supplies the existing registry, the proposed name, and a complete raw
+inventory of registered page versions and redirect records. It also supplies
+read-access evidence, `writableDocumentIds`, and `protectedDocumentIds`. These are
+caller attestations: the planner does not query permissions, evaluate a schema's
+conditional `readOnly`, or prove that a query returned everything. A future Studio
+adapter must perform those checks before supplying this evidence. Permission to
+create new redirect records needs its own check; it cannot be inferred from an
+existing document ID.
+
+A published page and its matching draft receive separate URL-only changes. No
+other draft fields are published or copied. A draft-only page stays a draft and
+does not get a new redirect. A differing planned draft URL blocks the rename,
+even if that planned URL sits outside the folder. An affected document with any
+release version also blocks it, including a release version with a different URL.
+
+Collection prefixes and index locations do not move through folder renaming.
+The planner refuses intersecting collection locations, reserved URLs, protected
+fields, destination folders, or destination page paths. All registered versions
+participate in URL ownership checks. Canonical segment matching keeps `/aboutish`
+separate from `/about`. Invalid stored paths stop the review rather than being
+silently cleaned up or ignored.
+
+### What the review contains
+
+The result contains these private structures:
+
+- `folderChanges`: stable folder keys and their old/new paths.
+- `pageChanges`: each document version's ID, revision, schema type, configured URL
+  field, old/new paths, and draft/published state.
+- `redirects`: proposed new redirects and destination-only updates to existing
+  aliases. Other redirect fields remain untouched.
+- `guards`: expected revisions for every changed existing record, including the
+  folder registry.
+- `reviewVersions`: all read page and redirect revisions, including unchanged
+  versions that could affect a later review.
+- `projectedUrls`: ownership of every registered version's URL after the proposal.
+- `reviewBytes`: the size of the review data, excluding this counter. It is not
+  the size of a future request, transaction receipt, or complete stored documents.
+
+The result deliberately contains field changes rather than replacement documents.
+A future writer must patch folder paths by stable key and page URL fields by
+configured field path. It must not replace the registry or page documents with
+these projected records; that would discard unrelated metadata and content.
+
+### One redirect plan for the entire rename
+
+`planBulkRedirects` in `rename-redirects.ts` is a generic private helper, suitable
+for the later collection-prefix workflow too. It receives all live URL moves,
+complete redirect records, before/after occupied paths, destination-check policy,
+reservations, draft target paths, and the explicit `createRedirects` choice.
+Draft targets receive conflict checks without creating live redirects.
+
+Folder review uses the same `unverified` destination policy as single-page URL
+publishing: an app-owned destination does not have to appear in the CMS page
+list. Redirect syntax, loops, chains, and source ownership are still checked;
+the planner does not claim that every final destination exists on the website.
+
+It compiles one combined before/after redirect graph. It does not call the
+single-page writer repeatedly. Every existing alias that points to a moved page
+gets the new final destination directly. Choosing not to create new redirects
+still updates those existing aliases. Affected redirect drafts or release versions
+block the plan. Moving onto an existing redirect source also blocks it; retiring
+that redirect requires a separate reviewed decision. Unchanged moves, duplicate
+sources/destinations, and source/destination overlap are refused.
+
+The initial limits are 100 changed page versions, 100 combined new/updated
+redirects, and 512,000 bytes of review data. Existing folder and redirect inventory
+bounds still apply. The projected redirect inventory also includes conservative
+metadata headroom. These are kit review bounds, not Sanity platform limits. An
+oversized move is refused rather than split into partially applied batches.
+
+### Required before enabling writes or UI
+
+A later slice must implement and test all of these together:
+
+1. Load fresh, complete access-checked evidence and rebuild the entire reviewed
+   plan. Changed revisions, new document versions, new collisions, or changed
+   routing settings require a fresh review.
+2. Coordinate participating kit URL writers. A shared routing coordination record
+   is a proposal, not an implemented guarantee. All relevant writers must join
+   before it can protect against concurrent kit changes. It also needs a tested
+   stale-query barrier; merely reading and patching a revision does not establish
+   complete query visibility.
+3. Apply supported folder paths, page URL fields, redirect changes, and a durable
+   operation receipt in one bounded atomic operation, with revision guards and
+   new opaque redirect IDs. Measure the actual complete request, including the
+   receipt, before sending it. Do not publish unrelated draft content.
+4. Reconcile an uncertain response using that operation identity and durable
+   evidence before considering another write. A missing receipt in a stale query
+   is not proof of failure. Retrying must not create duplicate redirects or rename
+   an already-renamed folder again.
+5. Add the review modal, explicit live-impact confirmation, access/conflict
+   notices, and live acceptance. Website cache refresh remains a separate outcome
+   from the dataset change.
+
+Sanity transactions are atomic, but GROQ queries use an eventually consistent
+search store. A prior query and guards on reviewed records cannot prevent an
+external writer from inserting a conflicting page or new version. These planners
+do not claim database-wide uniqueness or coordination that is not implemented.
+See [Sanity transactions](https://www.sanity.io/docs/content-lake/transactions).
+
+The offline tests in `tests/studio/folders-rename.test.ts` exercise the pure review
+contract, not transactions or live Studio behavior.
+
 ## What remains before the finished folder workflow
 
-Folder rename, moving descendants, redirects for bulk moves, private-schema
-registration, and broader live acceptance remain separate work. Empty-folder
-removal does not move or remove populated folders. The planners use supplied
-route registration; coordinating mutable collection settings with folder
-operations remains future work.
+The rename writer, concurrency/recovery foundation, review UI, and live acceptance
+remain separate work. Empty-folder removal does not move or remove populated
+folders. Coordinating mutable collection settings with folder operations remains
+part of the shared bulk-change work.

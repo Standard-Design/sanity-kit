@@ -9,17 +9,22 @@ The first parallel round is committed and pushed: empty-folder removal
 handling with optional consumer caching (`437540d`). The separate CI timing fix
 also passed verification, coverage, and package checks on GitHub.
 
+The collection navigation and explicit settings-ownership slice (`74ad993`) is
+also committed and pushed. The next review is the pure folder-rename planner;
+redirect draft management is prepared independently for the following review.
+
 ## Parallel tracks
 
-| Track       | Next work                                                                                 | Follow-up work                                                                  |
-| ----------- | ----------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Folders     | Reviewed folder renames, including affected pages and redirects                           | Bulk-move recovery and integration acceptance                                   |
-| Collections | Collection actions and distinct icons; connect settings to Pages, URL fields, and preview | Review and publish prefix changes                                               |
-| Redirects   | Native redirect management: find, create, edit, and retire rules                          | Consumer request integration and cache refresh acceptance                       |
-| Integration | Coordinate shared bulk-change contracts and review each slice                             | Navigator polish, public exports, consumer installation, and release acceptance |
+| Track       | Next work                                                        | Follow-up work                                                                  |
+| ----------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
+| Folders     | Reviewed folder renames, including affected pages and redirects  | Bulk-move recovery and integration acceptance                                   |
+| Collections | Connect settings to Pages, URL fields, and preview               | Review and publish prefix changes                                               |
+| Redirects   | Native redirect management: find, create, edit, and retire rules | Consumer request integration and cache refresh acceptance                       |
+| Integration | Coordinate shared bulk-change contracts and review each slice    | Navigator polish, public exports, consumer installation, and release acceptance |
 
-Each implementation track uses its own checkout. Completed work returns to the
-main checkout for integration, checks, and a plain-language review. A completed
+Implementation tracks use isolated checkouts or explicitly assigned files.
+Completed work receives integration checks and a plain-language review in the
+main checkout. A completed
 agent task is not permission to commit or publish it. Each slice still needs the
 user's commit approval.
 
@@ -29,8 +34,8 @@ must agree on the shared bulk-change rules below before implementing writes.
 
 ## Approved collection navigation decisions
 
-These decisions are implemented in the collection navigation checkpoint and are
-ready for integration review. Prefix loading and publication remain separate.
+These decisions are implemented in `74ad993`. Prefix loading and publication
+remain separate.
 
 - Add a collection `…` action menu with **Create item** and **Settings**.
   Use the configured item name in the creation label, such as **Create post**.
@@ -65,10 +70,10 @@ available. Merely editing a settings draft must not change live routes.
 The tracks can produce more than one commit-sized slice. Their first checkpoints
 are deliberately explicit about what an editor can do:
 
-- **Collections:** review the menu, native creation choices, settings navigation,
-  and icon in the proof Studio. Keep display configuration in the Studio layer;
-  obtain settings bindings from the existing collection registration. Opening
-  settings must also initialize a new settings draft through its native template.
+- **Collections (committed):** the menu, native creation choices, settings navigation,
+  and icon were reviewed in the proof Studio. Display configuration stays in the
+  Studio layer; settings bindings come from the collection registration. Opening
+  settings initializes a new settings draft through its native template.
   Loading draft/published prefixes throughout Pages and preview follows this UI
   checkpoint; displaying a Settings action alone does not provide that behavior.
 - **Folders:** review a pure rename plan covering folder keys, every affected page
