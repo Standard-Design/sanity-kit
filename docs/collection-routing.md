@@ -601,3 +601,71 @@ uniqueness checks, or publishing now follow settings changes. Those paths still
 capture fixed route configuration. They must adopt the same routing context
 together before dynamic prefixes become an exposed Pages option. In particular,
 settings reads do not authorize publishing a changed prefix or creating redirects.
+
+## Checking URLs while a collection prefix has a draft
+
+Preview routing and URL validation have different responsibilities. A preview
+can show the draft `/blog/story` URL, but saving that slug also needs to consider
+the live `/journal/story` URL. Otherwise an editor could choose a value that
+looks available in preview while another page already owns its live address.
+
+The private `createCollectionUrlConflictChecker` in
+`src/studio/collections/url-conflicts.ts` prepares this authoring boundary. It
+checks both URL spaces, and returns separate published and draft candidates and
+conflict lists. For example:
+
+- A post with the proposed slug `story` is checked at both `/journal/story` and
+  `/blog/story` while the prefix change is unpublished.
+- An ordinary page proposed at `/blog/story` is checked against posts using the
+  draft prefix, even though its own pathname does not depend on settings.
+- Each candidate URL is checked against both routing views, including other
+  collections' prefixes. If Journal is moving to `/blog` while another collection
+  is moving away from `/blog`, that other collection's live `/blog/story` still
+  counts as a conflict. Two draft prefix changes cannot quietly assume that the
+  other change will be published first.
+- Active published redirect sources count as occupied URLs in either space.
+- All versions of the edited document remain its own identity, so its own draft
+  and published records do not conflict with each other.
+
+This initial policy is conservative: other documents' published, draft, and
+release versions count in both URL spaces. It may reserve a URL that only a
+planned version would use. It does not guess which planned version will be
+published first or resolve release-specific routing settings.
+
+The settings loader's private `loadBoth()` operation reads the configured
+published and draft settings identities in one raw query, then resolves each
+view separately. Both views must resolve. A missing published prefix does not
+mean an empty website or permission to use the configured seed value. An invalid
+draft remains an error rather than falling back to the published prefix.
+
+Before reading, the checker verifies access to the exact settings IDs, including
+their draft counterparts. A successful query that omitted a hidden draft is not
+proof that no draft exists. Exact-ID and broad read grants can satisfy this
+check; a type-only grant cannot prove visibility of a malformed record stored at
+one of those IDs. The occupancy queries separately require read access to all
+registered page versions and published redirects. They do not require folder or
+operation-receipt access because this check reads neither.
+
+After checking occupancy, the service reads settings and permissions again. If
+selected settings revisions changed, it returns `routing-changed` so the caller
+can refresh before trying again. Failed reads, invalid settings, and canceled
+requests never become empty conflict lists. HTTP cache settings inherited from
+the supplied client are overridden for these checks.
+
+Each candidate is checked with two bounded queries. Repeated conflicts are
+combined by document identity; the result lists at most 20 conflicts per candidate
+and reports when more exist. If the reads observe different revisions of the same
+conflicting document, the check stops so the caller can try again with fresh data.
+
+`createCollectionUrlIsUnique` adapts the same check to Sanity's native slug
+validation. It verifies the registered field path, leaves storage unchanged, and
+throws when the check cannot finish; only a completed check can return true or
+false. It requires no Pages context and is suitable for the later standalone
+field integration.
+
+These helpers are private and not yet installed by the field factory or Publish
+actions. The native Presentation integration, URL field, schema validation, and
+publishing guards must adopt this context together. This slice does not activate
+draft prefixes in the proof Studio, publish settings, create redirects, or
+rewrite collection item slugs. Query/revision rechecks also do not establish a
+database-wide uniqueness lock against concurrent or external writers.

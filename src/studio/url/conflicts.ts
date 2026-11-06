@@ -19,7 +19,7 @@ import type { PagesClient } from '../pages/data-source.js'
 import { fieldExpression } from '../pages/resolvers.js'
 
 /** Bound response size, not the number of documents searched. */
-const CONFLICT_LIMIT = 20
+export const URL_CONFLICT_LIMIT = 20
 
 export interface UrlConflictRequest {
 	readonly schemaType: string
@@ -72,9 +72,13 @@ function validId(value: unknown): value is string {
 export function createUrlConflictChecker(
 	config: PagesRouteConfig,
 	client: Pick<PagesClient, 'withConfig'>,
+	options: {
+		/** Prepare a candidate in one view while checking occupancy in another. */
+		readonly candidateRoutes?: PagesRouteConfig
+	} = {},
 ) {
 	const registry = createPagesRegistry(config)
-	const authoring = createUrlAuthoring(config)
+	const authoring = createUrlAuthoring(options.candidateRoutes ?? config)
 	const source = client.withConfig({
 		apiVersion: '2026-10-01',
 		useCdn: false,
@@ -130,10 +134,10 @@ export function createUrlConflictChecker(
 		// authoritative while a draft changes or disables the rule. Self-exclusion
 		// applies only to pages: a redirect must never be mistaken for this page.
 		const query = defineQuery(`*[
-			((${clauses.join(' || ')}) && ($publishedId == null || !sanity::versionOf($publishedId)))
+			((${clauses.length ? clauses.join(' || ') : 'false'}) && ($publishedId == null || !sanity::versionOf($publishedId)))
 			|| (_type == "sanityKitRedirect" && enabled == true && source == $pathname
 				&& !(_id in path("drafts.**")) && !(_id in path("versions.**")))
-		] | order(_id asc)[0...${CONFLICT_LIMIT + 1}] {
+		] | order(_id asc)[0...${URL_CONFLICT_LIMIT + 1}] {
 			_id, _type, _rev, _type == "sanityKitRedirect" => {source, enabled}
 		}`)
 
@@ -155,7 +159,7 @@ export function createUrlConflictChecker(
 		}
 		// An adapter might finish after cancellation; never expose that stale result.
 		if (signal?.aborted) return { status: 'unavailable', reason: 'aborted' }
-		if (!Array.isArray(rows) || rows.length > CONFLICT_LIMIT + 1)
+		if (!Array.isArray(rows) || rows.length > URL_CONFLICT_LIMIT + 1)
 			return { status: 'unavailable', reason: 'invalid-response' }
 		const conflicts: UrlConflict[] = []
 		const seen = new Set<string>()
@@ -203,8 +207,8 @@ export function createUrlConflictChecker(
 		return {
 			status: 'checked',
 			candidate: prepared.value,
-			conflicts: conflicts.slice(0, CONFLICT_LIMIT),
-			hasMore: conflicts.length > CONFLICT_LIMIT,
+			conflicts: conflicts.slice(0, URL_CONFLICT_LIMIT),
+			hasMore: conflicts.length > URL_CONFLICT_LIMIT,
 		}
 	}
 }

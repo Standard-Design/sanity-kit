@@ -64,6 +64,53 @@ const preview = {
 } as const
 
 describe('private collection routing settings loader', () => {
+	it('resolves both URL spaces from one raw read with separate settings revisions', async () => {
+		const client = transport([
+			setting('/journal'),
+			{ ...setting('/blog', 'drafts.journal-routing'), _rev: 'draft-revision' },
+		])
+		const result = await createCollectionRoutingLoader(config, client).loadBoth(
+			{ draftVisibility: 'all-required-drafts' },
+		)
+		expect(result).toMatchObject({
+			ok: true,
+			published: {
+				settings: [
+					{
+						documentId: 'journal-routing',
+						revision: 'revision',
+						prefix: '/journal',
+					},
+				],
+			},
+			drafts: {
+				settings: [
+					{
+						documentId: 'drafts.journal-routing',
+						revision: 'draft-revision',
+						prefix: '/blog',
+					},
+				],
+			},
+		})
+		expect(client.fetch).toHaveBeenCalledTimes(1)
+		expect(client.fetch.mock.calls[0]![1]).toEqual({
+			ids: ['journal-routing', 'drafts.journal-routing'],
+		})
+	})
+	it('does not resolve both spaces without confirmed draft visibility or a published prefix', async () => {
+		const client = transport([setting('/blog', 'drafts.journal-routing')])
+		const loader = createCollectionRoutingLoader(config, client)
+		expect(await loader.loadBoth()).toEqual({
+			ok: false,
+			reason: 'access-unconfirmed',
+		})
+		expect(client.fetch).not.toHaveBeenCalled()
+		expect(
+			await loader.loadBoth({ draftVisibility: 'all-required-drafts' }),
+		).toEqual({ ok: false, reason: 'settings-missing', collection: 'journal' })
+	})
+
 	it.each(['/journal', { mode: 'locked' as const, value: '/journal' }])(
 		'does not fetch routing data for a name-only settings binding with fixed prefix %j',
 		async (routePrefix) => {

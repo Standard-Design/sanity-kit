@@ -200,7 +200,55 @@ export function checkUrlReadAccess(
 	input: unknown,
 	operation: UrlReadOperation,
 ): { readonly ok: boolean; readonly issues: readonly UrlAccessIssue[] } {
-	const scopes = requirements(routes, operation)
+	return checkScopes(requirements(routes, operation), input)
+}
+
+/**
+ * Prove access to exact routing identities before accepting a missing draft as
+ * permission to use its published counterpart. Do not assume a document's type:
+ * a malformed record at that ID must remain visible so the loader can reject it.
+ */
+export function checkRoutingSettingsReadAccess(
+	ids: readonly string[],
+	input: unknown,
+): { readonly ok: boolean; readonly issues: readonly UrlAccessIssue[] } {
+	return checkScopes(
+		ids.map((id) => ({
+			key: `routing-settings:${id}`,
+			id,
+			label: `Read collection routing settings: ${id}`,
+		})),
+		input,
+	)
+}
+
+/** Occupancy reads all page versions and active published redirect sources only. */
+export function checkUrlConflictReadAccess(
+	routes: PagesRouteConfig,
+	input: unknown,
+): { readonly ok: boolean; readonly issues: readonly UrlAccessIssue[] } {
+	const registry = createPagesRegistry(routes)
+	const scopes: Scope[] = registry.types.flatMap((type) =>
+		(['published', 'drafts', 'releases'] as const).map((version) => ({
+			key: `${type.schemaType}:${version}`,
+			schemaType: type.schemaType,
+			version,
+			label: `Read all ${type.schemaType} documents — ${version === 'releases' ? 'release versions' : version}`,
+		})),
+	)
+	scopes.push({
+		key: 'redirect-sources:published',
+		schemaType: 'sanityKitRedirect',
+		version: 'published',
+		label: 'Read published redirect sources',
+	})
+	return checkScopes(scopes, input)
+}
+
+function checkScopes(
+	scopes: readonly Scope[],
+	input: unknown,
+): { readonly ok: boolean; readonly issues: readonly UrlAccessIssue[] } {
 	const filters: (ExprNode | null)[] = []
 	if (!Array.isArray(input) || input.length > 256) filters.push(null)
 	else
