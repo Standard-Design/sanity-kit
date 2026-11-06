@@ -1,6 +1,9 @@
 import { evaluate, parse } from 'groq-js'
 import { describe, expect, it } from 'vitest'
-import { checkUrlReadAccess } from '../../src/studio/url/access.js'
+import {
+	checkUrlReadAccess,
+	type UrlReadOperation,
+} from '../../src/studio/url/access.js'
 
 const routes = {
 	pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
@@ -9,7 +12,7 @@ const read = (filter: string) => ({ filter, permissions: ['read'] })
 const metadata = read('_id in path("sanityKit.**")')
 const pages = read('_type == "page"')
 const redirects = read('_type == "sanityKitRedirect"')
-const check = (grants: unknown, operation: 'edit' | 'publish' = 'edit') =>
+const check = (grants: unknown, operation: UrlReadOperation = 'edit') =>
 	checkUrlReadAccess(routes, grants, operation)
 
 describe('URL read access evidence', () => {
@@ -74,6 +77,39 @@ describe('URL read access evidence', () => {
 			}),
 		])
 	})
+	it.each([
+		['folder-rename', 'sanityKit.folderRename.', 'folder-rename-receipts'],
+		[
+			'redirect-publish',
+			'sanityKit.redirectPublication.',
+			'redirect-publication-receipts',
+		],
+	] as const)(
+		'requires the dedicated %s recovery namespace',
+		(operation, prefix, key) => {
+			const base = [pages, redirects, read('_id == "sanityKit.folders"')]
+			expect(
+				check([...base, read(`_id in path("${prefix}**")`)], operation),
+			).toEqual({ ok: true, issues: [] })
+			expect(
+				check(
+					[...base, read('_id in path("sanityKit.urlPublication.**")')],
+					operation,
+				).issues,
+			).toEqual([expect.objectContaining({ key, status: 'unverified' })])
+			expect(
+				check([...base, read(`_id == "${prefix}one-operation"`)], operation)
+					.issues,
+			).toEqual([expect.objectContaining({ key, status: 'unverified' })])
+			expect(
+				check([pages, metadata], operation).issues.map((issue) => issue.key),
+			).toEqual([
+				'sanityKitRedirect:published',
+				'sanityKitRedirect:drafts',
+				'sanityKitRedirect:releases',
+			])
+		},
+	)
 	it.each([
 		'_type in ["page", "other"]',
 		'"page" == _type',

@@ -2,7 +2,7 @@
 
 Status: the private snapshot foundation was approved on October 31, 2026. The
 private Sanity loader described below is also approved. The private request and
-consumer-cache boundary is approved. A native Studio redirect draft editor is now implemented for review. This is
+consumer-cache boundary is approved. Native Studio draft editing and guarded redirect publishing/retirement are implemented for review. This is
 not a public package entry point or an installed website redirect system.
 A separate private [Studio publication integration](url-field.md#editing-published-pages)
 can now create a redirect with a single-page URL change. The names, record shape, and bounds below describe
@@ -21,8 +21,7 @@ same checks. A separate request helper now decides when to check those rules,
 optionally obtains them through the app's cache, and can produce a plain HTTP
 redirect response. None of these helpers creates or edits rules or moves pages.
 The separate publication integration owns generated-rule creation and reviewed
-destination updates when a page moves again. General redirect management and
-framework-specific request integration remain later work.
+destination updates when a page moves again. The private management integration now reviews manual redirect publishing and retirement. Framework-specific request integration remains later work.
 
 ## One complete snapshot for the configured dataset
 
@@ -373,25 +372,80 @@ come from the same route registration and extra reserved paths used by page
 publication. Destinations may point into reserved sections. Studio validation
 helps editors; it is not a Content Lake constraint on API writes.
 
-**This checkpoint saves drafts only.** Publishing, retiring a live rule,
-unpublishing, deleting, duplicating, and scheduling are not enabled. The workspace
-wrapper removes those actions after native and consumer action reducers run,
-while retaining Sanity's permission-aware discard-draft action. A layout check
-detects incorrectly installed action guards. Release versions are read-only.
-The form explains that the published rule remains active while its draft changes.
-A disabled draft therefore does **not** stop the live redirect yet.
+Use `redirectManagement: 'drafts'` to prepare drafts without live actions, or
+`redirectManagement: 'publish'` to enable the guarded Publish action. The latter
+keeps Sanity's native permission, validation, syncing, and lock checks, then opens
+a review instead of immediately making the draft live. Release versions remain
+read-only. Delete, unpublish, duplicate, and scheduling remain unavailable. The
+final workspace action reducer and layout guard prevent a later plugin from
+restoring an unguarded publish action.
 
-The guarded publish/retire service is the next step. It must review fresh complete
-routing and redirect evidence, check access and document versions, guard reviewed
-revisions, and reconcile an uncertain result before allowing another write.
-Changing the field schema alone would not provide those protections. These
-workspace guards also cannot stop an external API writer or a separately
-configured Studio from bypassing this integration.
+## Publishing or retiring a redirect
+
+An editor changes a redirect using ordinary fields, then clicks Publish. The
+review shows the old URL, destination, redirect type, and active/retired state.
+Changed values use the same light red/green review treatment as page URL changes.
+The editor confirms the review to make the draft live. To retire a rule, turn off
+Enabled and publish: its record remains available for history and later reuse.
+Editing a draft, including disabling it, never changes the live rule by itself.
+
+Before showing the review, the controller proves read access to all registered
+page versions, redirect versions, the folder registry used by the shared loader,
+and the `sanityKit.redirectPublication.` confirmation namespace. A successful
+query alone cannot prove that inaccessible records were not omitted. Known
+missing and unverified requirements are listed separately in the dialog.
+
+It reads raw, uncached inventories and checks the proposed complete redirect
+graph. Published, draft, and release page URLs reserve their paths. An unfinished
+page with no URL is allowed; an invalid stored page URL blocks the check. A
+release version of the redirect blocks publishing because this workflow cannot
+coordinate that planned work yet. Other redirect drafts are not published or
+changed. Conflicts and invalid rules include clickable redirect rows when their
+identities are available. The existing 1,000-record and 1 MiB data bounds also
+apply to the raw redirect review, including drafts and release versions.
+
+On confirmation, the controller repeats the access and inventory reads and
+compares them with the reviewed evidence. Changed evidence requires another
+review. One atomic Mutation API transaction then:
+
+1. Guards the reviewed draft revision.
+2. Strictly creates the published ID for a new redirect, or guards the existing
+   published revision before replacing it with the reviewed full draft.
+3. Deletes that guarded draft and creates a confirmation record.
+
+The full draft preserves consumer-added fields and creation metadata. Reference
+fields receive the same strengthen-on-publish treatment as Sanity's native
+publisher. The request is bounded to 1 MiB. A strict create prevents first
+publishing from replacing a live document created after the review. Native
+Publish mode permissions correspond to creating/updating the published document
+and deleting the draft; Content Lake enforces the actual writes. The confirmation
+record also needs create access. No client-side permission check grants access.
+
+Before sending, the browser must save the exact attempt in session storage. If
+storage is unavailable, nothing is sent. The mutation client has retries disabled.
+A lost response leaves the outcome unconfirmed; Check publish status reads the
+atomic receipt through the Doc API and never sends the write again. Closing the
+dialog permits other work, while publishing this redirect stays blocked until
+its outcome is known. A matching receipt confirms success even after navigation
+or a reload in the same tab. An absent receipt alone cannot prove failure. A
+success toast tells the editor when the result is confirmed.
+
+These revision checks do not lock every URL or prevent an external writer from
+creating a new conflicting page or release concurrently. Consumers must keep
+imports and other writers consistent with the routing policy. The pending record
+is scoped to this project, dataset, document, and browser tab; it is not a global
+cross-device lock. Confirmation records are internal dotted-ID documents and
+must not be removed while an outcome still needs investigation.
+
+Publishing saves redirect data; the website must still use the request helper.
+Consumers refresh or invalidate their cache on published redirect changes.
+Retirement therefore reaches visitors when that website refreshes its rules,
+and previously cached permanent browser redirects may remain cached.
 
 ## Checking a proposed redirect draft
 
 `reviewRedirectDraft(candidate, inventory, policy)` is the private, pure graph
-check for the next reviewed publishing workflow. It does not fetch records,
+check used by the guarded publishing workflow. It does not fetch records,
 change documents, or authorize publication. The native draft form currently runs
 local field validation; it does not silently load and claim a complete graph on
 every keystroke.
@@ -413,15 +467,19 @@ and release candidates are rejected before replacement.
 
 Success means the proposed graph is valid under the supplied evidence and policy.
 It does not prove read access, currentness, absence of concurrent new writers,
-publication permission, or safe handling of other pending drafts/releases. The
-later service must supply those checks. Explicitly updating a live redirect while
+publication permission, or safe handling of other pending drafts/releases. The guarded controller supplies those checks. Explicitly updating a live redirect while
 preserving conflicting unpublished work remains deferred.
 
-Implementation lives in `src/studio/redirects/schema.tsx` and `review.ts`; the
+Implementation lives in `src/studio/redirects/schema.tsx`, `review.ts`, and the
+`publication` controller/action/recovery files; the
 existing `src/studio/url/publication-plugin.tsx` owns registration and action
 finalization. Offline tests exercise native schema/template/action resolution,
 field feedback, repair semantics, graph conflicts, and published-only runtime
 reads. Live proof-Studio acceptance covered manual draft creation, autosave,
 native self-redirect validation, read-only provenance, and the absence of live
 actions. See the fixture acceptance log for the remaining access and release
-checks. Guarded manual publication remains outstanding.
+checks. The guarded service/action tests also cover first-publish races, stale
+reviews, retirement, native permission changes, full-draft preservation, real SDK
+transport options, uncertain results, and recovery after module reload. Live
+publish/update/retire acceptance also passed in the test Studio; see the fixture
+acceptance log for the observations and checks that were not performed live.

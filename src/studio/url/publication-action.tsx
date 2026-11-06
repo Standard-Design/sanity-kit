@@ -58,19 +58,24 @@ import {
 } from './publication-state.js'
 
 /** Highlight the URL text with Studio tones, without filling the entire row. */
-function RedirectDestination({
+export function RedirectDestination({
 	value,
 	previous = false,
+	label,
 }: {
 	readonly value: string
 	readonly previous?: boolean
+	/** Other redirect fields reuse the same review treatment with their own name. */
+	readonly label?: string
 }) {
 	return (
 		<Text size={1} style={{ overflowWrap: 'anywhere' }}>
 			<Card
 				as={previous ? 'del' : 'ins'}
 				role="group"
-				aria-label={previous ? 'Previous destination' : 'New destination'}
+				aria-label={
+					label ?? (previous ? 'Previous destination' : 'New destination')
+				}
 				tone={previous ? 'critical' : 'positive'}
 				radius={1}
 				style={{
@@ -137,7 +142,7 @@ function ConflictRecordLink({
 }
 
 /** Use the same native row and version status for one conflict or several redirects. */
-function ConflictRecord({
+export function ConflictRecord({
 	conflict,
 	onOpen,
 }: {

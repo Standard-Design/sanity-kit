@@ -124,7 +124,7 @@ export default defineConfig(
 					}),
 				],
 			},
-			{ routes: proofRoutes, redirectManagement: 'drafts' },
+			{ routes: proofRoutes, redirectManagement: 'publish' },
 		),
 		{ routes: proofCollectionSettingsRoutes },
 	),

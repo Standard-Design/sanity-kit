@@ -19,6 +19,7 @@ import {
 	createRedirectSchema,
 	REDIRECT_MANUAL_TEMPLATE,
 } from '../redirects/schema.js'
+import { createRedirectPublishAction } from '../redirects/publication-action.js'
 import { createUrlPublishAction } from './publication-action.js'
 import {
 	UrlPublicationProvider,
@@ -28,8 +29,8 @@ import type { UrlPublicationOptions } from './publication.js'
 
 export interface UrlPublicationPluginOptions extends UrlPublicationOptions {
 	readonly routes: PagesRouteConfig
-	/** Private opt-in editor foundation; live redirect publishing remains blocked. */
-	readonly redirectManagement?: 'drafts'
+	/** Draft editing alone, or guarded live publishing and retirement. */
+	readonly redirectManagement?: 'drafts' | 'publish'
 }
 
 export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
@@ -37,7 +38,12 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 		// Field enablement and lazily created action wrappers must retain the same
 		// routing policy if the caller later changes its configuration object.
 		const routes = structuredClone(options.routes)
-		const editableRedirects = options.redirectManagement === 'drafts'
+		const editableRedirects = !!options.redirectManagement
+		const publishRedirects = options.redirectManagement === 'publish'
+		const redirectActions = new WeakMap<
+			DocumentActionComponent,
+			DocumentActionComponent
+		>()
 		const publicationOptions: UrlPublicationOptions = options.reservedPaths
 			? { reservedPaths: [...options.reservedPaths] }
 			: {}
@@ -80,7 +86,13 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 					})
 					.some(
 						(action) =>
-							!editableRedirects || action.action !== 'discardChanges',
+							!editableRedirects ||
+							(action.action !== 'discardChanges' &&
+								!(
+									publishRedirects &&
+									action.action === 'publish' &&
+									redirectActions.get(action) === action
+								)),
 					)
 			)
 				throw new Error(
@@ -114,6 +126,7 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 				types: [
 					createRedirectSchema({
 						editableDrafts: editableRedirects,
+						guardedPublishing: publishRedirects,
 						reservedPaths: [
 							...registry.excludePaths,
 							...(publicationOptions.reservedPaths ?? []),
@@ -124,10 +137,30 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 			},
 			document: {
 				actions: (previous, context) => {
-					if (context.schemaType === 'sanityKitRedirect')
-						return editableRedirects && context.versionType !== 'version'
-							? previous.filter((action) => action.action === 'discardChanges')
-							: []
+					if (context.schemaType === 'sanityKitRedirect') {
+						if (!editableRedirects || context.versionType === 'version')
+							return []
+						return previous
+							.filter(
+								(action) =>
+									action.action === 'discardChanges' ||
+									(publishRedirects && action.action === 'publish'),
+							)
+							.map((action) => {
+								if (action.action !== 'publish') return action
+								let wrapped = redirectActions.get(action)
+								if (!wrapped) {
+									wrapped = createRedirectPublishAction(
+										action,
+										routes,
+										publicationOptions,
+									)
+									redirectActions.set(action, wrapped)
+									redirectActions.set(wrapped, wrapped)
+								}
+								return wrapped
+							})
+					}
 					if (
 						!registry.types.some(
 							(type) => type.schemaType === context.schemaType,

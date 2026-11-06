@@ -480,10 +480,22 @@ export function createUrlPublicationController(
 				return pending.result
 			}
 			const uncertain = pending.receipt
-			// getDocument uses the Doc API, not an eventually-consistent GROQ query.
-			const receipt = await source.getDocument(uncertain._id as string)
+			// Read the Doc API directly: getDocument cannot override inherited caching.
+			const receiptRequest = {
+				url: `/data/doc/${dataset}/${String(uncertain._id)}`,
+				maxRetries: 0,
+				fetch: { cache: 'no-store', next: undefined },
+				tag: rawOptions.tag,
+			}
+			const response: unknown = await source.request(receiptRequest)
+			const receipt =
+				record(response) &&
+				Array.isArray(response.documents) &&
+				response.documents.length === 1
+					? (response.documents[0] as unknown)
+					: undefined
 			if (
-				receipt &&
+				record(receipt) &&
 				Object.entries(uncertain).every(
 					([key, value]) => receipt[key] === value,
 				)

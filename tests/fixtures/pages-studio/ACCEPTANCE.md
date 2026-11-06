@@ -907,3 +907,29 @@ Offline tests cover both workspace-wrapper orders, consumer action reducers,
 release guards, reservations, draft-only loading, and complete-graph review.
 Restricted-role behavior, release editing, failed network writes, and guarded
 manual publication were not exercised live in this pass.
+
+## November 5 — guarded redirect publishing and retirement
+
+The same proof Studio now enables `redirectManagement: 'publish'`. Live checks
+used only the dedicated `/redirect-editor-proof` record created in the previous
+pass. Existing generated redirects were left unchanged.
+
+- First publishing reviewed `/redirect-editor-proof` → `/about`, permanent and
+  active. The saved document then showed an enabled Published tab and a fresh
+  Last published timestamp. A development reload interrupted observation of
+  the first success notice; this is not evidence of a lost network response.
+- Changing the destination to `/journal` saved a draft. The publish dialog
+  displayed `/about` as the previous destination and `/journal` as the new one.
+  Publishing closed the dialog and showed **Redirect published**, with a note
+  that the website uses the change when its redirect data refreshes.
+- Turning off Enabled saved another draft. The **Retire redirect** dialog
+  reviewed Active → Retired and explained the effect on visitors. Confirmation
+  showed **Redirect retired** and a fresh Last published timestamp. The record
+  remains in the list as Disabled, with `/journal` as its destination.
+
+This proves the native draft → review → publish flow for first creation,
+updating an existing redirect, and retirement in this test dataset. It does not
+prove a frontend redirect handler or cache refresh: the consuming website owns
+those integrations. Restricted-role behavior, deliberate lost-response
+recovery, and concurrent-write races remain covered by automated tests rather
+than this live pass. Release-aware publishing remains deferred.

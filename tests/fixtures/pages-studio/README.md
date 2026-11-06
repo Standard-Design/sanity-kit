@@ -269,16 +269,22 @@ A5 adds the full compatibility/distribution checks and release
 documentation. No version bump, commit, publication, or deployment is implied
 by this fixture.
 
-## Redirect draft review
+## Redirect editing and publishing
 
 Open **Fixture content → Redirects** to inspect generated rules or use the list’s
 `+` button to create a manual redirect. The fixture opts into
-`redirectManagement: 'drafts'` and installs `redirectManagementItem(S)` alongside
+`redirectManagement: 'publish'` and installs `redirectManagementItem(S)` alongside
 its existing collection settings.
 
 The native form autosaves drafts and validates paths, required values, and
-self-redirects. **Created by** stays read-only. Only Discard changes is available;
-there is no Publish, Delete, Unpublish, Duplicate, or Schedule action in this
-checkpoint. Changes to an existing rule stay in its draft; the live rule is not
-changed by this editor. The `/redirect-editor-proof` draft is available for
-review and points to `/about`.
+self-redirects. **Created by** stays read-only. Publish opens a review of the old
+and new values and checks for conflicts before making the draft live. To retire
+a redirect, turn off **Enabled**, then review and publish that change. Its record
+stays available for inspection. Discard changes remains available; Delete,
+Unpublish, Duplicate, and Schedule are omitted.
+
+Changes to an existing rule stay in its draft until publishing succeeds. The
+website must load the published rules and refresh any consumer-owned cache;
+this Studio integration does not install a frontend redirect handler. The
+`/redirect-editor-proof` record is dedicated to live acceptance of this flow.
+The acceptance record below describes what was actually exercised.

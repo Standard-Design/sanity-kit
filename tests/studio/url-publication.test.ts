@@ -1,6 +1,6 @@
 import { evaluate, parse } from 'groq-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Action } from '@sanity/client'
+import { createClient, type ClientConfig, type Action } from '@sanity/client'
 import type { PagesClient } from '../../src/studio/pages/data-source.js'
 import { createUrlPublicationController } from '../../src/studio/url/publication.js'
 import {
@@ -66,12 +66,18 @@ function transport(
 			return responseHook ? responseHook(query, result) : result
 		},
 	)
-	const request = vi.fn(() => Promise.resolve(grants))
 	const getDocument = vi.fn((id: string) => {
 		if (receiptUnavailable) throw new Error('Doc API unavailable')
 		return Promise.resolve(
 			receiptOverride ?? structuredClone(dataset.find((row) => row._id === id)),
 		)
+	})
+	const request = vi.fn((options: { url: string }) => {
+		if (options.url.includes('/data/doc/'))
+			return getDocument(options.url.split('/').at(-1)!).then((document) => ({
+				documents: document ? [document] : [],
+			}))
+		return Promise.resolve(grants)
 	})
 	const action = vi.fn(async (actions: Action[]) => {
 		await actionHook?.()
@@ -943,6 +949,50 @@ describe('URL publication service', () => {
 		expect(io.getDocument.mock.calls[0]![0]).toMatch(
 			/^sanityKit\.urlPublication\./u,
 		)
+	})
+
+	it('bypasses inherited cache policy when the native client checks a committed receipt', async () => {
+		const io = transport()
+		io.failAction('after')
+		io.hideReceipt()
+		await io.controller.publish(await reviewed(io), currentChoice)
+		const receipt = io.dataset.find(
+			(row) => row._type === 'sanityKitUrlPublication',
+		)!
+		const seen: { url: string; init: RequestInit }[] = []
+		const native = createClient({
+			projectId: 'proof',
+			dataset: 'development',
+			apiVersion: '2026-10-01',
+			useCdn: true,
+			fetch: {
+				cache: 'force-cache',
+				next: { revalidate: 3600 },
+			} as unknown as NonNullable<ClientConfig['fetch']>,
+			resolveFetch: () => (input, init) => {
+				seen.push({ url: String(input), init: init ?? {} })
+				return Promise.resolve(
+					new Response(JSON.stringify({ documents: [receipt] }), {
+						status: 200,
+						headers: { 'content-type': 'application/json' },
+					}),
+				)
+			},
+		})
+		const controller = createUrlPublicationController(
+			routes,
+			native as unknown as PagesClient,
+		)
+		expect(await controller.reconcile('page-1')).toEqual({
+			status: 'published',
+		})
+		expect(seen).toHaveLength(1)
+		expect(seen[0]!.url).toContain(
+			`/data/doc/development/${String(receipt._id)}`,
+		)
+		expect(seen[0]!.init.cache).toBe('no-store')
+		expect(seen[0]!.init).not.toMatchObject({ next: { revalidate: 3600 } })
+		expect(io.action).toHaveBeenCalledTimes(1)
 	})
 
 	it('keeps an absent receipt uncertain and blocks all further publication without retrying', async () => {

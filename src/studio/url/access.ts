@@ -19,6 +19,9 @@ export interface UrlAccessIssue {
 	readonly status: 'missing' | 'unverified'
 }
 
+export type UrlReadOperation =
+	'edit' | 'publish' | 'folder-rename' | 'redirect-publish'
+
 type Coverage = true | false | 'unknown'
 type Version = 'published' | 'drafts' | 'releases'
 interface Scope {
@@ -138,7 +141,7 @@ function covers(node: ExprNode, scope: Scope): Coverage {
 /** Only actual readers are required: editing does not load redirect records. */
 function requirements(
 	routes: PagesRouteConfig,
-	operation: 'edit' | 'publish',
+	operation: UrlReadOperation,
 ): Scope[] {
 	const registry = createPagesRegistry(routes)
 	const scopes: Scope[] = []
@@ -161,15 +164,28 @@ function requirements(
 		label: 'Read the folder registry',
 		id: 'sanityKit.folders',
 	})
-	if (operation === 'publish') {
+	if (operation !== 'edit') {
 		addType('sanityKitRedirect', 'redirect records')
-		// Receipt IDs are generated at publication. Confirm access to the namespace
-		// now, so a lost response can be reconciled without widening permissions.
-		scopes.push({
-			key: 'publication-receipts',
-			label: 'Read records used to confirm whether a page was published',
-			prefix: 'sanityKit.urlPublication.',
-		})
+		// Confirm access to this operation's recovery records before dispatch.
+		// A page-publish grant must not imply access to another writer's receipts.
+		const receipts = {
+			publish: {
+				key: 'publication-receipts',
+				label: 'Read records used to confirm whether a page was published',
+				prefix: 'sanityKit.urlPublication.',
+			},
+			'folder-rename': {
+				key: 'folder-rename-receipts',
+				label: 'Read records used to confirm whether a folder was renamed',
+				prefix: 'sanityKit.folderRename.',
+			},
+			'redirect-publish': {
+				key: 'redirect-publication-receipts',
+				label: 'Read records used to confirm whether a redirect was published',
+				prefix: 'sanityKit.redirectPublication.',
+			},
+		}[operation]
+		scopes.push(receipts)
 	}
 	return scopes
 }
@@ -182,7 +198,7 @@ function requirements(
 export function checkUrlReadAccess(
 	routes: PagesRouteConfig,
 	input: unknown,
-	operation: 'edit' | 'publish',
+	operation: UrlReadOperation,
 ): { readonly ok: boolean; readonly issues: readonly UrlAccessIssue[] } {
 	const scopes = requirements(routes, operation)
 	const filters: (ExprNode | null)[] = []

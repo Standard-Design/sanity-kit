@@ -11,8 +11,10 @@ also passed verification, coverage, and package checks on GitHub.
 
 The collection navigation and explicit settings-ownership slice (`74ad993`) is
 also committed and pushed. The pure folder-rename planner (`7d388c5`) is now
-committed and pushed. Native redirect draft management is the current review;
-settings-aware collection routing and the bulk writer remain separate work.
+committed and pushed. Native redirect draft management (`18570b5`) is also
+committed and pushed. The next parallel round has produced reviewable redirect
+publishing, folder rename writing/recovery, and a settings-aware collection
+routing foundation. These changes are not yet committed.
 
 ## Parallel tracks
 
@@ -32,6 +34,34 @@ user's commit approval.
 Collection navigation and settings resolution can proceed alongside folder-move
 planning and redirect management. Folder renames and collection-prefix publishing
 must agree on the shared bulk-change rules below before implementing writes.
+
+## Current parallel implementation round
+
+Three agents worked on separate source areas. Shared access requirements, fixture
+configuration, integration checks, and staging stay with the coordinating agent.
+Completed work is reviewed and committed in separate slices.
+
+- **Redirects:** publish or retire a reviewed redirect draft, with fresh graph,
+  access, version, and size checks. Save a receipt with the write so a lost
+  response can be checked without resending it. The proof Studio now enables
+  the private publishing option. Live first-publish, destination-update, and
+  retirement checks passed; draft-only remains a separate consumer option.
+- **Folders:** turn the approved rename plan into a bounded atomic write that
+  changes only folder paths, page URL fields, and affected redirect destinations.
+  Preserve unrelated draft content. The writer and recovery are implemented and
+  tested; Rename is not yet exposed in the navigator.
+- **Collections:** share one settings-reading context between future Pages,
+  URL-field, and preview integrations. Published and draft settings must stay
+  separate. Loading or invalid settings must not silently use a made-up prefix.
+  The private reading/session boundary is implemented and tested. Live Pages,
+  input, and preview integration remains next: do not enable partial integration
+  where the displayed URL and uniqueness or publish checks disagree.
+
+The folder and redirect writers share the policy below, but their operations
+remain distinct: publishing a redirect intentionally publishes that draft;
+renaming a folder must leave unrelated page draft edits unpublished. Neither
+workflow promises to prevent new conflicting documents written after its checks.
+Native form autosave and external writers are not covered by a global lock.
 
 ## Approved collection navigation decisions
 

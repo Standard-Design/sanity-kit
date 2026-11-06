@@ -16,6 +16,7 @@ export const REDIRECT_SCHEMA_TYPE = 'sanityKitRedirect'
 export const REDIRECT_MANUAL_TEMPLATE = 'sanityKitRedirect-manual'
 export interface RedirectDraftSchemaOptions {
 	readonly editableDrafts?: boolean
+	readonly guardedPublishing?: boolean
 	readonly reservedPaths?: readonly string[]
 	readonly reservedPathPrefixes?: readonly string[]
 }
@@ -41,20 +42,32 @@ export function validateRedirectPath(
 	return true
 }
 
-export function RedirectDraftInput(props: ObjectInputProps) {
+export function RedirectDraftInput(
+	props: ObjectInputProps & { readonly guardedPublishing?: boolean },
+) {
 	const id: unknown = props.value?._id
 	const release = typeof id === 'string' && id.startsWith('versions.')
 	return (
 		<Stack gap={4}>
-			<Card padding={3} radius={2} tone="caution">
+			<Card
+				padding={3}
+				radius={2}
+				tone={props.guardedPublishing && !release ? 'default' : 'caution'}
+			>
 				<Stack gap={3}>
 					<Text size={1} weight="semibold">
-						{release ? 'Release redirects are read-only' : 'Draft editing only'}
+						{release
+							? 'Release redirects are read-only'
+							: props.guardedPublishing
+								? 'Review before publishing'
+								: 'Draft editing only'}
 					</Text>
 					<Text size={1}>
 						{release
 							? 'Editing redirects in releases is not supported yet. Open the ordinary draft to prepare changes.'
-							: 'You can prepare changes here. Publishing or retiring redirects is not available yet. Any published version stays active while you edit its draft.'}
+							: props.guardedPublishing
+								? 'Changes stay in the draft until you publish. Turn off Enabled and publish to retire a redirect without deleting its record.'
+								: 'You can prepare changes here. Publishing and retiring redirects are not enabled in this Studio. Any published version stays active while you edit its draft.'}
 					</Text>
 				</Stack>
 			</Card>
@@ -98,7 +111,15 @@ export function createRedirectSchema(options: RedirectDraftSchemaOptions = {}) {
 			? ({ document }) => document?._id?.startsWith('versions.') === true
 			: true,
 		...(options.editableDrafts
-			? { components: { input: RedirectDraftInput } }
+			? {
+					components: {
+						input: options.guardedPublishing
+							? (props: ObjectInputProps) => (
+									<RedirectDraftInput {...props} guardedPublishing />
+								)
+							: RedirectDraftInput,
+					},
+				}
 			: {}),
 		initialValue: { status: 301, enabled: true, origin: 'manual' },
 		validation: (rule) =>

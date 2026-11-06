@@ -4,7 +4,7 @@
  * the same plain-language summary for failures while preparing an edit.
  */
 import { Card, Stack, Text } from '@sanity/ui'
-import type { UrlAccessIssue } from './access.js'
+import type { UrlAccessIssue, UrlReadOperation } from './access.js'
 
 const groups = [
 	{ status: 'missing', title: 'Missing read access' },
@@ -30,7 +30,7 @@ export function UrlAccessNotice({
 	operation = 'edit',
 }: {
 	readonly issues: readonly UrlAccessIssue[]
-	readonly operation?: 'edit' | 'publish'
+	readonly operation?: UrlReadOperation
 }) {
 	return (
 		<Card tone="critical" padding={4} radius={2} role="alert">
@@ -39,9 +39,17 @@ export function UrlAccessNotice({
 					Access needed to check URLs
 				</Text>
 				<Text size={1}>
-					{operation === 'publish'
-						? 'To publish this URL change, we need to check other pages and redirects for conflicts. Your account’s access could not be fully confirmed.'
-						: 'To change this URL, we need to check other pages for conflicts. Your account’s access could not be fully confirmed.'}
+					{
+						{
+							edit: 'To change this URL, we need to check other pages for conflicts. Your account’s access could not be fully confirmed.',
+							publish:
+								'To publish this URL change, we need to check other pages and redirects for conflicts. Your account’s access could not be fully confirmed.',
+							'redirect-publish':
+								'To publish this redirect, we need to check pages and other redirects for conflicts. Your account’s access could not be fully confirmed.',
+							'folder-rename':
+								'To rename this folder, we need to check affected pages and redirects for conflicts. Your account’s access could not be fully confirmed.',
+						}[operation]
+					}
 				</Text>
 				<Text size={1}>
 					The required access is listed below. Unverified access may be granted,

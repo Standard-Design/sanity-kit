@@ -425,3 +425,44 @@ describe('native redirect draft editor', () => {
 		})
 	})
 })
+
+it('guarded management wraps every publish action and keeps unsafe live actions unavailable', async () => {
+	const consumerPublish = action('publish'),
+		nativePublish = action('publish')
+	const resolved = await source(
+		withUrlPublication(
+			{
+				...workspace(),
+				document: {
+					actions: [
+						consumerPublish,
+						action('delete'),
+						action('unpublish'),
+						action('schedule'),
+					],
+				},
+			},
+			{ routes, redirectManagement: 'publish' },
+		),
+	)
+	const actions = resolved.document.actions({
+		schemaType: 'sanityKitRedirect',
+		versionType: 'draft',
+		releaseId: undefined,
+	})
+	expect(actions.some((item) => item.action === 'publish')).toBe(true)
+	expect(
+		actions.every(
+			(item) => item.action === 'publish' || item.action === 'discardChanges',
+		),
+	).toBe(true)
+	expect(actions).not.toContain(consumerPublish)
+	expect(actions).not.toContain(nativePublish)
+	expect(
+		resolved.document.actions({
+			schemaType: 'sanityKitRedirect',
+			versionType: 'version',
+			releaseId: 'release',
+		}),
+	).toEqual([])
+})

@@ -6,8 +6,11 @@ published-rule loader is also approved. A private
 [single-page publication integration](url-field.md#editing-published-pages) is
 implemented; live acceptance passed with and without redirects. Private plain
 HTTP handling and consumer-owned caching are also implemented. Native redirect
-draft management is now implemented for review; guarded manual publishing,
-framework integration, and bulk publication coordination remain future work. All API
+draft management and guarded manual publishing/retirement are now implemented
+for review. Framework integration and bulk publication coordination remain future
+work. The [implemented workflow](redirects.md#publishing-or-retiring-a-redirect)
+uses fresh raw evidence, revision guards, strict first creation, and atomic
+confirmation receipts. All API
 names and configuration examples below are candidates for review, not exports
 that consumers can import today. This document does not approve the other open
 [Pages design proposals](pages-design-proposals.md).
