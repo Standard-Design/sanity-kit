@@ -20,6 +20,7 @@ import {
 	REDIRECT_MANUAL_TEMPLATE,
 } from '../redirects/schema.js'
 import { createRedirectPublishAction } from '../redirects/publication-action.js'
+import { createRedirectDeleteAction } from '../redirects/delete-action.js'
 import { createUrlPublishAction } from './publication-action.js'
 import {
 	UrlPublicationProvider,
@@ -41,6 +42,10 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 		const editableRedirects = !!options.redirectManagement
 		const publishRedirects = options.redirectManagement === 'publish'
 		const redirectActions = new WeakMap<
+			DocumentActionComponent,
+			DocumentActionComponent
+		>()
+		const redirectDeleteActions = new WeakMap<
 			DocumentActionComponent,
 			DocumentActionComponent
 		>()
@@ -88,6 +93,11 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 						(action) =>
 							!editableRedirects ||
 							(action.action !== 'discardChanges' &&
+								!(
+									publishRedirects &&
+									action.action === 'delete' &&
+									redirectDeleteActions.get(action) === action
+								) &&
 								!(
 									publishRedirects &&
 									action.action === 'publish' &&
@@ -144,9 +154,20 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 							.filter(
 								(action) =>
 									action.action === 'discardChanges' ||
-									(publishRedirects && action.action === 'publish'),
+									(publishRedirects &&
+										(action.action === 'publish' ||
+											action.action === 'delete')),
 							)
 							.map((action) => {
+								if (action.action === 'delete') {
+									let wrapped = redirectDeleteActions.get(action)
+									if (!wrapped) {
+										wrapped = createRedirectDeleteAction(action)
+										redirectDeleteActions.set(action, wrapped)
+										redirectDeleteActions.set(wrapped, wrapped)
+									}
+									return wrapped
+								}
 								if (action.action !== 'publish') return action
 								let wrapped = redirectActions.get(action)
 								if (!wrapped) {

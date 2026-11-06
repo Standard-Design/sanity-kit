@@ -1,5 +1,5 @@
-/** Native document action: fields save drafts; this review makes them live. */
-import { Box, Button, Card, Flex, Spinner, Stack, Text } from '@sanity/ui'
+/** Native document action: fields save drafts; Publish checks and saves without extra confirmation. */
+import { Box, Button, Card, Flex, Stack, Text } from '@sanity/ui'
 import { useToast } from '@sanity/ui/toast'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
@@ -9,10 +9,7 @@ import {
 	type DocumentActionComponent,
 } from 'sanity'
 import type { PagesRouteConfig } from '../../url/registry.js'
-import {
-	ConflictRecord,
-	RedirectDestination,
-} from '../url/publication-action.js'
+import { ConflictRecord } from '../url/publication-action.js'
 import { UrlAccessNotice } from '../url/access-notice.js'
 import {
 	createRedirectPublicationController,
@@ -20,18 +17,10 @@ import {
 	type RedirectPublishReview,
 } from './publication.js'
 
-const display = (value: unknown): string =>
-	typeof value === 'string'
-		? value
-		: typeof value === 'number' || typeof value === 'boolean'
-			? String(value)
-			: value == null
-				? 'Not set'
-				: 'Unsupported value'
 export function redirectPublishFailure(reason: string): string {
 	switch (reason) {
 		case 'review-stale':
-			return 'The redirect or another URL changed after this review. Review the latest information before publishing again.'
+			return 'The redirect or another URL changed while we were checking it. Retry publishing to check the latest information.'
 		case 'release-version':
 			return 'This redirect also has changes in a release. Publishing it here could conflict with that planned work. This version of SanityKit cannot review release conflicts yet. Wait until the release is resolved, or coordinate the changes with the person preparing it.'
 		case 'request-failed':
@@ -39,9 +28,9 @@ export function redirectPublishFailure(reason: string): string {
 		case 'page-url-unresolved':
 			return 'A page has a URL that could not be checked. Correct invalid page URLs in Pages before publishing this redirect.'
 		case 'publish-rejected':
-			return 'The redirect was not published. Check that you have permission to publish redirects and save confirmation records, then review again.'
+			return 'The redirect was not published. Check that you have permission to publish redirects and save confirmation records, then retry publishing.'
 		case 'recovery-unavailable':
-			return 'The browser could not save the information needed to confirm this change if the connection drops. Allow session storage for this Studio, then review again. Nothing was sent.'
+			return 'The browser could not save the information needed to confirm this change if the connection drops. Allow session storage for this Studio, then retry publishing. Nothing was sent.'
 		case 'inventory-limit':
 			return 'The site has more redirect records than this check supports. Publishing this redirect requires checking the other rules for conflicts. Review obsolete records, or ask a developer to support the larger inventory.'
 		case 'inventory-size-limit':
@@ -49,78 +38,8 @@ export function redirectPublishFailure(reason: string): string {
 		case 'request-limit':
 			return 'The redirect and its confirmation record are too large to send together. Check for unexpectedly large custom fields, or ask a developer to review the data before publishing.'
 		default:
-			return 'The redirect could not be checked completely. Reload the Studio and review again. If this continues, ask a developer or Studio administrator to verify the routing data.'
+			return 'The redirect could not be checked completely. Reload the Studio and retry publishing. If this continues, ask a developer or Studio administrator to verify the routing data.'
 	}
-}
-function RedirectChange({
-	review,
-}: {
-	readonly review: RedirectPublishReview
-}) {
-	const before = review.before,
-		after = review.after
-	const fields = [
-		['source', 'Old URL'],
-		['destination', 'Destination URL'],
-		['status', 'Redirect type'],
-		['enabled', 'Status'],
-	] as const
-	const label = (field: (typeof fields)[number][0], value: unknown) =>
-		field === 'enabled' && typeof value === 'boolean'
-			? value
-				? 'Active'
-				: 'Retired'
-			: field === 'status' && [301, 302].includes(value as number)
-				? `${String(value)} — ${value === 301 ? 'Permanent' : 'Temporary'}`
-				: display(value)
-	return (
-		<Stack gap={4}>
-			<Text size={1}>
-				{after.enabled
-					? before
-						? 'Publishing replaces the live redirect with these draft changes.'
-						: 'Publishing makes this redirect available to the website.'
-					: 'Publishing retires this redirect. Once the website refreshes its redirect data, visitors will no longer be sent from the old URL to this destination.'}
-			</Text>
-			<Card border radius={2} overflow="hidden">
-				<Card tone={after.enabled ? 'positive' : 'caution'} padding={3}>
-					<Text size={1} weight="semibold">
-						{after.enabled
-							? before
-								? 'Update redirect'
-								: 'New redirect'
-							: 'Retire redirect'}
-					</Text>
-				</Card>
-				<Stack gap={4} padding={4}>
-					{fields.map(([field, title]) => (
-						<Stack gap={3} key={field}>
-							<Text size={1} muted>
-								{title}
-							</Text>
-							{before && before[field] !== after[field] ? (
-								<>
-									<RedirectDestination
-										previous
-										label={`Previous ${title.toLowerCase()}`}
-										value={label(field, before[field])}
-									/>
-									<RedirectDestination
-										label={`New ${title.toLowerCase()}`}
-										value={label(field, after[field])}
-									/>
-								</>
-							) : (
-								<Text size={1} style={{ overflowWrap: 'anywhere' }}>
-									{label(field, after[field])}
-								</Text>
-							)}
-						</Stack>
-					))}
-				</Stack>
-			</Card>
-		</Stack>
-	)
 }
 function RedirectError({
 	error,
@@ -145,7 +64,7 @@ function RedirectError({
 			<Stack gap={4}>
 				<Text size={2} weight="semibold">
 					{error.reason === 'review-stale'
-						? 'Review out of date'
+						? 'Changes need another check'
 						: error.reason === 'request-failed'
 							? 'Could not check this redirect'
 							: 'This redirect cannot be published yet'}
@@ -180,11 +99,7 @@ function RedirectError({
 				))}
 				{['request-failed', 'review-stale'].includes(error.reason) && (
 					<Box>
-						<Button
-							text={error.reason === 'review-stale' ? 'Review again' : 'Retry'}
-							mode="ghost"
-							onClick={onRetry}
-						/>
+						<Button text={'Retry publish'} mode="ghost" onClick={onRetry} />
 					</Box>
 				)}
 			</Stack>
@@ -270,7 +185,6 @@ export function createRedirectPublishAction(
 		const isCurrent = (value: RedirectPublishReview) =>
 			canReport() &&
 			current.current.ready &&
-			current.current.review === value &&
 			current.current.props.id === value.documentId &&
 			current.current.props.draft?._rev === value.draftRevision &&
 			(current.current.props.published?._rev ?? null) ===
@@ -285,18 +199,20 @@ export function createRedirectPublishAction(
 				setError(null)
 			}
 		}
-		function confirmed() {
-			toast.push({
-				status: 'success',
-				title:
-					current.current.review?.after.enabled === false
-						? 'Redirect retired'
-						: 'Redirect published',
-				description:
-					'The reviewed change is now saved. The website will use it when its redirect data refreshes.',
-				duration: 9000,
-				closable: true,
-			})
+		function confirmed(value: RedirectPublishReview | null, recovered = false) {
+			// Normal success uses native document status. Recovery needs an explicit result.
+			if (recovered)
+				toast.push({
+					status: 'success',
+					title:
+						value?.after.enabled === false
+							? 'Redirect retired'
+							: 'Redirect published',
+					description:
+						'The change is now saved. The website will use it when its redirect data refreshes.',
+					duration: 9000,
+					closable: true,
+				})
 			setOpen(false)
 			setReview(null)
 			setError(null)
@@ -314,12 +230,13 @@ export function createRedirectPublishAction(
 			const request = new AbortController()
 			abort.current = request
 			inFlight.current = true
-			setOpen(true)
+			setOpen(false)
 			setReview(null)
 			setError(null)
 			setPhase('reviewing')
+			let dispatching = false
 			try {
-				const result = await controller.review(
+				const checked = await controller.review(
 					{
 						documentId: state.id,
 						draftRevision: state.draft._rev,
@@ -328,42 +245,44 @@ export function createRedirectPublishAction(
 					request.signal,
 				)
 				if (!canReport() || request.signal.aborted) return
-				if (result.status === 'ready') setReview(result.review)
-				else setError(result)
-			} catch {
-				if (canReport() && !request.signal.aborted)
-					setError({ status: 'blocked', reason: 'request-failed' })
-			} finally {
-				if (canReport()) {
-					inFlight.current = false
-					if (!request.signal.aborted) setPhase('idle')
+				if (checked.status !== 'ready') {
+					setError(checked)
+					setPhase('idle')
+					setOpen(true)
+					return
 				}
-			}
-		}
-		async function publish() {
-			if (
-				!review ||
-				!isCurrent(review) ||
-				inFlight.current ||
-				current.current.phase !== 'idle' ||
-				error
-			)
-				return
-			inFlight.current = true
-			setPhase('publishing')
-			try {
-				const result = await controller.publish(review, {
-					isCurrent: () => isCurrent(review),
+				const value = checked.review
+				setReview(value)
+				// State can change during asynchronous checks. Validate the current
+				// document now and again immediately before the service sends a write.
+				if (!isCurrent(value)) {
+					setError({ status: 'blocked', reason: 'review-stale' })
+					setPhase('idle')
+					setOpen(true)
+					return
+				}
+				setPhase('publishing')
+				dispatching = true
+				const result = await controller.publish(value, {
+					isCurrent: () => isCurrent(value),
 				})
 				if (!canReport()) return
-				if (result.status === 'published') confirmed()
-				else if (result.status === 'unknown') setPhase('unknown')
+				if (result.status === 'published') confirmed(value)
 				else {
-					setError(result)
-					setPhase('idle')
+					if (result.status === 'unknown') setPhase('unknown')
+					else {
+						setError(result)
+						setPhase('idle')
+					}
+					setOpen(true)
 				}
 			} catch {
-				if (canReport()) setPhase('unknown')
+				if (canReport() && !request.signal.aborted) {
+					setPhase(dispatching ? 'unknown' : 'idle')
+					if (!dispatching)
+						setError({ status: 'blocked', reason: 'request-failed' })
+					setOpen(true)
+				}
 			} finally {
 				if (canReport()) inFlight.current = false
 			}
@@ -375,7 +294,8 @@ export function createRedirectPublishAction(
 			try {
 				const result = await controller.reconcile(props.id)
 				if (!canReport()) return
-				if (result.status === 'published') confirmed()
+				if (result.status === 'published')
+					confirmed(current.current.review, true)
 				else if (
 					result.status === 'blocked' &&
 					['review-stale', 'publish-rejected'].includes(result.reason)
@@ -392,11 +312,16 @@ export function createRedirectPublishAction(
 			}
 		}
 		if (!native) return native
-		const stale = !!review && !isCurrent(review) && phase === 'idle'
 		const uncertain = phase === 'unknown'
 		return {
 			...native,
-			label: uncertain ? 'Check publish status' : native.label,
+			label: uncertain
+				? 'Check publish status'
+				: phase === 'reviewing'
+					? 'Checking redirect…'
+					: phase === 'publishing'
+						? 'Publishing…'
+						: native.label,
 			disabled: uncertain ? open : !ready || phase !== 'idle' || open,
 			onHandle: () => {
 				if (uncertain) {
@@ -442,35 +367,13 @@ export function createRedirectPublishAction(
 											void begin()
 										}}
 									/>
-								) : stale ? (
-									<RedirectError
-										error={{ status: 'blocked', reason: 'review-stale' }}
-										onClose={close}
-										onRetry={() => {
-											void begin()
-										}}
-									/>
-								) : null}
-								{phase === 'reviewing' ? (
-									<Flex
-										direction="column"
-										align="center"
-										gap={3}
-										paddingY={4}
-										role="status"
-									>
-										<Spinner muted />
-										<Text size={1}>Checking the redirect…</Text>
-									</Flex>
-								) : review ? (
-									<RedirectChange review={review} />
 								) : null}
 							</Stack>
 						),
 						footer: (
 							<Flex justify="flex-end" gap={2}>
 								<Button
-									text={uncertain ? 'Close' : 'Cancel'}
+									text="Close"
 									mode="bleed"
 									onClick={close}
 									disabled={phase === 'publishing'}
@@ -484,26 +387,7 @@ export function createRedirectPublishAction(
 										loading={checking}
 										disabled={checking || error?.reason === 'recovery-corrupt'}
 									/>
-								) : (
-									<Button
-										text={
-											review?.after.enabled === false
-												? 'Retire redirect'
-												: 'Publish'
-										}
-										tone="primary"
-										onClick={() => {
-											void publish()
-										}}
-										loading={phase === 'publishing'}
-										disabled={
-											!review ||
-											!isCurrent(review) ||
-											!!error ||
-											phase !== 'idle'
-										}
-									/>
-								)}
+								) : null}
 							</Flex>
 						),
 					}

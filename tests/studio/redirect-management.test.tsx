@@ -426,9 +426,10 @@ describe('native redirect draft editor', () => {
 	})
 })
 
-it('guarded management wraps every publish action and keeps unsafe live actions unavailable', async () => {
+it('guarded management keeps native Delete and wraps Publish while omitting other live actions', async () => {
 	const consumerPublish = action('publish'),
-		nativePublish = action('publish')
+		nativePublish = action('publish'),
+		consumerDelete = action('delete')
 	const resolved = await source(
 		withUrlPublication(
 			{
@@ -436,7 +437,7 @@ it('guarded management wraps every publish action and keeps unsafe live actions 
 				document: {
 					actions: [
 						consumerPublish,
-						action('delete'),
+						consumerDelete,
 						action('unpublish'),
 						action('schedule'),
 					],
@@ -453,11 +454,17 @@ it('guarded management wraps every publish action and keeps unsafe live actions 
 	expect(actions.some((item) => item.action === 'publish')).toBe(true)
 	expect(
 		actions.every(
-			(item) => item.action === 'publish' || item.action === 'discardChanges',
+			(item) =>
+				item.action === 'publish' ||
+				item.action === 'discardChanges' ||
+				item.action === 'delete',
 		),
 	).toBe(true)
 	expect(actions).not.toContain(consumerPublish)
 	expect(actions).not.toContain(nativePublish)
+	// Wrap the message without replacing native permissions or the delete write.
+	expect(actions).not.toContain(consumerDelete)
+	expect(actions.some((item) => item.action === 'delete')).toBe(true)
 	expect(
 		resolved.document.actions({
 			schemaType: 'sanityKitRedirect',

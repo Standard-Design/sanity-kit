@@ -143,20 +143,17 @@ afterEach(async () => {
 	})
 	host.remove()
 })
-describe('redirect publish review action', () => {
-	it('reviews first, preserves the native shortcut, and never invokes unguarded native publishing', async () => {
+describe('redirect publish action', () => {
+	it('checks and publishes in one action without a confirmation dialog or success notice', async () => {
 		await render()
 		await handle()
-		expect(host.textContent).toContain('/before')
-		expect(host.textContent).toContain('/after')
 		expect(description?.shortcut).toBe('Ctrl+Alt+P')
-		expect(mock.publish).not.toHaveBeenCalled()
-		await click('Publish')
+		expect(mock.review).toHaveBeenCalledOnce()
 		expect(mock.publish).toHaveBeenCalledOnce()
+		expect(mock.publish.mock.calls[0]?.[0]).toEqual(review)
+		expect(description?.dialog).toBeNull()
 		expect(mock.nativeHandle).not.toHaveBeenCalled()
-		expect(mock.toast).toHaveBeenCalledWith(
-			expect.objectContaining({ title: 'Redirect published' }),
-		)
+		expect(mock.toast).not.toHaveBeenCalled()
 		expect(props.onComplete).toHaveBeenCalledOnce()
 	})
 	it('does not review when Sanity denies publishing', async () => {
@@ -166,24 +163,33 @@ describe('redirect publish review action', () => {
 		expect(mock.review).not.toHaveBeenCalled()
 		expect(description?.disabled).toBe(true)
 	})
-	it('blocks the modal confirm if permissions change after review', async () => {
-		await render()
-		await handle()
-		native.disabled = true
-		await render()
-		await click('Publish')
-		expect(mock.publish).not.toHaveBeenCalled()
-		expect(host.textContent).toContain('Review out of date')
-	})
-	it('blocks new draft edits and pending sync while the dialog is open', async () => {
-		await render()
-		await handle()
-		props = { ...props, draft: { ...props.draft!, _rev: 'new' } }
-		mock.syncing = true
-		await render()
-		await click('Publish')
-		expect(mock.publish).not.toHaveBeenCalled()
-	})
+	it.each(['permission', 'draft', 'sync'] as const)(
+		'blocks publishing if %s changes while checks run',
+		async (change) => {
+			let finish!: (value: { status: 'ready'; review: typeof review }) => void
+			mock.review.mockImplementationOnce(
+				() =>
+					new Promise((resolve) => {
+						finish = resolve
+					}),
+			)
+			await render()
+			await handle()
+			expect(description?.dialog).toBeNull()
+			expect(description?.disabled).toBe(true)
+			if (change === 'permission') native.disabled = true
+			if (change === 'draft')
+				props = { ...props, draft: { ...props.draft!, _rev: 'new' } }
+			if (change === 'sync') mock.syncing = true
+			await render()
+			await act(async () => {
+				finish({ status: 'ready', review })
+				await Promise.resolve()
+			})
+			expect(mock.publish).not.toHaveBeenCalled()
+			expect(host.textContent).toContain('Changes need another check')
+		},
+	)
 	it('rechecks current state at the service write boundary', async () => {
 		let isCurrent: (() => boolean) | undefined
 		let finish:
@@ -198,7 +204,6 @@ describe('redirect publish review action', () => {
 		)
 		await render()
 		await handle()
-		await click('Publish')
 		native.disabled = true
 		await render()
 		expect(isCurrent?.()).toBe(false)
@@ -208,18 +213,20 @@ describe('redirect publish review action', () => {
 		})
 		expect(mock.toast).not.toHaveBeenCalled()
 	})
-	it('retires through the same reviewed publish path', async () => {
+	it('retires through the same single-click publish path', async () => {
 		mock.review.mockResolvedValue({
 			status: 'ready',
 			review: { ...review, after: { ...review.after, enabled: false } },
 		})
 		await render()
 		await handle()
-		expect(host.textContent).toContain('website refreshes')
-		await click('Retire redirect')
-		expect(mock.toast).toHaveBeenCalledWith(
-			expect.objectContaining({ title: 'Redirect retired' }),
-		)
+		expect(mock.publish).toHaveBeenCalledOnce()
+		expect(mock.publish.mock.calls[0]?.[0]).toEqual({
+			...review,
+			after: { ...review.after, enabled: false },
+		})
+		expect(description?.dialog).toBeNull()
+		expect(mock.toast).not.toHaveBeenCalled()
 	})
 	it('lets editors retry a failed check without closing', async () => {
 		mock.review.mockResolvedValueOnce({
@@ -229,15 +236,15 @@ describe('redirect publish review action', () => {
 		await render()
 		await handle()
 		expect(host.textContent).toContain('Check your connection')
-		await click('Retry')
+		await click('Retry publish')
 		expect(mock.review).toHaveBeenCalledTimes(2)
-		expect(host.textContent).toContain('/after')
+		expect(mock.publish).toHaveBeenCalledOnce()
+		expect(description?.dialog).toBeNull()
 	})
 	it('allows dismissal and recovery without sending another publish', async () => {
 		mock.publish.mockResolvedValue({ status: 'unknown' })
 		await render()
 		await handle()
-		await click('Publish')
 		expect(host.textContent).toContain('Could not confirm')
 		await click('Close')
 		expect(description?.label).toBe('Check publish status')
@@ -248,6 +255,35 @@ describe('redirect publish review action', () => {
 		expect(mock.toast).toHaveBeenCalledWith(
 			expect.objectContaining({ title: 'Redirect published' }),
 		)
+	})
+	it('shows a conflict notice without writing', async () => {
+		mock.review.mockResolvedValue({
+			status: 'blocked',
+			reason: 'invalid-redirect',
+			diagnostic: { ok: false, message: 'Another redirect uses this old URL.' },
+		})
+		await render()
+		await handle()
+		expect(host.textContent).toContain('Another redirect uses this old URL.')
+		expect(mock.publish).not.toHaveBeenCalled()
+	})
+	it('ignores duplicate activation while checking', async () => {
+		let finish!: (value: { status: 'ready'; review: typeof review }) => void
+		mock.review.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					finish = resolve
+				}),
+		)
+		await render()
+		await handle()
+		await handle()
+		expect(mock.review).toHaveBeenCalledOnce()
+		await act(async () => {
+			finish({ status: 'ready', review })
+			await Promise.resolve()
+		})
+		expect(mock.publish).toHaveBeenCalledOnce()
 	})
 	it('restores pending recovery even with no draft and a disabled native button', async () => {
 		mock.getPending.mockReturnValue(review)

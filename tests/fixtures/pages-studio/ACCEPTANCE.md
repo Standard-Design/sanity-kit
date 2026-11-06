@@ -933,3 +933,45 @@ prove a frontend redirect handler or cache refresh: the consuming website owns
 those integrations. Restricted-role behavior, deliberate lost-response
 recovery, and concurrent-write races remain covered by automated tests rather
 than this live pass. Release-aware publishing remains deferred.
+
+## November 6 — native redirect deletion
+
+The publishing-enabled management mode now retains Sanity's native Delete
+action. Opened the actions menu on an active published generated redirect and
+selected Delete. Sanity checked referring documents, then showed its normal
+confirmation with the source, destination, enabled state, and Published status.
+Canceled the dialog; no document was deleted. Retirement is not a prerequisite.
+
+The action is passed through unchanged, so native permissions, reference checks,
+and version restrictions remain in control. The focused integration tests check
+that Delete survives action resolution while unpublish and scheduling remain
+omitted; draft-management-only configuration retains its previous restrictions.
+
+## November 6 — single-click redirect publishing
+
+This supersedes the earlier redirect confirmation-dialog flow. Created a new
+disposable redirect, `/redirect-single-click-proof` → `/about`. One Publish click
+showed progress in the document action, then native Last published status. No
+confirmation dialog or routine success notice appeared.
+
+Changed its destination to `/journal` and turned off Enabled. One Publish click
+saved both changes, again without a confirmation dialog, and updated the native
+published status. The test record remains published and disabled. The existing
+`/redirect-editor-proof` draft was left untouched.
+
+Automated tests cover conflict notices, retrying a failed check, permission or
+draft changes during checks, duplicate clicks, and uncertain-result recovery.
+Recovery still reports confirmed success explicitly; ordinary success relies on
+native document status. The existing atomic write and conflict checks remain.
+
+## November 6 — active redirect deletion warning
+
+Reopened Delete on an active published generated redirect. The native dialog
+now explains that this is a live, active redirect and that deleting it stops
+redirection once the website refreshes its data, then asks for confirmation.
+The native document preview, Published status, Cancel, and Delete document
+controls remain. Canceled without deleting any record.
+
+Automated checks verify that the warning uses the published enabled state even
+when a draft is disabled, leaves inactive/draft-only confirmations unchanged,
+and does not alter another document’s confirmation wording or native permissions.

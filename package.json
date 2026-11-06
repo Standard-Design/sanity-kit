@@ -102,7 +102,9 @@
 		"react": "^19.2.7",
 		"react-dom": "^19.2.7",
 		"react-router": "^8.4.0",
-		"zod": "^4.6.5"
+		"zod": "^4.6.5",
+		"i18next": "^26.5.10",
+		"react-i18next": "^17.1.8"
 	},
 	"peerDependenciesMeta": {
 		"@sanity/icons": {
@@ -143,6 +145,12 @@
 		},
 		"zod": {
 			"optional": true
+		},
+		"i18next": {
+			"optional": true
+		},
+		"react-i18next": {
+			"optional": true
 		}
 	},
 	"devDependencies": {
@@ -163,12 +171,14 @@
 		"eslint": "10.10.0",
 		"eslint-config-prettier": "^10.1.8",
 		"groq": "^5.1.0",
+		"i18next": "26.5.10",
 		"jsdom": "^29.1.1",
 		"prettier": "^3.6.2",
 		"publint": "^0.3.24",
 		"react": "19.3.1",
 		"react-dom": "19.3.1",
 		"react-focus-lock": "2.13.7",
+		"react-i18next": "17.1.8",
 		"react-router": "^8.4.0",
 		"sanity": "6.17.0",
 		"styled-components": "6.5.3",

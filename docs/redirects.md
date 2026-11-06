@@ -374,22 +374,25 @@ helps editors; it is not a Content Lake constraint on API writes.
 
 Use `redirectManagement: 'drafts'` to prepare drafts without live actions, or
 `redirectManagement: 'publish'` to enable the guarded Publish action. The latter
-keeps Sanity's native permission, validation, syncing, and lock checks, then opens
-a review instead of immediately making the draft live. Release versions remain
-read-only. Delete, unpublish, duplicate, and scheduling remain unavailable. The
+keeps Sanity's native permission, validation, syncing, and lock checks, then runs
+the kit's conflict and write checks automatically. Release versions remain
+read-only. This mode also keeps Sanity's native Delete action for active, retired,
+and draft-only redirects. Unpublish, duplicate, and scheduling remain unavailable. The
 final workspace action reducer and layout guard prevent a later plugin from
 restoring an unguarded publish action.
 
 ## Publishing or retiring a redirect
 
-An editor changes a redirect using ordinary fields, then clicks Publish. The
-review shows the old URL, destination, redirect type, and active/retired state.
-Changed values use the same light red/green review treatment as page URL changes.
-The editor confirms the review to make the draft live. To retire a rule, turn off
-Enabled and publish: its record remains available for history and later reuse.
+An editor changes a redirect using ordinary fields, then clicks Publish once.
+The button shows progress while the kit checks and saves the change. There is no
+extra confirmation dialog or routine success toast; native document status shows
+that it was published. A notice opens only when something needs attention, such
+as a conflict, failed check, changed data, or an uncertain result. Retry publish
+runs the checks again and saves if they pass. To retire a rule, turn off Enabled
+and publish: its record remains available for history and later reuse.
 Editing a draft, including disabling it, never changes the live rule by itself.
 
-Before showing the review, the controller proves read access to all registered
+Before publishing, the controller proves read access to all registered
 page versions, redirect versions, the folder registry used by the shared loader,
 and the `sanityKit.redirectPublication.` confirmation namespace. A successful
 query alone cannot prove that inaccessible records were not omitted. Known
@@ -404,9 +407,9 @@ changed. Conflicts and invalid rules include clickable redirect rows when their
 identities are available. The existing 1,000-record and 1 MiB data bounds also
 apply to the raw redirect review, including drafts and release versions.
 
-On confirmation, the controller repeats the access and inventory reads and
-compares them with the reviewed evidence. Changed evidence requires another
-review. One atomic Mutation API transaction then:
+Immediately before sending the write, the controller repeats the access and
+inventory reads and compares them with its earlier checks. Changed evidence
+stops the write and asks the editor to retry publishing. One atomic Mutation API transaction then:
 
 1. Guards the reviewed draft revision.
 2. Strictly creates the published ID for a new redirect, or guards the existing
@@ -428,7 +431,7 @@ atomic receipt through the Doc API and never sends the write again. Closing the
 dialog permits other work, while publishing this redirect stays blocked until
 its outcome is known. A matching receipt confirms success even after navigation
 or a reload in the same tab. An absent receipt alone cannot prove failure. A
-success toast tells the editor when the result is confirmed.
+success toast tells the editor when this previously uncertain result is confirmed.
 
 These revision checks do not lock every URL or prevent an external writer from
 creating a new conflicting page or release concurrently. Consumers must keep
@@ -441,6 +444,31 @@ Publishing saves redirect data; the website must still use the request helper.
 Consumers refresh or invalidate their cache on published redirect changes.
 Retirement therefore reaches visitors when that website refreshes its rules,
 and previously cached permanent browser redirects may remain cached.
+
+### Deleting a redirect
+
+Choose **Delete** from the document actions menu. A redirect does not need to be
+retired first: active, retired, and draft-only records can all be deleted, subject
+to Sanity's permissions and native version restrictions. Sanity shows its normal
+confirmation and checks references before deletion. For an active published
+redirect, the confirmation explains that deleting it stops visitors being
+redirected after the website refreshes its data, then asks whether to proceed.
+A disabled draft does not hide this warning while the published rule is active.
+Retired and draft-only redirects keep the ordinary confirmation.
+
+The kit wraps only the native dialog wording; permissions, reference and version
+warnings, buttons, and the delete operation remain Sanity’s. The wrapper forks
+the dialog’s translation resources using `i18next` and `react-i18next`, the same
+libraries used by Studio. It does not change translations for other dialogs or
+use private Sanity components. These libraries are optional Studio peers, not
+frontend dependencies.
+
+Deleting an active published redirect removes that rule; the website stops using
+it when its redirect data refreshes. Existing browser-cached permanent redirects
+may still be followed. Consumers should invalidate their redirect cache after
+deletions, just as they do after publishing changes. Retire a redirect instead
+when you want to keep its record available. The optional draft-management-only
+mode still omits actions that can change live rules.
 
 ## Checking a proposed redirect draft
 

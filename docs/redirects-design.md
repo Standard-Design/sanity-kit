@@ -98,8 +98,10 @@ Manual rules use normal draft/published editing. Runtime loading explicitly uses
 the published perspective and enabled rules. A draft edit must not change live
 routing. See [Sanity perspectives](https://www.sanity.io/docs/content-lake/perspectives).
 
-Disabling a rule takes effect when that change is published. Prefer disable over
-delete for recoverability. Unpublish/delete must also trigger invalidation; deleting
+Disabling a rule takes effect when that change is published and keeps its record
+available. Editors may also delete active, retired, or draft-only redirects through
+Sanity's native confirmation; retirement is not required. Unpublish/delete must
+also trigger invalidation; deleting
 only a draft does not remove its published rule. Never automatically expire old
 rules merely because they have not been edited recently.
 

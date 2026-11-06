@@ -59,7 +59,7 @@ export function RedirectDraftInput(
 						{release
 							? 'Release redirects are read-only'
 							: props.guardedPublishing
-								? 'Review before publishing'
+								? 'Changes take effect when published'
 								: 'Draft editing only'}
 					</Text>
 					<Text size={1}>

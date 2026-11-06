@@ -182,7 +182,10 @@ Sanity's header/navigator extension slots are unstable; a broad version range
 would promise compatibility we have not checked. This baseline may need widening
 before adoption by an existing Studio.
 
-Sanity, Sanity UI, styled-components, react-focus-lock, and `@sanity/icons` are optional peers.
+Sanity, Sanity UI, styled-components, react-focus-lock, `@sanity/icons`,
+`i18next` (`^26.5.10`), and `react-i18next` (`^17.1.8`) are optional peers.
+The translation libraries scope active-redirect deletion wording to its native
+confirmation dialog.
 The consuming Studio supplies them; the kit does not bundle another Sanity
 runtime. They are optional for the package as a whole, but required when using
 `/studio`. Frontend consumers do not need them. React remains a shared peer,

@@ -145,6 +145,8 @@ const studioPeers = [
 	'@sanity/ui',
 	'styled-components',
 	'react-focus-lock',
+	'i18next',
+	'react-i18next',
 ]
 for (const name of studioPeers)
 	assert.equal(packedManifest.peerDependenciesMeta[name]?.optional, true)

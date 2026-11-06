@@ -277,11 +277,12 @@ Open **Fixture content → Redirects** to inspect generated rules or use the lis
 its existing collection settings.
 
 The native form autosaves drafts and validates paths, required values, and
-self-redirects. **Created by** stays read-only. Publish opens a review of the old
-and new values and checks for conflicts before making the draft live. To retire
-a redirect, turn off **Enabled**, then review and publish that change. Its record
-stays available for inspection. Discard changes remains available; Delete,
-Unpublish, Duplicate, and Schedule are omitted.
+self-redirects. **Created by** stays read-only. Publish checks for conflicts and
+saves the draft in one action. A notice appears only if something needs attention.
+To retire a redirect, turn off **Enabled**, then publish that change. Its record
+stays available for inspection. Delete is also available for active, retired,
+and draft-only redirects and opens Sanity's native confirmation. Discard changes
+remains available; Unpublish, Duplicate, and Schedule are omitted.
 
 Changes to an existing rule stay in its draft until publishing succeeds. The
 website must load the published rules and refresh any consumer-owned cache;
