@@ -31,6 +31,9 @@ export const BrowserContext = createContext<{
 	pageCreateOpen: boolean
 	showFolderSync: () => void
 	showFolderRemove: (pathname: string) => void
+	showFolderRename: (pathname?: string) => void
+	renameAvailable: boolean
+	renamePending: boolean
 	showFolderCreate: (request: FolderCreationRequest) => void
 	state: BrowserState
 	setState: React.Dispatch<React.SetStateAction<BrowserState>>

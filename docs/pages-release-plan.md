@@ -15,7 +15,10 @@ committed and pushed. Native redirect draft management (`18570b5`) is also
 committed and pushed. Guarded redirect publishing (`0648541`) and the simpler
 Publish/Delete workflow (`b6d7516`) are now committed and pushed too. The folder
 rename writing and recovery slice (`148827e`) is also committed and pushed.
-The settings-aware collection routing foundation is now the next review slice.
+Shared collection routing sessions (`48e6adb`) and the plain-text URL input
+option (`4bc5f53`) are also committed and pushed. The next review slice connects
+folder renaming to the navigator. A separate collection prerequisite checks URL
+ownership against both published and draft prefixes before live UI integration.
 
 ## Parallel tracks
 
@@ -52,11 +55,16 @@ Completed work is reviewed and committed in separate slices.
 - **Folders:** turn the approved rename plan into a bounded atomic write that
   changes only folder paths, page URL fields, and affected redirect destinations.
   Preserve unrelated draft content. The writer and recovery are implemented and
-  tested; Rename is not yet exposed in the navigator.
+  tested. The navigator now exposes Rename in the current review slice, with
+  explicit live-impact review, native write permissions, and recovery notices.
+  A live test preserved distinct draft/published bodies while moving both URLs
+  and updating redirects.
 - **Collections:** share one settings-reading context between future Pages,
   URL-field, and preview integrations. Published and draft settings must stay
   separate. Loading or invalid settings must not silently use a made-up prefix.
-  The private reading/session boundary is implemented and tested. Live Pages,
+  The private reading/session boundary is implemented and tested. A separate
+  review slice now checks both published and draft URL spaces, including active
+  redirects, using fresh settings and access evidence. Live Pages,
   input, and preview integration remains next: do not enable partial integration
   where the displayed URL and uniqueness or publish checks disagree.
 

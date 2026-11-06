@@ -975,3 +975,28 @@ controls remain. Canceled without deleting any record.
 Automated checks verify that the warning uses the published enabled state even
 when a draft is disabled, leaves inactive/draft-only confirmations unchanged,
 and does not alter another document’s confirmation wording or native permissions.
+
+## Folder rename UI — November 6, 2026
+
+In the authorized `ha9kep4l` / `development` proof dataset:
+
+- Reviewed `/testing` → `/testing-renamed` without applying it. The dialog
+  listed both draft-only pages and the nested folder; no live page URLs changed.
+- Reviewed `/about` under a different name and confirmed that an existing,
+  conflicting draft URL blocks the operation without changing documents.
+- Created a dedicated `Folder rename live proof` published page plus draft
+  (`d8VcwWwx9mLgDd8bClQ2LR`) with different titles and bodies, both initially
+  at `/folder-rename-live-proof/team`.
+- Renamed that folder to `/folder-renamed-live-proof` through the actual modal.
+  Review showed both page versions, a new 301 redirect, and the existing manual
+  302 alias `/folder-rename-live-alias`. Apply showed **Folder renamed**, and the
+  navigator displayed the new folder and page pathname.
+- An uncached Doc API read confirmed both URL fields changed while each version's
+  title and body stayed intact. The manual alias retained status 302 and origin
+  `manual`; its destination now points directly to the new URL. The new exact
+  redirect uses status 301. The registry retained the folder's stable key, and
+  the operation receipt shares the transaction revision of the changed records.
+
+The dedicated fixture remains available for review. This live pass did not
+simulate transport loss or custom roles; those branches have automated coverage
+and still need broader release acceptance.

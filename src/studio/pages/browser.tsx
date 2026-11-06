@@ -50,6 +50,8 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 		pageCreateOpen,
 		showFolderSync,
 		showFolderCreate,
+		showFolderRename,
+		renamePending,
 	} = useBrowserState()
 	const session = usePagesDataSession()
 	const result = useSyncExternalStore(
@@ -166,6 +168,12 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 										}
 									/>
 									<MenuItem text="Sync folders" onClick={showFolderSync} />
+									{renamePending && (
+										<MenuItem
+											text="Check folder rename status"
+											onClick={() => showFolderRename()}
+										/>
+									)}
 								</Menu>
 							}
 							// Keep the nested menu inside the modal picker's focus boundary.

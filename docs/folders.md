@@ -508,8 +508,9 @@ not replace live Studio acceptance.
 
 The private `createFolderRenamePlanner({routes})` in `rename.ts` can now describe
 a proposed rename and refuse unsafe input. This is a **pure planning foundation**:
-it does not load a dataset, change documents, offer a Rename button, or make a
-later write safe by itself. There is no public package export yet.
+it does not load a dataset, change documents, or make a later write safe by
+itself. The Studio dialog and write controller described below use this planner.
+There is no public package export yet.
 
 For example, renaming `/about` to `company` proposes `/company`, moves its saved
 subfolders to matching paths, and lists every affected page's old and new URL.
@@ -523,8 +524,8 @@ The caller supplies the existing registry, the proposed name, and a complete raw
 inventory of registered page versions and redirect records. It also supplies
 read-access evidence, `writableDocumentIds`, and `protectedDocumentIds`. These are
 caller attestations: the planner does not query permissions, evaluate a schema's
-conditional `readOnly`, or prove that a query returned everything. A future Studio
-adapter must perform those checks before supplying this evidence. Permission to
+conditional `readOnly`, or prove that a query returned everything. The Studio
+adapter performs those checks before supplying this evidence. Permission to
 create new redirect records needs its own check; it cannot be inferred from an
 existing document ID.
 
@@ -559,8 +560,8 @@ The result contains these private structures:
   the size of a future request, transaction receipt, or complete stored documents.
 
 The result deliberately contains field changes rather than replacement documents.
-A future writer must patch folder paths by stable key and page URL fields by
-configured field path. It must not replace the registry or page documents with
+The writer patches folder paths by stable key and page URL fields by configured
+field path. It must not replace the registry or page documents with
 these projected records; that would discard unrelated metadata and content.
 
 ### One redirect plan for the entire rename
@@ -593,8 +594,9 @@ oversized move is refused rather than split into partially applied batches.
 ### Applying a reviewed rename: private service foundation
 
 `createFolderRenameController` in `rename-write.ts` now adds a private service
-around the planner. It is not connected to a Rename button yet. A caller supplies
-routing configuration, a Sanity client, and a required `authorize` adapter. The
+around the planner. The Pages folder menu now connects it to **Rename folder**.
+A caller supplies routing configuration, a Sanity client, and a required
+`authorize` adapter. The
 controller has four operations:
 
 - `review` loads the evidence and returns an immutable proposal for the editor.
@@ -606,8 +608,31 @@ Review and apply each check read access, load the raw registered page versions,
 folder registry, and redirect inventory, and rebuild the plan. Any changed
 inventory or revision requires a fresh review. The service accepts only review
 objects it created; passing a copied or edited object cannot authorize a write.
-The Studio integration must also confirm that the editor is still reviewing the
+The Studio integration also confirms that the editor is still reviewing the
 same operation immediately before dispatch.
+
+### Using Rename folder in Pages
+
+Open a folder's `…` menu and choose **Rename folder**. Enter its new final
+segment and choose whether to create redirects from old URLs; this is on by
+default. **Review URL changes** loads the current data without changing it.
+
+The dialog shows the old and new folder location, affected published and draft
+page URLs, nested folders, new redirects, and existing redirects that will change
+destination. A notice makes immediate changes to published URLs explicit.
+Changing the name or redirect choice clears the review. **Apply URL changes**
+then checks the reviewed proposal again before saving it.
+
+Saving disables the dialog's controls. A confirmed save shows **Folder renamed**
+and refreshes the navigator. If the response is uncertain, a warning offers
+**Check rename status**, which checks the receipt without repeating the write.
+The editor can close that warning and reopen it through **Check folder rename
+status** in the Pages `…` menu. A fresh review is required when data changed;
+access, collision, release, and size failures explain why the rename cannot run.
+
+Redirects remain exact rules for known published page URLs. Prefix or wildcard
+rules are a [possible future direction](redirects-design.md#future-direction-prefix-redirects-for-folder-renames),
+not part of this workflow.
 
 #### Permissions and read-only fields
 
@@ -620,6 +645,14 @@ the operation receipt requires create permission too. A native Publish button
 being enabled is not sufficient evidence for this operation. Failed, missing, or
 unverified authorization stops the write. The service repeats authorization after
 refreshing the review evidence.
+
+The private `createFolderRenameAuthorizer` uses Sanity's native grants store for
+create/update permission. It loads complete existing documents through the Doc
+API, checks their identity and revision, and evaluates document, ancestor, and
+URL-field `readOnly` rules with the current user. Missing field schemas, throwing
+rules, and unverified permission checks fail closed. Kit-owned registry and receipt records
+have narrow internal field checks when they have no registered Studio schema;
+that does not bypass Sanity's dataset permissions.
 
 #### What changes together
 
@@ -655,8 +688,14 @@ missing, different, or unreadable receipt does **not** prove failure: the operat
 stays pending and a new rename is blocked. Rechecking never resends the write.
 Definitive request rejections settle as failures. Mounted controllers in the same
 JavaScript runtime share pending state; this is not a cross-tab or cross-user
-lock. Receipt cleanup and operational recovery after losing local storage still
-need an explicit maintenance policy before this workflow ships.
+lock.
+
+Receipts are retained: this slice does not automatically delete them. They are
+proof of a completed operation, and deleting one could prevent recovery in a tab
+that still has a pending save. If local recovery storage is lost, a developer
+must inspect the matching receipt and affected records before clearing any
+pending state or repeating the operation. Automated retention and a supported
+cross-session recovery procedure remain release work.
 
 #### Guarantees and remaining acceptance
 
@@ -674,13 +713,21 @@ contract. `tests/studio/folders-rename-write.test.ts` checks revision-guarded pa
 payloads, authorization failures, changed reviews, recovery persistence, uncertain
 responses, and concurrent mounted controllers. It also sends requests through the
 real Sanity client with a mocked HTTP transport to check serialization and retry
-behavior. These are not live backend transaction or Studio acceptance tests.
+behavior. The authorization and dialog tests separately check native grants,
+read-only rules, explicit review, stale responses, and recovery without resending.
+
+Live acceptance in the development proof Studio also verified one published page
+and its draft moving together, their distinct titles and bodies staying intact,
+a new exact redirect, an existing manual redirect keeping its status while its
+destination changes, and the saved folder keeping its stable key. See the
+[fixture acceptance log](../tests/fixtures/pages-studio/ACCEPTANCE.md). This does
+not replace broader custom-role, recovery, or concurrent-editor acceptance.
 
 ## What remains before the finished folder workflow
 
-The Rename review modal, explicit live-impact confirmation, access adapter,
-recovery notices, receipt maintenance policy, and live acceptance remain separate
-work. Website cache refresh is a separate outcome from the dataset change.
+Receipt maintenance and cross-session recovery policy, broader permission and
+concurrency acceptance, and public exports remain release work. Website cache
+refresh is a separate outcome from the dataset change.
 Empty-folder removal does not move or remove populated folders. Coordinating
 mutable collection settings with folder operations remains part of the shared
 bulk-change work.

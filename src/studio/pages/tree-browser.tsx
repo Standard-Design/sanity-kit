@@ -16,6 +16,7 @@ import { CollectionActions } from './collection-actions.js'
 import { EllipsisHorizontalIcon } from '@sanity/icons/EllipsisHorizontal'
 import { TrashIcon } from '@sanity/icons/Trash'
 import { AddIcon } from '@sanity/icons/Add'
+import { EditIcon } from '@sanity/icons/Edit'
 import { Menu, MenuButton, MenuItem } from '@sanity/ui/menu'
 import { TooltipButton } from './tooltip.js'
 import { usePresentationParams } from 'sanity/presentation'
@@ -134,8 +135,14 @@ function FolderActions({
 	disabled: boolean
 	onCreateFolder: (pathname: string) => void
 }) {
-	const { runtime, setPickerOpen, showPageCreate, showFolderRemove } =
-		useBrowserState()
+	const {
+		runtime,
+		setPickerOpen,
+		showPageCreate,
+		showFolderRemove,
+		showFolderRename,
+		renameAvailable,
+	} = useBrowserState()
 	const trigger = useRef<HTMLButtonElement>(null)
 	const [menuVersion, setMenuVersion] = useState(0)
 	const hasPageChoices = runtime.createChoices.some((choice) =>
@@ -193,6 +200,12 @@ function FolderActions({
 						text="New subfolder"
 						icon={AddIcon}
 						onClick={() => onCreateFolder(node.pathname)}
+					/>
+					<MenuItem
+						text="Rename folder"
+						icon={EditIcon}
+						disabled={disabled || !renameAvailable}
+						onClick={() => showFolderRename(node.pathname)}
 					/>
 					<MenuItem
 						text="Remove folder"

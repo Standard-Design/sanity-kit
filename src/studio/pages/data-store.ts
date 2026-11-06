@@ -13,6 +13,10 @@ export function createPagesDataStore(
 	>()
 	const allSessions = new Set<ReturnType<typeof createPagesDataSession>>()
 	return {
+		/** Re-read page URLs and folders after a confirmed bulk URL change. */
+		refresh: () => {
+			for (const session of allSessions) session.retry()
+		},
 		refreshFolders: () => {
 			for (const session of allSessions) session.refreshFolders()
 		},

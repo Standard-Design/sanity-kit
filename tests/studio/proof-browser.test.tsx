@@ -82,9 +82,20 @@ vi.mock('sanity', () => {
 					: [],
 		}),
 	}
+	const currentUser = { id: 'editor', roles: [] }
+	const grantsStore = {
+		checkDocumentPermission: () => ({
+			subscribe: (observer: { next(value: { granted: boolean }): void }) => {
+				observer.next({ granted: true })
+				return { unsubscribe() {} }
+			},
+		}),
+	}
 	return {
 		useTemplates: () => templates,
 		useSchema: () => schema,
+		useCurrentUser: () => currentUser,
+		useGrantsStore: () => grantsStore,
 		useTemplatePermissions: ({
 			templateItems,
 		}: {

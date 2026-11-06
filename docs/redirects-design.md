@@ -41,6 +41,23 @@ scheme canonicalization, scheduled rules, automatic release integration, and
 hosting-provider exports. Collection-prefix changes create exact rules for the
 existing published items, not a rule that captures every possible old-prefix URL.
 
+### Future direction: prefix redirects for folder renames
+
+Consider supporting a prefix rule such as `/about/company/*` →
+`/about/organization/*` instead of saving an exact redirect for every moved page.
+The unmatched suffix would stay the same. The folder's own URL,
+`/about/company`, would also need an explicit matching policy.
+
+This could reduce the number of stored rules for large moves. However, it would
+also redirect paths that were never pages, and could capture app-owned routes or
+paths reused later. Before implementing it, decide how exact rules and exceptions
+take precedence, how overlapping prefixes and redirect loops are checked, and
+how an editor can review the full effect of the rule. Request lookup, validation,
+Studio management, and caching would all need to understand the same semantics.
+
+This is a possible future direction, not part of the current folder-rename
+slice. Current renames keep exact redirects for affected published page URLs.
+
 ## Ownership and subsystem boundaries
 
 | Part                     | Kit responsibility                                              | Consumer responsibility                                                      |

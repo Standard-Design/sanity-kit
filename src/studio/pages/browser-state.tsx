@@ -6,7 +6,10 @@ import {
 	useRef,
 	type PropsWithChildren,
 } from 'react'
-import { useClient } from 'sanity'
+import { useClient, useSchema, useCurrentUser, useGrantsStore } from 'sanity'
+import { createFolderRenameController } from '../folders/rename-write.js'
+import { createFolderRenameAuthorizer } from '../folders/rename-access.js'
+import { FolderRenameDialog } from './folder-rename-dialog.js'
 import { createFolderSynchronizer } from '../folders/synchronize.js'
 import { createFolderSyncController } from '../folders/sync-controller.js'
 import { FolderRemoveDialog } from './folder-remove-dialog.js'
@@ -42,9 +45,46 @@ export function BrowserStateProvider({
 	}>()
 	const [syncOpen, setSyncOpen] = useState(false)
 	const [folderRemoval, setFolderRemoval] = useState<string>()
+	const [folderRename, setFolderRename] = useState<{ pathname?: string }>()
+	const [renamePending, setRenamePending] = useState(false)
 	const [folderCreation, setFolderCreation] = useState<FolderCreationRequest>()
 	const [pickerOpen, setPickerOpen] = useState(false)
 	const client = useClient({ apiVersion: '2026-10-01' })
+	const schema = useSchema()
+	const currentUser = useCurrentUser()
+	const grantsStore = useGrantsStore()
+	const renameController = useMemo(() => {
+		try {
+			return createFolderRenameController(
+				{
+					routes: runtime.routes,
+					authorize: createFolderRenameAuthorizer({
+						client,
+						schema,
+						currentUser,
+						grantsStore,
+					}),
+				},
+				client,
+			)
+		} catch {
+			return undefined
+		}
+	}, [runtime, client, schema, currentUser, grantsStore])
+	function refreshRenamePending() {
+		try {
+			setRenamePending(!!renameController?.getPending())
+		} catch {
+			setRenamePending(true)
+		}
+	}
+	useEffect(() => {
+		try {
+			setRenamePending(!!renameController?.getPending())
+		} catch {
+			setRenamePending(true)
+		}
+	}, [renameController])
 	const syncRef = useRef<ReturnType<typeof createFolderSyncController> | null>(
 		null,
 	)
@@ -111,6 +151,12 @@ export function BrowserStateProvider({
 					setPickerOpen(false)
 					setFolderRemoval(pathname)
 				},
+				showFolderRename: (pathname) => {
+					setPickerOpen(false)
+					setFolderRename(pathname ? { pathname } : {})
+				},
+				renameAvailable: !!renameController,
+				renamePending,
 				showFolderSync: () => {
 					setPickerOpen(false)
 					setSyncOpen(true)
@@ -180,6 +226,22 @@ export function BrowserStateProvider({
 					pathname={folderRemoval}
 					folderSync={folderSync}
 					onClose={() => setFolderRemoval(undefined)}
+				/>
+			)}
+			{folderRename && renameController && (
+				<FolderRenameDialog
+					controller={renameController}
+					{...(folderRename.pathname
+						? { pathname: folderRename.pathname }
+						: {})}
+					onClose={() => {
+						setFolderRename(undefined)
+						refreshRenamePending()
+					}}
+					onSettled={() => {
+						dataStore.refresh()
+						refreshRenamePending()
+					}}
 				/>
 			)}
 			{syncOpen && (
