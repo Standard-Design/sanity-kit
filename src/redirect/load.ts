@@ -33,8 +33,7 @@ export interface RedirectReadClient {
 	}
 }
 
-export type RedirectLoadResult =
-	| { readonly ok: true; readonly value: RedirectSnapshot }
+export type RedirectLoadFailure =
 	| {
 			readonly ok: false
 			readonly reason: 'aborted' | 'request-failed' | 'invalid-response'
@@ -45,6 +44,43 @@ export type RedirectLoadResult =
 			readonly snapshotReason: RedirectSnapshotReason
 			readonly recordId?: string
 	  }
+
+export type RedirectLoadResult =
+	{ readonly ok: true; readonly value: RedirectSnapshot } | RedirectLoadFailure
+
+/** JSON data suitable for storage; never cache the compiled lookup itself. */
+export interface RedirectSnapshotData {
+	readonly perspective: 'published'
+	readonly complete: true
+	readonly records: readonly Record<string, string | number | boolean | null>[]
+}
+
+export const REDIRECT_API_VERSION = '2026-10-01'
+
+/** Capture trusted policy once so asynchronous reads cannot observe later edits. */
+export function captureRedirectPolicy(
+	options: RedirectSnapshotOptions,
+): RedirectSnapshotOptions {
+	compileRedirectSnapshot(
+		{ perspective: 'published', complete: true, records: [] },
+		options,
+	)
+	return {
+		destinations:
+			options.destinations === 'unverified'
+				? 'unverified'
+				: [...options.destinations],
+		...(options.reservedPaths
+			? { reservedPaths: [...options.reservedPaths] }
+			: {}),
+		...(options.reservedPathPrefixes
+			? { reservedPathPrefixes: [...options.reservedPathPrefixes] }
+			: {}),
+		...(options.occupiedPaths
+			? { occupiedPaths: [...options.occupiedPaths] }
+			: {}),
+	}
+}
 
 // Include disabled history in the same bound as the compiler. Fetch one extra
 // row so an oversized dataset cannot become an apparently complete small snapshot.
@@ -69,41 +105,33 @@ export async function loadRedirectSnapshot(
 	client: RedirectReadClient,
 	options: RedirectLoadOptions,
 ): Promise<RedirectLoadResult> {
-	// Reuse the compiler's configuration checks before copying caller arrays.
-	// The empty input is only validation; it is never returned as a fallback.
-	compileRedirectSnapshot(
-		{
-			perspective: 'published',
-			complete: true,
-			records: [],
-		},
-		options,
-	)
-	const policy: RedirectSnapshotOptions = {
-		destinations:
-			options.destinations === 'unverified'
-				? 'unverified'
-				: [...options.destinations],
-		...(options.reservedPaths
-			? { reservedPaths: [...options.reservedPaths] }
-			: {}),
-		...(options.reservedPathPrefixes
-			? { reservedPathPrefixes: [...options.reservedPathPrefixes] }
-			: {}),
-		...(options.occupiedPaths
-			? { occupiedPaths: [...options.occupiedPaths] }
-			: {}),
-	}
+	const policy = captureRedirectPolicy(options)
+	const result = await loadRedirectData(client, {
+		...policy,
+		...(options.signal ? { signal: options.signal } : {}),
+	})
+	if (!result.ok) return result
+	// loadRedirectData already checked this value under the captured policy.
+	const compiled = compileRedirectSnapshot(result.value, policy)
+	if (!compiled.ok)
+		throw new Error('Validated redirect data could not be compiled')
+	return compiled
+}
+
+/** Read, validate, and copy raw data before a cache adapter may store it. */
+export async function loadRedirectData(
+	client: RedirectReadClient,
+	options: RedirectLoadOptions,
+): Promise<
+	| { readonly ok: true; readonly value: RedirectSnapshotData }
+	| RedirectLoadFailure
+> {
+	const policy = captureRedirectPolicy(options)
 	const { signal } = options
 	if (signal?.aborted) return { ok: false, reason: 'aborted' }
 	// withConfig clones the SDK client: the app retains its own preview settings,
 	// credentials, project and dataset. This loader never chooses a tenant for it.
-	const source = client.withConfig({
-		apiVersion: '2026-10-01',
-		perspective: 'published',
-		useCdn: false,
-		stega: false,
-	})
+
 	let rows: unknown
 	// SDK declarations expose cache only with Next's RequestInit augmentation,
 	// but its shared transport forwards it to fetch in every environment. Keep
@@ -119,6 +147,12 @@ export async function loadRedirectSnapshot(
 		...(signal ? { signal } : {}),
 	} as FilteredResponseQueryOptions
 	try {
+		const source = client.withConfig({
+			apiVersion: REDIRECT_API_VERSION,
+			perspective: 'published',
+			useCdn: false,
+			stega: false,
+		})
 		rows = await source.fetch(redirectQuery, {}, fetchOptions)
 	} catch {
 		return { ok: false, reason: signal?.aborted ? 'aborted' : 'request-failed' }
@@ -136,7 +170,18 @@ export async function loadRedirectSnapshot(
 		},
 		policy,
 	)
-	if (result.ok) return result
+	if (result.ok)
+		return {
+			ok: true,
+			value: {
+				perspective: 'published',
+				complete: true,
+				// Validation allows only own primitive fields. Copy to detach the transport.
+				records: (rows as RedirectSnapshotData['records']).map((row) => ({
+					...row,
+				})),
+			},
+		}
 	return {
 		ok: false,
 		reason: 'invalid-snapshot',

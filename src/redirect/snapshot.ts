@@ -1,6 +1,6 @@
 /**
- * Private, pure redirect foundation. A later loader will supply one complete
- * published snapshot; a later router adapter will decide when lookup is allowed.
+ * Private, pure redirect foundation. load.ts supplies one complete published
+ * snapshot; request.ts decides when a frontend request may use the lookup.
  * This module validates and matches data only. See docs/redirects.md.
  */
 import { pagePathname } from '../url/registry.js'

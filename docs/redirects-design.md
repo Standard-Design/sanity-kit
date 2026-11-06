@@ -462,3 +462,14 @@ The notice explains this implementation limitation and suggests retaining the
 live URL or completing the planned release before retrying. Removing a page from
 a release is an option only when its inclusion is no longer needed, not a
 recommended shortcut around the block.
+
+## Private request/cache implementation checkpoint
+
+The first request/cache slice now implements the plain HTTP decision boundary,
+validated raw snapshot caching, scoped keys, and an explicit invalidation hook.
+See [the redirect subsystem guide](redirects.md#handling-a-website-request) for
+its private API and responsibilities. The optional adapter key is a partition
+appended to the kit's scope, not a replacement for project/dataset/policy
+isolation. Framework-specific React Router handling, concrete cache backends,
+verified activation after a content commit, and live consumer acceptance remain
+future work. This checkpoint does not make the internal helpers public exports.
