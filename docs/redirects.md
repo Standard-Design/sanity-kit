@@ -3,7 +3,9 @@
 Status: the private snapshot foundation was approved on October 31, 2026. The
 private Sanity loader described below is also approved. The private request and
 consumer-cache boundary is approved. Native Studio draft editing and guarded redirect publishing/retirement are implemented for review. This is
-not a public package entry point or an installed website redirect system.
+not a public package entry point. A private React Router middleware adapter is now
+implemented and transport-tested; a consumer must install it to enable redirects
+on its website.
 A separate private [Studio publication integration](url-field.md#editing-published-pages)
 can now create a redirect with a single-page URL change. The names, record shape, and bounds below describe
 these internal slices; they are not a public API contract. The broader
@@ -21,7 +23,8 @@ same checks. A separate request helper now decides when to check those rules,
 optionally obtains them through the app's cache, and can produce a plain HTTP
 redirect response. None of these helpers creates or edits rules or moves pages.
 The separate publication integration owns generated-rule creation and reviewed
-destination updates when a page moves again. The private management integration now reviews manual redirect publishing and retirement. Framework-specific request integration remains later work.
+destination updates when a page moves again. The private management integration now reviews manual redirect publishing and retirement. The React Router adapter below connects the same request helper to document loads
+and client-navigation data requests.
 
 ## One complete snapshot for the configured dataset
 
@@ -260,8 +263,84 @@ it where each intended page request is checked and pass a logical page URL.
 React Router data requests need a framework adapter that follows the router's
 redirect response conventions. This helper does not strip `.data` or other
 suffixes: `/article.data` remains a distinct pathname. A root loader alone is not
-proof that every client navigation passes through the check. That integration,
-including document and data-request acceptance, remains a separate slice.
+proof that every client navigation passes through the check. Use the React Router
+adapter below for server-rendered React Router applications.
+
+## React Router request integration
+
+The private `createSanityRedirectMiddleware()` factory in
+`src/react-router/server/redirects.ts` returns a **middleware array**. A consumer
+installs that array on its root route, or spreads it into an existing middleware
+array. This code uses the package's supported React Router 8.4-or-newer API; it is
+not a React Router 7 adapter. It is not exported from the package yet.
+
+The intended configuration looks like this once the integration is made public:
+
+```ts
+// In the consuming app's root route; `sanity` is its server-side kit instance.
+export const middleware = createSanityRedirectMiddleware({
+	kit: sanity,
+	destinations: 'unverified',
+	reservedPathPrefixes: ['/account', '/api'],
+	reservedPaths: ['/preview/enable', '/preview/disable'],
+	queryParameterAllowlist: ['lang'],
+	// cache: appRedirectCache, // Optional, supplied by the consuming app.
+})
+```
+
+`destinations: 'unverified'` explicitly means the request check does not prove that
+each destination currently has a page. The shared compiler still validates paths
+and the redirect graph. Supply a current list of destinations instead if the app
+needs that additional check. Reserved paths protect app-owned routes from being
+redirect sources. These options should agree with the Studio's routing policy.
+The factory copies its policy lists. If those lists change at runtime, construct
+a new middleware array with the updated policy; do not mutate an existing list.
+
+On each GET or HEAD request, the adapter reads `sanity.getContext(request)`.
+A valid preview session bypasses redirects and their cache, **even when Studio's
+selected preview perspective is Published**. This lets editors inspect that
+perspective without being redirected away. A preview query parameter or an
+unsigned cookie cannot enable that bypass. Published rules always come from
+`sanity.publishedClient`. Other request methods continue without a rule lookup.
+
+The middleware uses React Router's normalized `args.url`. The router knows the
+difference between a request for `/article` and the `/article.data` transport
+used to load that page during client navigation. The kit does not guess by
+removing suffixes. It throws React Router's own redirect response, so document
+loads receive an HTTP redirect and data requests receive the router's encoded
+redirect result. It checks before page loaders run, avoiding unnecessary content
+queries when a redirect matches.
+
+A missing redirect continues normal routing. An unreadable or invalid snapshot,
+or a failed or corrupt cache, stops routing with a generic 503 error; an invalid
+request path produces a 400. React Router handles the error through its normal
+error boundary. Private transport details are not shown. Redirects and these
+error responses use `Cache-Control: no-store`. Ordinary app responses keep their
+own caching headers. Aborted requests stop waiting through the existing signal
+handling.
+
+**Placement still matters.** Server middleware runs only when a request reaches
+the React Router server. A root installation checks all matching GET/HEAD routes,
+including app-owned routes: a failed redirect read can therefore block those
+routes too. Prefer a shared CMS parent route when redirects should affect only
+CMS pages. Put preview enable/disable routes outside that scope where possible,
+or reserve them explicitly when installing at the root. Give the CMS route a
+server loader and a catch-all for
+old paths that should remain redirectable. Client-only navigation, routes that
+skip server requests, static files, and separately served endpoints are outside
+this adapter. A root loader alone is not a universal redirect hook. Keep preview
+entry/exit routes reserved, and choose whether other resource routes belong
+outside the CMS middleware or in the reserved policy. The consumer owns this
+route layout; the kit does not install or rewrite routes. See React Router's
+[middleware guide](https://reactrouter.com/how-to/middleware) for server request
+and client-navigation behavior.
+
+`tests/react-router/redirects.test.ts` runs the actual `createRequestHandler`
+transport for document and data requests. It covers signed sessions, a literal
+`.data` page, method/reserved/miss bypasses, failure responses, concurrent request
+isolation, and consumer-cache reuse and invalidation. These are offline transport
+checks, not a claim that a deployed application or concrete cache backend has
+been connected.
 
 ## Optional consumer-owned caching
 
@@ -317,7 +396,11 @@ each active one; this helper does not enumerate another service's keys.
 Invalidation must prevent an **older in-flight load** from filling the cache
 again afterward. A simple delete is insufficient. The adapter can use generation
 checks or another backend-specific coordination mechanism; it also owns
-cross-instance refresh deduplication. The kit does not promise global atomicity.
+cross-instance refresh deduplication. An already-running request may still finish
+with the old snapshot it loaded; the barrier keeps that older load from replacing
+the new cache value for later requests. The kit does not promise global atomicity.
+The request tests exercise a consumer-style generation barrier and finite TTL
+without introducing a package-owned cache backend.
 
 A just-committed Sanity change may not immediately be visible to a new query,
 even with the CDN disabled. When immediate activation matters, the consumer's

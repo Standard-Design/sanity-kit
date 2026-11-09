@@ -267,6 +267,66 @@ describe('consumer-owned redirect cache', () => {
 		expect(io.fetch).toHaveBeenCalledTimes(2)
 	})
 
+	it('supports a consumer generation barrier and finite TTL without a kit-owned cache', async () => {
+		const io = setup()
+		let now = 0
+		let generation = 0
+		const entries = new Map<string, { value: unknown; expiresAt: number }>()
+		// Test-only storage illustrates the adapter contract. Production adapters
+		// own equivalent coordination across their actual processes and storage.
+		const cache: RedirectCache = {
+			getOrLoad: async (key, load) => {
+				const hit = entries.get(key)
+				if (hit && hit.expiresAt > now) return hit.value
+				const startedAtGeneration = generation
+				const value = await load()
+				if (generation === startedAtGeneration)
+					entries.set(key, { value, expiresAt: now + 60_000 })
+				return value
+			},
+			invalidate: (key) => {
+				generation += 1
+				entries.delete(key)
+				return Promise.resolve()
+			},
+		}
+		let finishOldRead: (rows: unknown) => void = () => undefined
+		let readStarted: () => void = () => undefined
+		const started = new Promise<void>((resolve) => {
+			readStarted = resolve
+		})
+		io.fetch.mockImplementationOnce(
+			() =>
+				new Promise((resolve) => {
+					finishOldRead = resolve
+					readStarted()
+				}),
+		)
+		const config = {
+			preview: false,
+			destinations: 'unverified' as const,
+			cache,
+		}
+		const oldRequest = resolveRedirectRequest(io.client, request(), config)
+		await started
+		await invalidateRedirectCache(io.client, config, cache)
+		io.fetch.mockResolvedValue([{ ...rule, destination: '/updated' }])
+		expect(
+			await resolveRedirectRequest(io.client, request(), config),
+		).toMatchObject({ location: '/updated' })
+		finishOldRead([rule])
+		// An already-running caller may finish with its old read. The barrier
+		// protects later calls from that read overwriting the new cache value.
+		expect(await oldRequest).toMatchObject({ location: '/new' })
+		expect(
+			await resolveRedirectRequest(io.client, request(), config),
+		).toMatchObject({ location: '/updated' })
+		expect(io.fetch).toHaveBeenCalledTimes(2)
+		now = 60_000
+		await resolveRedirectRequest(io.client, request(), config)
+		expect(io.fetch).toHaveBeenCalledTimes(3)
+	})
+
 	it('isolates project, dataset, and every validation policy even with identical custom keys', async () => {
 		const io = setup()
 		io.cache.key = () => 'shared'
