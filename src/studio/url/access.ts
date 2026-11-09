@@ -31,6 +31,8 @@ interface Scope {
 	readonly version?: Version
 	readonly id?: string
 	readonly prefix?: string
+	/** All release identities for one configured, non-dotted settings ID. */
+	readonly releaseOf?: string
 }
 const unknown = 'unknown'
 const and = (a: Coverage, b: Coverage): Coverage =>
@@ -58,6 +60,12 @@ function literal(node: ExprNode): unknown {
 function pathCoverage(pattern: string, scope: Scope): Coverage {
 	if (scope.id) return new Path(pattern).matches(scope.id)
 	if (pattern === '**') return true
+	if (scope.releaseOf && pattern.startsWith('versions.*.')) {
+		const base = pattern.slice('versions.*.'.length)
+		// A wildcard release name covers future releases too. A literal release
+		// name would only cover one existing release, not this whole scope.
+		if (base && !base.includes('*')) return base === scope.releaseOf
+	}
 	if (scope.prefix) {
 		// A namespace's descendants may contain more than one path segment.
 		if (pattern.endsWith('.**') && !pattern.slice(0, -3).includes('*')) {
@@ -217,6 +225,38 @@ export function checkRoutingSettingsReadAccess(
 			key: `routing-settings:${id}`,
 			id,
 			label: `Read collection routing settings: ${id}`,
+		})),
+		input,
+	)
+}
+
+/** Whole-version coverage, shared with collection-prefix inventory checks. */
+export function checkDocumentTypeReadAccess(
+	schemaType: string,
+	input: unknown,
+): { readonly ok: boolean; readonly issues: readonly UrlAccessIssue[] } {
+	return checkScopes(
+		(['published', 'drafts', 'releases'] as const).map((version) => ({
+			key: `${schemaType}:${version}`,
+			schemaType,
+			version,
+			label: `Read all ${schemaType} documents — ${version === 'releases' ? 'release versions' : version}`,
+		})),
+		input,
+	)
+}
+
+/** Release settings must remain visible even when their document type is wrong. */
+export function checkRoutingSettingsReleaseReadAccess(
+	ids: readonly string[],
+	input: unknown,
+): { readonly ok: boolean; readonly issues: readonly UrlAccessIssue[] } {
+	return checkScopes(
+		ids.map((id) => ({
+			key: `routing-settings-releases:${id}`,
+			version: 'releases',
+			releaseOf: id,
+			label: `Read all release versions of collection routing settings: ${id}`,
 		})),
 		input,
 	)

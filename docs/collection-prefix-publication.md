@@ -130,8 +130,9 @@ atomic operation.
 
 ## Read access is an integration requirement
 
-**The Studio permission adapter is not implemented in this checkpoint.** The
-reviewer requires a `confirmReadAccess` callback. It must check fresh permissions
+**Read and write permissions are separate requirements.** The reviewer requires
+a `confirmReadAccess` callback. The native read adapter is described in
+[collection-prefix access](collection-prefix-access.md). It must check fresh permissions
 for the specified project and dataset before and after the inventory read.
 Returning a list of visible documents is not proof of access.
 
@@ -147,7 +148,7 @@ Returning a list of visible documents is not proof of access.
 The callback must return an explicit granted, missing, or unverified answer for
 each scope. An empty, incomplete, duplicate, or malformed answer cannot grant
 access. This lower-level contract is an integration requirement, not a default
-role check or a production-ready Studio authorization adapter. It does not prove
+role check or permission to publish. It does not prove
 permission to update settings, edit redirects, publish documents, create
 receipts, or bypass schema `readOnly` rules.
 
@@ -165,7 +166,7 @@ receipt. Fitting the review does not mean a publish request will fit.
 
 ## What remains before editors can publish prefixes
 
-The next implementation must provide the native access and schema authorization
+The next implementation must provide the native schema and write-authorization
 adapter, a clear review dialog, and a bounded atomic operation that publishes the
 reviewed settings together with redirect changes and a confirmation receipt.
 It must preserve unrelated item drafts, guard affected revisions, and recover
