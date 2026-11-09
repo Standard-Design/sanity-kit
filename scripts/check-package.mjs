@@ -164,7 +164,7 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|pages|folders|collection-routing|redirects|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
+			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|url-field|pages|pages-release-plan|collection-prefix-publication|navigator-acceptance|folders|collection-routing|redirects|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
@@ -195,7 +195,11 @@ for (const required of [
 	'docs/image-react.md',
 	'docs/link.md',
 	'docs/url.md',
+	'docs/url-field.md',
 	'docs/pages.md',
+	'docs/pages-release-plan.md',
+	'docs/collection-prefix-publication.md',
+	'docs/navigator-acceptance.md',
 	'docs/folders.md',
 	'docs/collection-routing.md',
 	'docs/redirects.md',
@@ -216,6 +220,35 @@ for (const required of [
 			await readFile(join(root, required), 'utf8'),
 			`Packed guide must match its source: ${required}`,
 		)
+}
+// Check the Markdown in the artifact, not just the working tree. Repository
+// source/test evidence is deliberately not packaged; local guide links are.
+for (const path of contents) {
+	if (!path.endsWith('.md')) continue
+	const markdown = run('tar', ['-xOf', tarball, `package/${path}`], root, true)
+	const base = new URL(path, 'https://sanity-kit-package.invalid/')
+	// Include ordinary inline links and reference-link definitions. Fenced code
+	// examples do not advertise package documents and should not affect closure.
+	const prose = markdown.replace(
+		/^(`{3,}|~{3,})[^\n]*\n[\s\S]*?^\1[^\n]*$/gm,
+		'',
+	)
+	const links = [
+		...prose.matchAll(/\]\(\s*(?:<([^>]+)>|([^\s)]+))/gu),
+		...prose.matchAll(/^ {0,3}\[[^\]]+\]:\s*(?:<([^>]+)>|([^\s]+))/gmu),
+	]
+	for (const match of links) {
+		const target = match[1] ?? match[2]
+		if (!target || target.startsWith('#')) continue
+		const resolved = new URL(target, base)
+		if (resolved.origin !== base.origin) continue
+		const document = decodeURIComponent(resolved.pathname).slice(1)
+		if (!document.startsWith('docs/')) continue
+		assert.ok(
+			contents.has(document),
+			`Broken packed guide link: ${path} -> ${target} (missing ${document})`,
+		)
+	}
 }
 assert.equal(sourceManifest.private, true)
 assert.equal(distManifest.private, false)

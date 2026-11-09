@@ -21,8 +21,9 @@ and dual-perspective URL ownership checks (`1ac90dd`) are committed and pushed.
 Live collection routing (`f51b428`) is also committed and pushed, with passing CI.
 It connects settings to Pages, native locations, URL fields, and the proof website.
 React Router redirect middleware (`783dfe9`) and navigator focus/label fixes
-(`3cb9acb`) are now committed and pushed. Prefix publishing remains the next
-collection workflow.
+(`3cb9acb`) are now committed and pushed. The collection-prefix planning
+checkpoint (`a922c54`) is committed and pushed too. Prefix publishing remains the
+next collection workflow.
 
 ## Parallel tracks
 
@@ -45,14 +46,16 @@ checks each completed result, then stages one slice at a time for approval.
 Other completed work stays unstaged until its turn. No track commits or pushes
 without approval.
 
-The next review is the private, read-only
-[collection-prefix planner](collection-prefix-publication.md). It prepares URL
-and redirect changes and rechecks the evidence, but does not write settings or
-enable Publish. Its native permission adapter, guarded writer, recovery, and
-Studio dialog remain later checkpoints. Initial settings publication and
-same-prefix settings edits also need explicit handling before that workflow is
-complete. Navigator browser performance and extreme narrow-layout checks remain
-recorded in the [acceptance guide](navigator-acceptance.md).
+The approved private, read-only
+[collection-prefix planner](collection-prefix-publication.md) prepares URL and
+redirect changes and rechecks the evidence. It does not write settings or enable
+Publish. The next parallel round develops its native read-permission adapter and
+guarded writer/recovery core while auditing consumer APIs and package contents.
+The Studio dialog and integration follow those foundations. Initial settings
+publication and same-prefix settings edits also need explicit handling before
+that workflow is complete. Navigator browser performance and extreme
+narrow-layout checks remain recorded in the
+[acceptance guide](navigator-acceptance.md).
 
 The standalone proof website will not gain a perspective selector in this round.
 Use Studio's existing Drafts/Published selector for acceptance. Public API and
