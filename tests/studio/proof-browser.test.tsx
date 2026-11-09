@@ -1126,6 +1126,65 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(button('Expand About')).toBeTruthy()
 		expect(native.navigate).not.toHaveBeenCalled()
 	})
+	it.each(['sidebar', 'picker'])(
+		'keeps keyboard focus when entering and leaving a collection in the %s',
+		async (surface) => {
+			collectionFixture(70)
+			await render()
+			if (surface === 'picker') {
+				await click('Toggle navigator')
+				await click('Choose page')
+			}
+			act(() => button('Browse all posts').focus())
+			await click('Browse all posts')
+			if (surface === 'picker') {
+				// The real focus lock already repairs focus inside the replacement
+				// header. Do not fight its normal choice of the first control.
+				expect(document.activeElement).toBe(button('Back to pages'))
+			} else {
+				expect(document.activeElement?.getAttribute('role')).toBe('heading')
+				expect(document.activeElement?.textContent).toBe('Journal')
+				expect(document.activeElement?.getAttribute('tabindex')).toBe('-1')
+			}
+			act(() => button('Back to pages').focus())
+			await click('Back to pages')
+			if (surface === 'picker') {
+				expect(document.activeElement).toBe(button('Create page'))
+			} else {
+				expect(document.activeElement?.getAttribute('role')).toBe('heading')
+				expect(document.activeElement?.textContent).toBe('Pages')
+			}
+			expect(native.navigate).not.toHaveBeenCalled()
+		},
+	)
+	it('does not steal outside focus when the collection view changes', async () => {
+		collectionFixture(1)
+		await render()
+		act(() => button('Native refresh').focus())
+		await click('Browse all posts')
+		expect(document.activeElement).toBe(button('Native refresh'))
+	})
+	it('keeps collection rendering bounded with 5,000 items and searches beyond loaded rows', async () => {
+		collectionFixture(5_000)
+		await render()
+		const itemRows = () =>
+			document.querySelectorAll('button[aria-label^="Post "]')
+		expect(itemRows()).toHaveLength(5)
+		expect(button('Browse all posts').getAttribute('aria-label')).toBe(
+			'Browse all posts, 5000 total',
+		)
+		await click('Browse all posts')
+		expect(itemRows()).toHaveLength(50)
+		await click('Load more items')
+		expect(itemRows()).toHaveLength(100)
+		fillSearch('post-4999')
+		expect(itemRows()).toHaveLength(0)
+		await act(async () => {
+			await new Promise((resolve) => setTimeout(resolve, 250))
+		})
+		expect(itemRows()).toHaveLength(1)
+		expect(button('Post 4999 · /journal/post-4999')).toBeTruthy()
+	})
 	it('loads another collection batch when scrolling near the bottom', async () => {
 		collectionFixture(70)
 		await render()

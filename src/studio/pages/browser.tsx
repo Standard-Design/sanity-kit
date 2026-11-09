@@ -17,14 +17,51 @@ import { TooltipButton } from './tooltip.js'
 
 export function PagesBrowser({ fitContent = false }: { fitContent?: boolean }) {
 	const { state } = useBrowserState()
-	return state.collection ? (
-		<CollectionBrowser
-			key={state.collection}
-			name={state.collection}
-			fitContent={fitContent}
-		/>
-	) : (
-		<PageTreeBrowser fitContent={fitContent} />
+	const container = useRef<HTMLDivElement>(null)
+	const focused = useRef<HTMLElement | null>(null)
+	const previousCollection = useRef(state.collection)
+	useLayoutEffect(() => {
+		if (previousCollection.current === state.collection) return
+		previousCollection.current = state.collection
+		// Browse all and Back replace the focused row. Give keyboard users the
+		// new list's heading as a starting point, without adding another Tab stop
+		// or moving focus away from an editor/control outside this browser.
+		// If the modal picker already restored focus, keep its native choice.
+		if (
+			focused.current &&
+			!focused.current.isConnected &&
+			document.activeElement === document.body
+		)
+			container.current
+				?.querySelector<HTMLElement>('[data-pages-view-heading]')
+				?.focus({ preventScroll: true })
+	}, [state.collection])
+	return (
+		<Flex
+			ref={container}
+			direction="column"
+			style={{ height: fitContent ? 'auto' : '100%', minHeight: 0 }}
+			onFocusCapture={(event) => {
+				focused.current = event.target
+			}}
+			onBlurCapture={(event) => {
+				if (
+					event.relatedTarget instanceof Node &&
+					!event.currentTarget.contains(event.relatedTarget)
+				)
+					focused.current = null
+			}}
+		>
+			{state.collection ? (
+				<CollectionBrowser
+					key={state.collection}
+					name={state.collection}
+					fitContent={fitContent}
+				/>
+			) : (
+				<PageTreeBrowser fitContent={fitContent} />
+			)}
+		</Flex>
 	)
 }
 

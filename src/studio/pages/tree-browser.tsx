@@ -106,10 +106,12 @@ function RecentItems({ node }: { node: NavigationCollection }) {
 				}
 			>
 				<Flex align="center" justify="space-between" gap={2}>
-					<Text size={1} weight="medium">
-						{browseTitle}
-					</Text>
-					<Flex align="center" gap={2}>
+					<Box flex={1} style={{ minWidth: 0 }}>
+						<Text size={1} weight="medium" textOverflow="ellipsis">
+							{browseTitle}
+						</Text>
+					</Box>
+					<Flex align="center" gap={2} style={{ flexShrink: 0 }}>
 						{hasTotal && (
 							<Text size={1} muted aria-hidden="true">
 								{data.total}
@@ -305,9 +307,22 @@ export function TreeRows({
 									<span
 										style={{ display: 'flex', alignItems: 'center', gap: 8 }}
 									>
-										{open ? <ChevronDownIcon /> : <ChevronRightIcon />}
-										<Icon />
-										{title}
+										<span style={{ display: 'flex', flexShrink: 0 }}>
+											{open ? <ChevronDownIcon /> : <ChevronRightIcon />}
+										</span>
+										<span style={{ display: 'flex', flexShrink: 0 }}>
+											<Icon />
+										</span>
+										<span
+											style={{
+												minWidth: 0,
+												overflow: 'hidden',
+												textOverflow: 'ellipsis',
+												whiteSpace: 'nowrap',
+											}}
+										>
+											{title}
+										</span>
 									</span>
 								</Text>
 							</Card>

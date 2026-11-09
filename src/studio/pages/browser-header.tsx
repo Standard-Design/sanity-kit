@@ -33,7 +33,11 @@ export function BrowserHeader({
 					flex={1}
 					padding={2}
 					paddingLeft={backButton ? 1 : 2}
-					style={{ minWidth: 0 }}
+					role="heading"
+					aria-level={2}
+					tabIndex={-1}
+					data-pages-view-heading=""
+					style={{ minWidth: 0, outline: 'none' }}
 				>
 					<Text
 						size={1}
