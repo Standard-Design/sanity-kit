@@ -18,18 +18,19 @@ rename writing and recovery slice (`148827e`) is also committed and pushed.
 Shared collection routing sessions (`48e6adb`) and the plain-text URL input
 option (`4bc5f53`) are also committed and pushed. Folder rename UI (`2627b13`)
 and dual-perspective URL ownership checks (`1ac90dd`) are committed and pushed.
-The current review slice connects collection settings to Pages, native locations,
-URL fields, and the proof website. Prefix publishing remains the next collection
-workflow.
+Live collection routing (`f51b428`) is also committed and pushed, with passing CI.
+It connects settings to Pages, native locations, URL fields, and the proof website.
+React Router redirect middleware (`783dfe9`) and navigator focus/label fixes
+(`3cb9acb`) are now committed and pushed. Prefix publishing remains the next
+collection workflow.
 
 ## Parallel tracks
 
-| Track       | Next work                                                        | Follow-up work                                                                  |
-| ----------- | ---------------------------------------------------------------- | ------------------------------------------------------------------------------- |
-| Folders     | Reviewed folder renames, including affected pages and redirects  | Bulk-move recovery and integration acceptance                                   |
-| Collections | Connect settings to Pages, URL fields, and preview               | Review and publish prefix changes                                               |
-| Redirects   | Native redirect management: find, create, edit, and retire rules | Consumer request integration and cache refresh acceptance                       |
-| Integration | Coordinate shared bulk-change contracts and review each slice    | Navigator polish, public exports, consumer installation, and release acceptance |
+| Track                           | Current work                                                                                      | Review boundary                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Collection-prefix publishing    | Plan affected URLs and redirects, then add guarded writing and the publish review                 | Keep native settings publishing blocked until the full workflow is safe          |
+| Frontend redirects and caching  | Verify actual request handling, authenticated preview bypass, cache refresh, and failure behavior | The consumer owns storage and infrastructure; the kit supplies reusable behavior |
+| Navigator acceptance and polish | Check keyboard use, narrow layouts, loading/error states, and larger collections                  | Fix observed problems without changing the approved visual design                |
 
 Implementation tracks use isolated checkouts or explicitly assigned files.
 Completed work receives integration checks and a plain-language review in the
@@ -37,15 +38,33 @@ main checkout. A completed
 agent task is not permission to commit or publish it. Each slice still needs the
 user's commit approval.
 
-Collection navigation and settings resolution can proceed alongside folder-move
-planning and redirect management. Folder renames and collection-prefix publishing
-must agree on the shared bulk-change rules below before implementing writes.
+The November 9 round runs these three tracks together, with separate file
+ownership. Each track can produce more than one reviewable slice; a planning
+checkpoint does not enable publishing by itself. The coordinator integrates and
+checks each completed result, then stages one slice at a time for approval.
+Other completed work stays unstaged until its turn. No track commits or pushes
+without approval.
 
-## Current parallel implementation round
+The next review is the private, read-only
+[collection-prefix planner](collection-prefix-publication.md). It prepares URL
+and redirect changes and rechecks the evidence, but does not write settings or
+enable Publish. Its native permission adapter, guarded writer, recovery, and
+Studio dialog remain later checkpoints. Initial settings publication and
+same-prefix settings edits also need explicit handling before that workflow is
+complete. Navigator browser performance and extreme narrow-layout checks remain
+recorded in the [acceptance guide](navigator-acceptance.md).
 
-Three agents worked on separate source areas. Shared access requirements, fixture
-configuration, integration checks, and staging stay with the coordinating agent.
-Completed work is reviewed and committed in separate slices.
+The standalone proof website will not gain a perspective selector in this round.
+Use Studio's existing Drafts/Published selector for acceptance. Public API and
+documentation work accompanies the tracks, but final exports wait for the
+publishing contracts to settle. Final release acceptance follows integration of
+all three tracks.
+
+## Completed parallel foundation round
+
+The earlier three-agent round established the foundations below. Shared access
+requirements, fixture configuration, integration checks, and staging remain with
+the coordinating agent.
 
 - **Redirects:** publish or retire a reviewed redirect draft, with fresh graph,
   access, version, and size checks. Save a receipt with the write so a lost
@@ -57,19 +76,18 @@ Completed work is reviewed and committed in separate slices.
 - **Folders:** turn the approved rename plan into a bounded atomic write that
   changes only folder paths, page URL fields, and affected redirect destinations.
   Preserve unrelated draft content. The writer and recovery are implemented and
-  tested. The navigator now exposes Rename in the current review slice, with
+  tested. The navigator now exposes Rename, with
   explicit live-impact review, native write permissions, and recovery notices.
   A live test preserved distinct draft/published bodies while moving both URLs
   and updating redirects.
 - **Collections:** share one settings-reading context between future Pages,
   URL-field, and preview integrations. Published and draft settings must stay
   separate. Loading or invalid settings must not silently use a made-up prefix.
-  The private reading/session boundary is implemented and tested. A separate
-  review slice now checks both published and draft URL spaces, including active
-  redirects, using fresh settings and access evidence. Live Pages,
-  input, native locations, and proof preview integration are now being reviewed
-  together, including fresh guards for URL-changing actions. Reviewed collection
-  prefix publication remains separate.
+  The private reading/session boundary is implemented and tested. A committed
+  slice checks both published and draft URL spaces, including active redirects,
+  using fresh settings and access evidence. Live Pages, input, native locations,
+  and proof preview integration are also committed, including fresh guards for
+  URL-changing actions. Reviewed collection-prefix publishing remains separate.
 
 The folder and redirect writers share the policy below, but their operations
 remain distinct: publishing a redirect intentionally publishes that draft;
