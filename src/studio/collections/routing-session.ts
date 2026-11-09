@@ -1,8 +1,8 @@
 /**
  * Private read boundary for settings-aware Studio routing. One store belongs to
  * one tool, client and immutable configuration. Its published and draft sessions
- * never share resolved URLs. This does not activate routes, edit documents, or
- * grant permission to publish; the current Pages plugin does not install it yet.
+ * never share resolved URLs. Pages and standalone URL fields subscribe through
+ * use-routing.ts. Loading a view never grants permission to publish or mutate.
  * @see docs/collection-routing.md
  */
 import {
@@ -93,7 +93,7 @@ export function collectionRoutingPerspective(
 }
 
 /**
- * Metadata for the future loading/error shell. Settings remain reachable even
+ * Metadata for the loading/error shell. Settings remain reachable even
  * when no URL can be resolved. These are editor targets, never fallback routes.
  */
 function settingsDocuments(config: CollectionRoutingConfig) {

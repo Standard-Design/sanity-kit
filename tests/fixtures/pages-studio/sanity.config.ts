@@ -2,6 +2,7 @@ import { defineConfig } from 'sanity'
 import { structureTool } from 'sanity/structure'
 import { pagesTool } from '../../../src/studio/index.js'
 import { proofRoutes } from './routes.js'
+import { proofLiveCollectionRouting } from './collection-routes.js'
 import { schemaTypes } from './schema.js'
 import {
 	withCollectionRoutingSettings,
@@ -74,6 +75,7 @@ export default defineConfig(
 					}),
 					pagesTool({
 						...proofRoutes,
+						collectionRouting: proofLiveCollectionRouting,
 						name: 'pages-proof',
 						collectionUi: {
 							journal: {
@@ -124,7 +126,11 @@ export default defineConfig(
 					}),
 				],
 			},
-			{ routes: proofRoutes, redirectManagement: 'publish' },
+			{
+				routes: proofRoutes,
+				collectionRouting: proofLiveCollectionRouting,
+				redirectManagement: 'publish',
+			},
 		),
 		{ routes: proofCollectionSettingsRoutes },
 	),

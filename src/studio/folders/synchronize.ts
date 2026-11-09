@@ -2,7 +2,7 @@
  * The Pages tool's checked folder creation and synchronization boundary. It adds
  * organizational folders and removes empty ones without changing a page URL.
  * Scheduling and feedback belong to the Pages coordinator; this service handles fresh access evidence and uncertain
- * writes. Keep one instance for the tool's lifetime. See docs/folders.md.
+ * writes. Share its operation state when route settings replace a service. See docs/folders.md.
  */
 import {
 	createPagesRegistry,
@@ -28,6 +28,21 @@ const blocked = (reason: string): FolderSyncResult => ({
 })
 
 /**
+ * Owned by one mounted tool and dataset, not one routing snapshot. A fresh
+ * settings snapshot may replace the service while an earlier request is still
+ * unresolved; its write lock and exact pending identities must survive that.
+ * This is deliberately not a global cache or persisted routing configuration.
+ */
+export function createFolderSynchronizationState() {
+	return {
+		scope: undefined as string | undefined,
+		busy: false,
+		uncertain: [] as readonly FolderRecord[],
+		uncertainRemoval: [] as readonly FolderRecord[],
+	}
+}
+
+/**
  * Never derives permission or completeness from the visible navigator. Every run
  * checks the current account's read grants, then lets the existing writer load a
  * complete raw inventory and make one revision-guarded registry write if needed.
@@ -37,6 +52,10 @@ const blocked = (reason: string): FolderSyncResult => ({
 export function createFolderSynchronizer(
 	routes: PagesRouteConfig,
 	client: PagesClient,
+	options: {
+		readonly beforeRemove?: (signal?: AbortSignal) => Promise<boolean>
+		readonly state?: ReturnType<typeof createFolderSynchronizationState>
+	} = {},
 ) {
 	const registry = createPagesRegistry(routes)
 	// Copy the route scope once, including nested collection configuration. A
@@ -53,7 +72,13 @@ export function createFolderSynchronizer(
 		excludePaths: registry.excludePaths,
 		reservedPathPrefixes: registry.reservedPathPrefixes,
 	}
-	const writer = createFolderWriter({ routes: captured }, client)
+	const writer = createFolderWriter(
+		{
+			routes: captured,
+			...(options.beforeRemove ? { beforeRemove: options.beforeRemove } : {}),
+		},
+		client,
+	)
 	const load = createFolderLoader({ routes: captured }, client)
 	const source = client.withConfig({
 		apiVersion: '2026-10-01',
@@ -71,9 +96,11 @@ export function createFolderSynchronizer(
 		throw new Error(
 			'Folder synchronization needs a concrete project and dataset.',
 		)
-	let busy = false
-	let uncertain: readonly FolderRecord[] = []
-	let uncertainRemoval: readonly FolderRecord[] = []
+	const state = options.state ?? createFolderSynchronizationState()
+	const scope = JSON.stringify([projectId, dataset])
+	if (state.scope && state.scope !== scope)
+		throw new Error('Folder synchronization state belongs to another dataset.')
+	state.scope = scope
 
 	async function run(
 		operation: 'synchronize' | 'create' | 'remove',
@@ -81,8 +108,8 @@ export function createFolderSynchronizer(
 		pathname?: string,
 	): Promise<FolderSyncResult> {
 		if (signal?.aborted) return blocked('aborted')
-		if (busy) return blocked('busy')
-		busy = true
+		if (state.busy) return blocked('busy')
+		state.busy = true
 		try {
 			let grants: unknown
 			try {
@@ -105,7 +132,7 @@ export function createFolderSynchronizer(
 					accessIssues: access.issues,
 				}
 
-			if (uncertain.length || uncertainRemoval.length) {
+			if (state.uncertain.length || state.uncertainRemoval.length) {
 				const loaded = await load(
 					{ readAccess: 'all-registered-versions' },
 					signal,
@@ -115,7 +142,7 @@ export function createFolderSynchronizer(
 				// A missing key could mean a stale read, not a failed transaction.
 				// Matching paths alone could belong to another editor's operation.
 				if (
-					!uncertain.every((pending) =>
+					!state.uncertain.every((pending) =>
 						saved.some(
 							(folder) =>
 								folder._key === pending._key &&
@@ -128,7 +155,7 @@ export function createFolderSynchronizer(
 				// If a replacement now occupies the same path, never remove it as
 				// an automatic retry of the previous editor-confirmed operation.
 				if (
-					uncertainRemoval.some((pending) =>
+					state.uncertainRemoval.some((pending) =>
 						saved.some(
 							(folder) =>
 								folder._key === pending._key ||
@@ -137,11 +164,11 @@ export function createFolderSynchronizer(
 					)
 				)
 					return blocked('outcome-unknown')
-				const removedRequested = uncertainRemoval.some(
+				const removedRequested = state.uncertainRemoval.some(
 					(folder) => folder.pathname === pathname,
 				)
-				uncertain = []
-				uncertainRemoval = []
+				state.uncertain = []
+				state.uncertainRemoval = []
 				if (operation === 'remove' && removedRequested)
 					return { status: 'synced', count: 1 }
 			}
@@ -159,8 +186,8 @@ export function createFolderSynchronizer(
 			// Do not discard this result when the signal becomes aborted. The write
 			// may already have committed; retain uncertainty or the acknowledgment.
 			if (result.status === 'outcome-unknown') {
-				uncertain = result.added.map((folder) => ({ ...folder }))
-				uncertainRemoval = (result.removed ?? []).map((folder) => ({
+				state.uncertain = result.added.map((folder) => ({ ...folder }))
+				state.uncertainRemoval = (result.removed ?? []).map((folder) => ({
 					...folder,
 				}))
 				return blocked('outcome-unknown')
@@ -177,7 +204,7 @@ export function createFolderSynchronizer(
 				}
 			return blocked(result.reason)
 		} finally {
-			busy = false
+			state.busy = false
 		}
 	}
 

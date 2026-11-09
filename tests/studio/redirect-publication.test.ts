@@ -551,3 +551,87 @@ it('uses native publish reference-strengthening behavior in custom fields', asyn
 		{ nested: { _type: 'reference', _ref: 'optional', _weak: true } },
 	])
 })
+
+describe('settings-aware redirect publishing', () => {
+	const configuration = {
+		pages: routes.pages,
+		reservedPathPrefixes: routes.reservedPathPrefixes,
+		collections: [
+			{
+				name: 'journal',
+				title: 'Journal',
+				settingsDocumentId: 'journal-settings',
+				index: { schemaType: 'page', pathname: '/insights' },
+				items: [{ schemaType: 'post', slugField: 'slug.current' }],
+			},
+		],
+	}
+	const active = {
+		...routes,
+		collections: [
+			{ ...configuration.collections[0]!, routePrefix: '/journal' },
+		],
+	}
+	const settings = (id: string, prefix = '/journal') => ({
+		_id: id,
+		_rev: id,
+		_type: 'sanityKitCollectionRoute',
+		collection: 'journal',
+		prefix: { _type: 'slug', current: prefix },
+	})
+	it('uses the current agreed prefix for guarded redirect publishing', async () => {
+		const test = setup([settings('journal-settings')])
+		const controller = createRedirectPublicationController(
+			active,
+			test.source as unknown as PagesClient,
+			{ collectionRouting: configuration },
+		)
+		const reviewed = await controller.review(test.request)
+		if (reviewed.status !== 'ready') throw new Error(JSON.stringify(reviewed))
+		expect(
+			await controller.publish(reviewed.review, { isCurrent: () => true }),
+		).toEqual({ status: 'published' })
+	})
+	it('blocks redirect writes while a prefix has unpublished changes', async () => {
+		const test = setup([
+			settings('journal-settings'),
+			settings('drafts.journal-settings', '/blog'),
+		])
+		const controller = createRedirectPublicationController(
+			active,
+			test.source as unknown as PagesClient,
+			{ collectionRouting: configuration },
+		)
+		expect(await controller.review(test.request)).toMatchObject({
+			status: 'blocked',
+			reason: 'collection-prefix-unpublished',
+		})
+		expect(test.mutate).not.toHaveBeenCalled()
+	})
+	it('rejects a reviewed redirect when settings change before the final dispatch', async () => {
+		const test = setup([settings('journal-settings')])
+		const controller = createRedirectPublicationController(
+			active,
+			test.source as unknown as PagesClient,
+			{ collectionRouting: configuration },
+		)
+		const reviewed = await controller.review(test.request)
+		if (reviewed.status !== 'ready') throw new Error(JSON.stringify(reviewed))
+		let changed = false
+		expect(
+			await controller.publish(reviewed.review, {
+				isCurrent: () => {
+					if (!changed) {
+						changed = true
+						test.rows.push(settings('drafts.journal-settings', '/blog'))
+					}
+					return true
+				},
+			}),
+		).toMatchObject({
+			status: 'blocked',
+			reason: 'collection-prefix-unpublished',
+		})
+		expect(test.mutate).not.toHaveBeenCalled()
+	})
+})

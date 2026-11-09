@@ -5,6 +5,7 @@
  * the publication integration. This controller never changes a live URL; the
  * paired Publish action coordinates that change and any redirect later.
  */
+import { collectionRouteMeaning } from '../collections/routing-guard.js'
 import { getPublishedId } from 'sanity'
 import { createUrlAuthoring, type UrlCandidate } from '../../url/authoring.js'
 import {
@@ -18,6 +19,8 @@ import { createFolderWriter } from '../folders/write.js'
 import type { PagesClient } from '../pages/data-source.js'
 import { createUrlConflictChecker } from './conflicts.js'
 import { checkUrlReadAccess, type UrlAccessIssue } from './access.js'
+import type { CollectionRoutingConfig } from '../../url/settings/resolve.js'
+import { createCollectionUrlConflictChecker } from '../collections/url-conflicts.js'
 
 export interface UrlEditDocument extends Record<string, unknown> {
 	readonly _id: string
@@ -32,6 +35,8 @@ export interface UrlEditRequest {
 export interface UrlEditOptions {
 	/** Enable only alongside the kit's URL-aware publication integration. */
 	readonly allowPublishedDrafts?: boolean
+	/** Settings-aware fields check both live and preview URL ownership. */
+	readonly collectionRouting?: CollectionRoutingConfig
 }
 
 export type UrlEditBlocked = {
@@ -87,6 +92,42 @@ export function createUrlEditController(
 	const loadFolders = createFolderLoader({ routes }, client)
 	const writer = createFolderWriter({ routes }, client)
 	const checkConflicts = createUrlConflictChecker(routes, client)
+	const checkCollectionConflicts = options.collectionRouting
+		? createCollectionUrlConflictChecker(options.collectionRouting, client)
+		: undefined
+	async function checkCandidate(
+		document: UrlEditDocument,
+		candidate: UrlCandidate,
+		signal: AbortSignal,
+	): Promise<UrlEditBlocked | undefined> {
+		const request = {
+			schemaType: document._type,
+			storedValue: candidate.storedValue,
+			documentId: document._id,
+		}
+		if (checkCollectionConflicts) {
+			const result = await checkCollectionConflicts(request, signal)
+			if (result.status !== 'checked')
+				return {
+					...blocked(`conflicts-${result.reason}`),
+					...('accessIssues' in result && result.accessIssues
+						? { accessIssues: result.accessIssues }
+						: {}),
+				}
+			if (
+				collectionRouteMeaning(result.routing.drafts.routes) !==
+				collectionRouteMeaning(routes)
+			)
+				return blocked('routing-changed')
+			if (result.published.conflicts.length || result.drafts.conflicts.length)
+				return blocked('url-in-use')
+			return
+		}
+		const result = await checkConflicts(request, signal)
+		if (result.status !== 'checked')
+			return blocked(`conflicts-${result.reason}`)
+		if (result.conflicts.length) return blocked('url-in-use')
+	}
 	const source = client.withConfig({
 		apiVersion: '2026-10-01',
 		useCdn: false,
@@ -292,18 +333,13 @@ export function createUrlEditController(
 				if ('status' in snapshot) return snapshot
 				const reason = versionReason(document, snapshot)
 				if (reason) return blocked(reason)
-				const checked = await checkConflicts(
-					{
-						schemaType: document._type,
-						storedValue: candidate.value.storedValue,
-						documentId: document._id,
-					},
+				const checked = await checkCandidate(
+					document,
+					candidate.value,
 					op.signal,
 				)
 				if (op.stopped()) return blocked('aborted')
-				if (checked.status !== 'checked')
-					return blocked(`conflicts-${checked.reason}`)
-				if (checked.conflicts.length) return blocked('url-in-use')
+				if (checked) return checked
 				const type = registry.types.find(
 					(entry) => entry.schemaType === document._type,
 				)!
@@ -342,18 +378,13 @@ export function createUrlEditController(
 				if ('status' in latest) return latest
 				const changed = versionReason(document, latest)
 				if (changed) return blocked(changed)
-				const finalCheck = await checkConflicts(
-					{
-						schemaType: document._type,
-						storedValue: candidate.value.storedValue,
-						documentId: document._id,
-					},
+				const finalCheck = await checkCandidate(
+					document,
+					candidate.value,
 					op.signal,
 				)
 				if (op.stopped()) return blocked('aborted')
-				if (finalCheck.status !== 'checked')
-					return blocked(`conflicts-${finalCheck.reason}`)
-				if (finalCheck.conflicts.length) return blocked('url-in-use')
+				if (finalCheck) return finalCheck
 				// This still is not a transaction or URL reservation. The input must
 				// reject stale results and honor the latest native read-only state.
 				return { status: 'ready', candidate: candidate.value }

@@ -64,6 +64,7 @@ type PlanFailure = Extract<
 >['reason']
 
 export type FolderWriteResult =
+	| { readonly status: 'blocked'; readonly reason: 'routing-changed' }
 	| {
 			readonly status: 'written'
 			readonly transactionId: string
@@ -94,7 +95,11 @@ const record = (value: unknown): value is Record<string, unknown> =>
  * The registry revision protects concurrent folder writes, not document URLs.
  */
 export function createFolderWriter(
-	options: { readonly routes: PagesRouteConfig },
+	options: {
+		readonly routes: PagesRouteConfig
+		/** Verify mutable routing context around the fresh empty-folder check. */
+		readonly beforeRemove?: (signal?: AbortSignal) => Promise<boolean>
+	},
 	client: FolderWriteClient,
 ) {
 	const planner = createFolderPlanner(options)
@@ -225,6 +230,16 @@ export function createFolderWriter(
 		pathname?: unknown,
 	): Promise<FolderWriteResult> {
 		const signal = request?.signal
+		async function canRemove() {
+			if (operation !== 'remove' || !options.beforeRemove) return true
+			try {
+				return (await options.beforeRemove(signal)) === true && !signal?.aborted
+			} catch {
+				return false
+			}
+		}
+		if (!(await canRemove()))
+			return { status: 'blocked', reason: 'routing-changed' }
 		const snapshot = await load(request, signal)
 		if (snapshot.status !== 'loaded') return snapshot
 		const createKey = () => crypto.randomUUID()
@@ -243,6 +258,10 @@ export function createFolderWriter(
 						)
 					: planner.planCreate(snapshot.snapshot.registry, pathname, createKey)
 		if (!plan.ok) return { status: 'invalid', reason: plan.reason }
+		// A settings draft can change during the inventory read. Do not remove a
+		// folder based on occupancy resolved with a now-obsolete collection prefix.
+		if (!(await canRemove()))
+			return { status: 'blocked', reason: 'routing-changed' }
 		return save(plan.value, signal)
 	}
 

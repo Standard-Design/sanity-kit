@@ -433,13 +433,11 @@ after built-in tools and app reducers. A layout check refuses an unsafe later
 replacement that would restore publishing. This is a Studio workflow guard, not
 a Content Lake access rule; external writers can still bypass Studio validation.
 
-This slice connects saved display names to matching Pages collection labels. It
-does not connect draft URL prefixes to the navigator, URL field, or website preview. The existing private loader and resolver can
-select draft or published prefixes, but those consumers still need to load and
-apply that context. The next dependent slices must add that integration, followed
-by reviewed prefix publishing with affected URLs, redirects, concurrency checks,
-and cache activation. Changing a settings draft alone does not activate a new
-live route or rewrite item slugs.
+The private live integration now connects saved prefixes to Pages and URL fields
+when they receive `collectionRouting`. The proof website loads the same settings
+in its requested perspective. Reviewed prefix publishing, redirects for that
+change, and consumer cache activation remain later work. Changing a settings
+draft alone does not activate a new live route or rewrite item slugs.
 
 ## Collection actions in Pages
 
@@ -504,13 +502,11 @@ initial-value template, so a settings document that has not been saved yet start
 with the correct collection identity. Opening the menu or following the link
 performs no direct dataset mutation. Native editing saves the draft normally.
 
-This access does **not** make Pages settings-aware yet. Pages, URL fields, and the
-proof website still use their supplied fixed route configuration. Draft prefixes
-remain inactive, and prefix publishing stays guarded. Saved display names update
-matching Pages labels independently. A later slice will load
-settings, choose the correct draft/published context, and feed the resolved routes
-to those consumers. There is no silent fallback from unavailable settings to a
-code prefix in the settings resolver.
+Settings access and live routing are separate options. Add `collectionRouting`
+to Pages, fields, and the publishing integration to use saved prefixes. Without
+it, existing fixed-route integrations retain their behavior. With it, unavailable
+settings block routing instead of falling back to the supplied fixed prefix.
+Prefix publishing stays guarded.
 
 ### Reviewing this UI in the proof Studio
 
@@ -522,22 +518,22 @@ A separate **Articles** collection demonstrates the new matched contract. It use
 `kitProofCollectionArticle` slug documents, the new `kitProofArticleRouting`
 settings ID, and two creation templates. Its menu shows **Create article** with a
 submenu and **Settings**; **Browse all articles** has the same choices behind `+`.
-Articles demonstrates an editable default name and a locked `/articles` prefix.
-Its disabled prefix remains visible beside the editable name. Pages and preview
-still use their supplied `/articles` routes until settings resolution is integrated.
+Articles demonstrates an editable default name and an editable prefix, initially
+`/articles`. Pages, its URL field, and the proof website load that prefix in the
+requested perspective. A draft prefix can differ from the published prefix.
 No existing Journal content or settings identity needs to be migrated.
 
 ## Private Studio routing sessions
 
-A new private read boundary prepares the next integration step. It is not yet
-installed by `pagesTool`, the URL field, or the proof website. Existing Studio
-behavior and publishing controls are unchanged.
+The private read boundary is installed by Pages and URL fields when
+`collectionRouting` is supplied. The proof website uses the matching server loader.
+Existing fixed-route integrations do not opt into these subscriptions.
 
 For example, a collection can have a published `/articles` prefix and an edited
 `/journal` prefix in its settings draft. The published session must keep returning
 `/articles`, while the draft session can resolve `/journal` for preview. This
-shared source of routing information will let the navigator, URL field, and
-preview agree on which version they are showing when those integrations land.
+shared source of routing information lets the navigator, URL field, and
+preview agree on which version they are showing.
 
 `createCollectionRoutingStore(config, client, options)` belongs to one tool and
 one Sanity client. It snapshots the registration and supplies separate sessions
@@ -555,7 +551,7 @@ one of three states:
   The result gives a reason rather than substituting a default prefix.
 
 The store's separate `settingsDocuments` list contains the configured editor
-identities and labels. A future navigator can therefore keep Settings accessible
+identities and labels. The navigator therefore keeps Settings accessible
 while routing is unavailable. This list does not contain fallback URLs.
 
 Published sessions read only published settings. Draft sessions prefer a saved
@@ -591,16 +587,15 @@ Pages configurations.
 `resolveCollectionPagesRuntime(snapshot, options)` is the matching private Pages
 integration boundary. For a ready snapshot, it builds both the navigation model
 and native Presentation resolvers from the same resolved routes. A changed
-snapshot produces new resolver arrays, which the later Presentation wrapper can
-pass through without remounting the tool. Loading and unavailable snapshots
+snapshot produces new main-document resolver arrays, which the Presentation
+wrapper passes through without remounting the tool. The native document-location
+banner uses a stable Observable resolver backed by the same routing store. Loading and unavailable snapshots
 produce no runtime. Explicit consumer resolver overrides retain their existing
 replacement behavior and remain the consumer's responsibility.
 
-This checkpoint does **not** claim that native Presentation, URL input validation,
-uniqueness checks, or publishing now follow settings changes. Those paths still
-capture fixed route configuration. They must adopt the same routing context
-together before dynamic prefixes become an exposed Pages option. In particular,
-settings reads do not authorize publishing a changed prefix or creating redirects.
+Native Presentation, URL input validation, uniqueness checks, and publishing
+now opt into this context together through `collectionRouting`. Settings reads
+do not authorize publishing a changed prefix or creating redirects.
 
 ## Checking URLs while a collection prefix has a draft
 
@@ -660,12 +655,73 @@ conflicting document, the check stops so the caller can try again with fresh dat
 `createCollectionUrlIsUnique` adapts the same check to Sanity's native slug
 validation. It verifies the registered field path, leaves storage unchanged, and
 throws when the check cannot finish; only a completed check can return true or
-false. It requires no Pages context and is suitable for the later standalone
-field integration.
+false. It requires no Pages context and is installed by the settings-aware
+field factory, including standalone fields.
 
-These helpers are private and not yet installed by the field factory or Publish
-actions. The native Presentation integration, URL field, schema validation, and
-publishing guards must adopt this context together. This slice does not activate
-draft prefixes in the proof Studio, publish settings, create redirects, or
-rewrite collection item slugs. Query/revision rechecks also do not establish a
-database-wide uniqueness lock against concurrent or external writers.
+These helpers remain private. Settings-aware field and Publish integrations use
+them without publishing settings or rewriting collection item slugs. Query and
+revision rechecks do not establish a database-wide uniqueness lock against
+concurrent or external writers.
+
+## Connecting live routing to Studio and the website
+
+The private Studio APIs accept an optional `collectionRouting` configuration.
+Pass the same object to `pagesTool`, `defineSanityUrlField`, and
+`withUrlPublication`. Their ordinary route registration still identifies the
+same document types and stored fields. With live routing enabled, its fixed
+prefixes are never used as a fallback for failed settings reads.
+
+```ts
+pagesTool({ ...routes, collectionRouting, previewUrl })
+defineSanityUrlField({
+	routes,
+	collectionRouting,
+	name: 'slug',
+	options: { source: 'title' },
+})
+withUrlPublication(workspace, { routes, collectionRouting })
+```
+
+These are private source integrations pending public API review. The consuming
+app owns its Studio and website; SanityKit does not provide a hosted Studio.
+
+Pages uses the selected published or draft perspective for navigation and native
+Presentation locations. The URL field edits the draft, so it uses draft routing.
+Native publishing checks live routing separately. A Pages-scoped provider shares
+its store with matching nested consumers. A field in Structure can create the
+same subscription independently; it does not require Pages. Settings refreshes
+replace routing results without deliberately remounting the native editor.
+
+While settings are loading or unavailable, the navigator does not keep offering
+obsolete paths. It shows the loading/error state, a retry where appropriate, and
+links to the configured settings documents. Unsupported release perspectives
+remain unavailable rather than silently becoming drafts. RxJS is an optional
+Studio peer because the native Presentation location API uses Observables.
+
+The website needs its own server read. Load settings with the same perspective
+as the content query, then use the resolved routes for lookup, links, and sitemaps.
+Do not pass a Studio subscription to the server or reuse draft settings in a
+published cache. The proof website demonstrates this with Articles: a saved draft
+prefix of `/stories` changes its draft item URLs, while published requests keep
+using `/articles`. The item still stores only its slug. The independently located
+collection index stays at its own URL.
+
+### Checks before changing URLs
+
+Field validation and draft edits check the candidate against both published and
+draft routing. This catches a page that would collide with either version of a
+collection's URLs. These checks query fresh settings with confirmed read access;
+a React subscription alone is not permission or freshness evidence.
+
+URL-changing publish actions, redirect writes, and folder moves/removal also
+recheck routing before sending their writes. Until reviewed collection-prefix
+publishing is implemented, those operations require published and draft routing
+to agree. A pending prefix change therefore temporarily blocks these operations
+with an explanation. Content-only page publishing can still proceed after its
+own fresh checks; it does not publish the settings draft. Creating folders and
+saving folder metadata do not activate a prefix change.
+
+The checks detect changed settings and refresh stale reviews. They do not create
+a database-wide lock: an unrelated external writer can still change settings or
+create conflicting content after a check. Existing revision checks protect the
+records actually included in each reviewed write.

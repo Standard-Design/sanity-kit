@@ -4,12 +4,62 @@ import {
 	createPagesRegistry,
 	type PagesRouteConfig,
 } from '../../url/registry.js'
+import {
+	createCollectionRouting,
+	type CollectionRoutingConfig,
+} from '../../url/settings/resolve.js'
+
+/** Fixed registration and dynamic settings must describe the same storage. */
+export function assertCollectionRouteRegistration(
+	routes: PagesRouteConfig,
+	settings: CollectionRoutingConfig,
+) {
+	createCollectionRouting(settings)
+	const signature = (config: CollectionRoutingConfig) =>
+		JSON.stringify({
+			types: [
+				...config.pages.map((page) => [
+					page.schemaType,
+					page.pathnameField,
+					'pathname',
+					null,
+					page.titleField ?? 'title',
+				]),
+				...(config.collections ?? []).flatMap((collection) =>
+					collection.items.map((item) => [
+						item.schemaType,
+						'slugField' in item ? item.slugField : item.pathnameField,
+						'slugField' in item ? 'slug' : 'pathname',
+						collection.name,
+						item.titleField ?? 'title',
+					]),
+				),
+			].sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+			collections: (config.collections ?? [])
+				.map((collection) => [
+					collection.name,
+					collection.index.schemaType,
+					collection.index.pathname,
+				])
+				.sort((a, b) => a[0]!.localeCompare(b[0]!)),
+			excludePaths: [...(config.excludePaths ?? [])].sort(),
+			reservedPathPrefixes: [...(config.reservedPathPrefixes ?? [])].sort(),
+		})
+	if (signature(routes) !== signature(settings))
+		throw new Error(
+			'URL collectionRouting must register the same document types, fields, collections, and reserved paths as its routes.',
+		)
+}
 
 const EnabledRoutes = createContext<readonly string[]>([])
 /** Compare checked route meaning, independent of object key or array ordering. */
-export function urlPublicationConfigKey(routes: PagesRouteConfig) {
+export function urlPublicationConfigKey(
+	routes: PagesRouteConfig,
+	collectionRouting?: CollectionRoutingConfig,
+) {
 	const registry = createPagesRegistry(routes)
 	return JSON.stringify({
+		collectionRouting: collectionRouting ?? null,
 		types: [...registry.types]
 			.sort((a, b) => a.schemaType.localeCompare(b.schemaType))
 			.map((type) => ({

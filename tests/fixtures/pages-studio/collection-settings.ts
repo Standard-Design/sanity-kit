@@ -1,11 +1,13 @@
 /**
  * Isolated draft-settings proof. Existing Journal fixtures store full paths;
  * keep them intact while demonstrating the settings-backed, slug-only contract.
- * These routes do not drive Pages or the preview server yet.
+ * Articles share their settings with Pages and the preview website. The legacy
+ * Journal settings example stays separate from the full-path Journal fixtures.
  */
 import { defineField, defineType } from 'sanity'
 import type { CollectionRoutingConfig } from '../../../src/url/settings/resolve.js'
 import { proofRoutes } from './routes.js'
+import { proofLiveCollectionRouting } from './collection-routes.js'
 import { defineSanityUrlField } from '../../../src/studio/url/field.js'
 import { DocumentIcon } from '@sanity/icons/Document'
 
@@ -24,20 +26,9 @@ export const proofCollectionSettingsRoutes: CollectionRoutingConfig = {
 			index: { schemaType: 'kitProofPage', pathname: '/journal' },
 			items: [{ schemaType: 'kitProofSlugPost', slugField: 'slug.current' }],
 		},
-		{
-			name: 'articles',
-			title: 'Articles',
-			displayName: { mode: 'default', value: 'Articles' },
-			settingsDocumentId: 'kitProofArticleRouting',
-			routePrefix: {
-				mode: 'locked',
-				value: '/articles',
-			},
-			index: { schemaType: 'kitProofPage', pathname: '/articles' },
-			items: [
-				{ schemaType: 'kitProofCollectionArticle', slugField: 'slug.current' },
-			],
-		},
+		proofLiveCollectionRouting.collections!.find(
+			(collection) => collection.name === 'articles',
+		)!,
 	],
 }
 
@@ -63,6 +54,7 @@ export const proofCollectionArticle = defineType({
 			name: 'slug',
 			title: 'URL',
 			routes: proofRoutes,
+			collectionRouting: proofLiveCollectionRouting,
 			options: { source: 'title' },
 		}),
 		defineField({ name: 'body', type: 'text' }),

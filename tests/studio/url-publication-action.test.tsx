@@ -11,6 +11,8 @@ import type {
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 const mock = vi.hoisted(() => ({
+	routing: vi.fn<() => unknown>(),
+	nativeCheck: vi.fn(),
 	client: { config: () => ({ projectId: 'project', dataset: 'test' }) },
 	syncing: false,
 	validation: {
@@ -26,6 +28,18 @@ const mock = vi.hoisted(() => ({
 	nativeHandle: vi.fn(),
 	presentation: null as Record<string, string> | null,
 }))
+vi.mock('../../src/studio/collections/use-routing.js', () => ({
+	useCollectionRouting: () => mock.routing(),
+}))
+vi.mock(
+	'../../src/studio/url/native-publication.js',
+	async (importOriginal) => ({
+		...(await importOriginal<
+			typeof import('../../src/studio/url/native-publication.js')
+		>()),
+		checkNativeUrlPublication: mock.nativeCheck,
+	}),
+)
 vi.mock('sanity/presentation', () => ({
 	usePresentationParams: () => mock.presentation,
 }))
@@ -177,6 +191,8 @@ async function click(text: string) {
 beforeEach(() => {
 	Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 	vi.clearAllMocks()
+	mock.routing.mockReturnValue(undefined)
+	mock.nativeCheck.mockResolvedValue({ ok: true })
 	mock.presentation = null
 	mock.getPending.mockReturnValue(null)
 	mock.syncing = false
@@ -1299,5 +1315,124 @@ describe('URL-aware Publish action', () => {
 		await render()
 		await click('Publish')
 		expect(mock.publish).not.toHaveBeenCalled()
+	})
+})
+
+describe('settings-aware native delegation', () => {
+	const configure = () => {
+		mock.routing.mockReturnValue({
+			snapshot: { status: 'ready', value: { routes } },
+		})
+		action = createUrlPublishAction(() => native, routes, {
+			collectionRouting: { pages: routes.pages, collections: [] },
+		})
+	}
+	it('waits for fresh dual-space checks before native content publishing', async () => {
+		configure()
+		props = {
+			...props,
+			draft: { ...props.draft!, pathname: { current: '/old' } },
+		}
+		let resolve!: (value: { ok: true }) => void
+		mock.nativeCheck.mockImplementation(
+			() =>
+				new Promise((done) => {
+					resolve = done
+				}),
+		)
+		await render()
+		await act(async () => {
+			description?.onHandle?.()
+			await Promise.resolve()
+		})
+		expect(mock.nativeHandle).not.toHaveBeenCalled()
+		expect(mock.nativeCheck).toHaveBeenCalledOnce()
+		await act(async () => {
+			resolve({ ok: true })
+			await Promise.resolve()
+		})
+		expect(mock.nativeHandle).toHaveBeenCalledOnce()
+	})
+	it('never publishes after the editor cancels pending native checks', async () => {
+		configure()
+		props = {
+			...props,
+			draft: { ...props.draft!, pathname: { current: '/old' } },
+		}
+		let resolve!: (value: { ok: true }) => void
+		mock.nativeCheck.mockImplementation(
+			() =>
+				new Promise((done) => {
+					resolve = done
+				}),
+		)
+		await render()
+		await act(async () => {
+			description?.onHandle?.()
+			await Promise.resolve()
+		})
+		await click('Cancel')
+		await act(async () => {
+			resolve({ ok: true })
+			await Promise.resolve()
+		})
+		expect(mock.nativeHandle).not.toHaveBeenCalled()
+		expect(description?.dialog).toBeNull()
+	})
+	it('rejects the native branch if the draft changes during its check', async () => {
+		configure()
+		props = {
+			...props,
+			draft: { ...props.draft!, pathname: { current: '/old' } },
+		}
+		let resolve!: (value: { ok: true }) => void
+		mock.nativeCheck.mockImplementation(
+			() =>
+				new Promise((done) => {
+					resolve = done
+				}),
+		)
+		await render()
+		await act(async () => {
+			description?.onHandle?.()
+			await Promise.resolve()
+		})
+		props = { ...props, draft: { ...props.draft!, _rev: 'draft-2' } }
+		await render()
+		await act(async () => {
+			resolve({ ok: true })
+			await Promise.resolve()
+		})
+		expect(mock.nativeHandle).not.toHaveBeenCalled()
+		expect(host.textContent).toContain(
+			'document or routing information changed',
+		)
+	})
+	it('does not use seed routes while settings are loading', async () => {
+		configure()
+		mock.routing.mockReturnValue({ snapshot: { status: 'loading' } })
+		await render()
+		expect(description?.disabled).toBe(true)
+		await act(async () => {
+			description?.onHandle?.()
+			await Promise.resolve()
+		})
+		expect(mock.review).not.toHaveBeenCalled()
+		expect(mock.nativeHandle).not.toHaveBeenCalled()
+	})
+	it('allows content without an optional URL only after the same fresh preflight', async () => {
+		configure()
+		props = {
+			...props,
+			draft: { ...props.draft!, pathname: undefined },
+			published: { ...props.published!, pathname: undefined },
+		}
+		await render()
+		await act(async () => {
+			description?.onHandle?.()
+			await Promise.resolve()
+		})
+		expect(mock.nativeCheck).toHaveBeenCalledOnce()
+		expect(mock.nativeHandle).toHaveBeenCalledOnce()
 	})
 })

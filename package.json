@@ -104,7 +104,8 @@
 		"react-router": "^8.4.0",
 		"zod": "^4.6.5",
 		"i18next": "^26.5.10",
-		"react-i18next": "^17.1.8"
+		"react-i18next": "^17.1.8",
+		"rxjs": "^7.8.2"
 	},
 	"peerDependenciesMeta": {
 		"@sanity/icons": {
@@ -151,6 +152,9 @@
 		},
 		"react-i18next": {
 			"optional": true
+		},
+		"rxjs": {
+			"optional": true
 		}
 	},
 	"devDependencies": {
@@ -185,6 +189,7 @@
 		"typescript": "^5.9.2",
 		"typescript-eslint": "^8.47.0",
 		"vitest": "^5.0.1",
-		"zod": "^4.6.5"
+		"zod": "^4.6.5",
+		"rxjs": "7.8.2"
 	}
 }

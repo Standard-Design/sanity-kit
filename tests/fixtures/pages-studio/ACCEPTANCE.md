@@ -1000,3 +1000,45 @@ In the authorized `ha9kep4l` / `development` proof dataset:
 The dedicated fixture remains available for review. This live pass did not
 simulate transport loss or custom roles; those branches have automated coverage
 and still need broader release acceptance.
+
+## Live collection routing — November 6, 2026
+
+The private `collectionRouting` integration was exercised in the authorized
+`ha9kep4l` / `development` proof dataset. Articles uses settings document
+`kitProofArticleRouting`; legacy Journal full-path content was not migrated.
+
+- Initial published settings and a published `kitProofCollectionArticle` test item
+  were deliberately created for this check. The item is
+  `wfDAFH2E1Q5QobYKQmAxcw`, with slug `routing-proof`.
+- Saved `/stories` in the existing settings draft through the native Studio form.
+  Its published prefix remained `/articles`; its existing draft display name
+  remained Stories. The article's stored slug and revision were unchanged by this
+  settings edit.
+- Draft navigator rows, native document locations, field preview, and the actual
+  website resolved `/stories/routing-proof`. Switching to Published made the
+  navigator and native location use `/articles/routing-proof`; opening that row
+  rendered the published article. Switching perspective retains the current
+  iframe pathname, so the editor may need to select the corresponding row when
+  the old pathname is absent in the selected perspective.
+- Direct fixture-data requests confirmed the same separation: the draft path
+  resolved in drafts, the live path resolved in published, and the draft-only
+  path returned no published page.
+- Changed only the article body and used Publish. Publishing completed while
+  the settings prefix remained an unpublished draft; it did not publish settings.
+- Opened the article in Structure and confirmed that its standalone URL field
+  still showed the draft `/stories/` prefix. Changed its slug, then tried Publish: the
+  action explained that the pending prefix prevents publishing URL changes and
+  left Publish disabled. Restored the original slug without publishing the URL.
+- Temporarily saved an invalid `/stories//` draft prefix. Pages replaced its
+  route list with an unavailable notice, Retry, and a settings link. The native
+  settings editor remained available. Restoring `/stories` recovered navigation
+  and the website without publishing anything.
+
+The test settings intentionally retain published `/articles` and draft `/stories`
+for review. Collection-prefix publishing remains unavailable in this slice.
+Automated tests cover the fresh checks and cancellation needed before URL-changing
+writes; this live run does not simulate real concurrent external writers or
+custom-role permission changes.
+
+Final automated checks passed: `pnpm verify` (2,303 tests), `pnpm test:coverage`,
+and `pnpm test:package`, including installed Studio and frontend consumers.

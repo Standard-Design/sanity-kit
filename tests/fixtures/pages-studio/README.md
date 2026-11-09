@@ -10,8 +10,8 @@ installation. Studio-only runtime packages are optional peers. The browser now
 renders the folder tree and collection view, including saved folder records when
 available. The private URL field now uses the internal folder writer during
 editor actions, but the fixture does not call it or seed folders on startup.
-Navigator folder actions, advanced filters, and full release acceptance remain
-pending.
+Navigator folder creation, removal, and reviewed renaming are available.
+Advanced filters and full release acceptance remain pending.
 
 The plugin uses a shared internal route registry. See
 [the routing foundation](ROUTING.md) for its configuration, validation,
@@ -79,9 +79,34 @@ Publishing is unavailable until the reviewed prefix-change workflow is added.
 This proof is intentionally separate from the existing Journal pages, which
 still store full item paths. It registers a `kitProofSlugPost` type to represent
 the slug-only collection contract; it does not migrate existing posts or seed
-content. Settings drafts do not yet change Pages, the URL field, or the website
-preview. Opening this entry uses the normal Sanity initial-value template;
+content. This isolated Journal example does not drive the existing Journal URLs.
+Opening this entry uses the normal Sanity initial-value template;
 there is no startup seed or automatic publication.
+
+### Preview a collection prefix change
+
+Articles uses `collection-routes.ts` in Pages, its URL field, and the website's
+server loader. It stores item slugs in `slug.current`; `kitProofArticleRouting`
+supplies the prefix. Existing Journal posts keep their complete stored paths.
+
+This proof requires a deliberately created **published** Articles settings
+record with `collection: 'articles'` and a valid `prefix.current`, initially
+`/articles`. There is no startup seed or runtime default for an absent record.
+The preview server credential must be able to read that record and its draft.
+A draft-only setting works for preview but cannot supply a live routing context.
+
+Open Articles' **Settings** action and save `/stories` in its settings draft.
+Draft navigation and preview links should resolve an item such as `routing-proof`
+at `/stories/routing-proof`. Published reads should keep `/articles/routing-proof`.
+The stored item slug does not change, nor does an independently placed index page.
+Changing the iframe perspective does not publish settings. The item URL field
+still edits its draft URL; native location links follow the selected perspective.
+
+While live and draft prefixes differ, URL-changing publish/redirect/folder actions
+are protected until the reviewed prefix-publish workflow is available. A content-only
+item update uses fresh checks and can publish without publishing its settings.
+Do not bypass these guards in a real application; this fixture's initial published
+settings were explicitly created for acceptance testing.
 
 ### Seed page fixtures
 
@@ -157,8 +182,9 @@ button publishes the whole reviewed draft and its optional new redirect in one
 transaction. If older redirects point to the page, the dialog lists them and
 updates their destinations directly to the new URL in that same transaction.
 Turning off the checkbox skips only the new rule, not those reviewed updates. The fixture frontend does not yet serve these rules as HTTP
-redirects. Dynamic collection-prefix integration, folder renaming, and redirect
-delivery remain separate work. Folder removal and synchronization are available. This
+redirects. Collection settings now drive the matching Articles URLs in Pages, the URL field,
+and this website. Reviewed folder renaming, removal, and synchronization are
+available; collection-prefix publishing and HTTP redirect delivery remain later work. This
 factory is private and is not available through the package's `/studio` export.
 See [the URL-field guide](../../../docs/url-field.md) for access requirements,
 storage behavior, and concurrency limits.

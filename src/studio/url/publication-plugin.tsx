@@ -24,6 +24,7 @@ import { createRedirectDeleteAction } from '../redirects/delete-action.js'
 import { createUrlPublishAction } from './publication-action.js'
 import {
 	UrlPublicationProvider,
+	assertCollectionRouteRegistration,
 	urlPublicationConfigKey,
 } from './publication-context.js'
 import type { UrlPublicationOptions } from './publication.js'
@@ -39,6 +40,8 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 		// Field enablement and lazily created action wrappers must retain the same
 		// routing policy if the caller later changes its configuration object.
 		const routes = structuredClone(options.routes)
+		if (options.collectionRouting)
+			assertCollectionRouteRegistration(routes, options.collectionRouting)
 		const editableRedirects = !!options.redirectManagement
 		const publishRedirects = options.redirectManagement === 'publish'
 		const redirectActions = new WeakMap<
@@ -49,11 +52,19 @@ export const urlPublication = definePlugin<UrlPublicationPluginOptions>(
 			DocumentActionComponent,
 			DocumentActionComponent
 		>()
-		const publicationOptions: UrlPublicationOptions = options.reservedPaths
-			? { reservedPaths: [...options.reservedPaths] }
-			: {}
+		const publicationOptions: UrlPublicationOptions = {
+			...(options.reservedPaths
+				? { reservedPaths: [...options.reservedPaths] }
+				: {}),
+			...(options.collectionRouting
+				? { collectionRouting: structuredClone(options.collectionRouting) }
+				: {}),
+		}
 		const registry = createPagesRegistry(routes)
-		const configKey = urlPublicationConfigKey(routes)
+		const configKey = urlPublicationConfigKey(
+			routes,
+			publicationOptions.collectionRouting,
+		)
 		const actions = new WeakMap<
 			DocumentActionComponent,
 			DocumentActionComponent

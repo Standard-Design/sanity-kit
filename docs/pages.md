@@ -183,7 +183,9 @@ would promise compatibility we have not checked. This baseline may need widening
 before adoption by an existing Studio.
 
 Sanity, Sanity UI, styled-components, react-focus-lock, `@sanity/icons`,
-`i18next` (`^26.5.10`), and `react-i18next` (`^17.1.8`) are optional peers.
+`i18next` (`^26.5.10`), `react-i18next` (`^17.1.8`), and `rxjs` (`^7.8.2`)
+are optional peers. RxJS implements the native Presentation location resolver
+subscription for settings-backed routes.
 The translation libraries scope active-redirect deletion wording to its native
 confirmation dialog.
 The consuming Studio supplies them; the kit does not bundle another Sanity
@@ -808,10 +810,10 @@ read-time check is a database-level uniqueness guarantee.
 Support two explicit sources: a fixed prefix configured in code, or a centrally
 editor-controlled prefix read from Sanity. In both cases, individual collection
 items show the prefix as read-only and expose only their slug for editing. The
-whole-field read-only option can disable slug editing as well. Only fixed,
-code-configured prefixes are implemented in the current routing foundation.
+whole-field read-only option can disable slug editing as well. Fixed prefixes
+and opt-in settings-backed routing are implemented in the private integration.
 
-**Preferred proposal, not finalized:** use one routing-settings document per
+**Approved and implemented privately:** use one routing-settings document per
 collection for editor-controlled prefixes, rather than deriving the prefix from
 an index page. Keep the collection's stable identity separate from its mutable
 URL prefix. Fixed-prefix consumers should not need an editable settings document
@@ -829,8 +831,9 @@ synthetic page to select when no page document exists. Document-free index page
 entries remain deferred. Approved October 31: preview a draft settings prefix,
 then explicitly publish the reviewed routing change. Published traffic keeps the
 published prefix until that change. No item slugs or independently located listing
-pages are rewritten. The settings schema, registration binding, optional index page
-association, and activation implementation still need design.
+pages are rewritten. The private settings schema, registration binding, and
+perspective-aware reads are implemented. Reviewed prefix activation and optional
+index association remain separate work.
 
 Although the item storage does not change, activation must still check the
 resulting URLs for conflicts/reserved routes, plan redirects for old published
@@ -958,10 +961,11 @@ example, creating `company/team` inside `/about` selects
 
 The new private [URL field](url-field.md) implements this picker for eligible
 draft documents. It does not rename folders. Slug-only collection fields show
-their registered fixed prefix as locked, with a single editable slug segment.
+their resolved prefix as read-only, with a single editable slug segment.
 The same factory also supports full-path page storage. Existing fixture
-collection documents retain their full-path registration and data; this slice
-does not migrate them or add settings-backed prefix editing.
+Journal documents retain their full-path registration and data. Articles uses
+settings-backed routing through the shared `collectionRouting` option; this does
+not migrate Journal data or let individual items change the shared prefix.
 
 The field includes a **Generate** button that derives the final slug
 segment from the document's configured name/title source. Generation keeps the
@@ -1110,8 +1114,8 @@ must not become editor-renamable through this workflow.
 ### Details still to harden — updated November 5
 
 - **Collection settings:** the per-collection document, private registration,
-  and native draft editor are implemented. Connect settings to Pages, URL fields,
-  and preview, then add controlled prefix publication. Collection menus, item
+  and native draft editor are implemented. Settings now connect to Pages, URL
+  fields, and the proof preview. Controlled prefix publication remains next. Collection menus, item
   creation, and distinct icons are approved as described above.
 - **Folder implementation:** complete schema registration and coordination for
   removal and bulk moves. The bounded private registry, guarded additive writes,

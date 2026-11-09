@@ -1,6 +1,9 @@
 import { evaluate, parse } from 'groq-js'
 import { describe, expect, it, vi } from 'vitest'
-import { createFolderSynchronizer } from '../../src/studio/folders/synchronize.js'
+import {
+	createFolderSynchronizer,
+	createFolderSynchronizationState,
+} from '../../src/studio/folders/synchronize.js'
 import type { PagesClient } from '../../src/studio/pages/data-source.js'
 
 const routes = {
@@ -112,6 +115,73 @@ function deferred<T>() {
 }
 
 describe('checked Pages folder synchronization', () => {
+	it('preserves the in-flight lock and a late uncertain removal across routing refreshes', async () => {
+		const io = transport([saved()])
+		const state = createFolderSynchronizationState()
+		const previous = createFolderSynchronizer(routes, io.client, { state })
+		const acl = deferred<unknown>()
+		io.request.mockImplementationOnce(() => acl.promise)
+		io.fail('before')
+		const removing = previous.remove('/empty')
+		const refreshed = createFolderSynchronizer(
+			{ ...routes, reservedPathPrefixes: ['/account'] },
+			io.client,
+			{ state },
+		)
+		expect(await refreshed.create('/new')).toEqual({
+			status: 'blocked',
+			reason: 'busy',
+		})
+		acl.resolve([{ filter: 'true', permissions: ['read'] }])
+		expect(await removing).toEqual({
+			status: 'blocked',
+			reason: 'outcome-unknown',
+		})
+		io.fail(undefined)
+		expect(await refreshed.remove('/empty')).toEqual({
+			status: 'blocked',
+			reason: 'outcome-unknown',
+		})
+		expect(await refreshed.synchronize()).toEqual({
+			status: 'blocked',
+			reason: 'outcome-unknown',
+		})
+		expect(io.mutate).toHaveBeenCalledOnce()
+	})
+
+	it('retains exact creation evidence after replacing the route-bound service', async () => {
+		const io = transport()
+		const state = createFolderSynchronizationState()
+		const previous = createFolderSynchronizer(routes, io.client, { state })
+		io.fail('before')
+		await previous.create('/new')
+		io.fail(undefined)
+		const refreshed = createFolderSynchronizer(
+			{ ...routes, excludePaths: ['/private'] },
+			io.client,
+			{ state },
+		)
+		expect(await refreshed.create('/other')).toEqual({
+			status: 'blocked',
+			reason: 'outcome-unknown',
+		})
+		expect(io.mutate).toHaveBeenCalledOnce()
+	})
+
+	it('does not share an operation state between datasets', () => {
+		const io = transport()
+		const state = createFolderSynchronizationState()
+		createFolderSynchronizer(routes, io.client, { state })
+		const other = {
+			withConfig: () => ({
+				config: () => ({ projectId: 'other1', dataset: 'test' }),
+			}),
+		} as unknown as PagesClient
+		expect(() => createFolderSynchronizer(routes, other, { state })).toThrow(
+			'another dataset',
+		)
+	})
+
 	it('creates an empty nested folder and its ancestors without changing pages', async () => {
 		const io = transport([saved(), page()])
 		const originalPage = structuredClone(io.dataset[1])

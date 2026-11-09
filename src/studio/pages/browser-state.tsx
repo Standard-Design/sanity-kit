@@ -1,3 +1,8 @@
+import type { CollectionRoutingConfig } from '../../url/settings/resolve.js'
+import {
+	createCollectionFolderAuthorizer,
+	createCollectionRoutingGuard,
+} from '../collections/routing-guard.js'
 import type { PagesRuntime } from './runtime.js'
 import {
 	useState,
@@ -10,7 +15,10 @@ import { useClient, useSchema, useCurrentUser, useGrantsStore } from 'sanity'
 import { createFolderRenameController } from '../folders/rename-write.js'
 import { createFolderRenameAuthorizer } from '../folders/rename-access.js'
 import { FolderRenameDialog } from './folder-rename-dialog.js'
-import { createFolderSynchronizer } from '../folders/synchronize.js'
+import {
+	createFolderSynchronizer,
+	createFolderSynchronizationState,
+} from '../folders/synchronize.js'
 import { createFolderSyncController } from '../folders/sync-controller.js'
 import { FolderRemoveDialog } from './folder-remove-dialog.js'
 import { FolderSyncDialog } from './folder-sync-dialog.js'
@@ -30,7 +38,13 @@ import { PageCreateDialog } from './page-create-dialog.js'
 export function BrowserStateProvider({
 	children,
 	runtime,
-}: PropsWithChildren<{ runtime: PagesRuntime }>) {
+	routingReady = true,
+	collectionRouting,
+}: PropsWithChildren<{
+	runtime: PagesRuntime
+	routingReady?: boolean
+	collectionRouting?: CollectionRoutingConfig
+}>) {
 	const [state, setState] = useState<BrowserState>({
 		query: '',
 		scrollTop: 0,
@@ -54,23 +68,44 @@ export function BrowserStateProvider({
 	const currentUser = useCurrentUser()
 	const grantsStore = useGrantsStore()
 	const renameController = useMemo(() => {
+		if (!routingReady) return undefined
 		try {
 			return createFolderRenameController(
 				{
 					routes: runtime.routes,
-					authorize: createFolderRenameAuthorizer({
-						client,
-						schema,
-						currentUser,
-						grantsStore,
-					}),
+					authorize: collectionRouting
+						? createCollectionFolderAuthorizer({
+								configuration: collectionRouting,
+								routes: runtime.routes,
+								client,
+								authorize: createFolderRenameAuthorizer({
+									client,
+									schema,
+									currentUser,
+									grantsStore,
+								}),
+							})
+						: createFolderRenameAuthorizer({
+								client,
+								schema,
+								currentUser,
+								grantsStore,
+							}),
 				},
 				client,
 			)
 		} catch {
 			return undefined
 		}
-	}, [runtime, client, schema, currentUser, grantsStore])
+	}, [
+		runtime,
+		client,
+		schema,
+		currentUser,
+		grantsStore,
+		routingReady,
+		collectionRouting,
+	])
 	function refreshRenamePending() {
 		try {
 			setRenamePending(!!renameController?.getPending())
@@ -92,10 +127,31 @@ export function BrowserStateProvider({
 		() => createPagesDataStore(runtime, () => syncRef.current?.notify()),
 		[runtime],
 	)
+	// Unconfirmed writes outlive routing snapshots and controller replacements.
+	const synchronizationState = useMemo(
+		() => createFolderSynchronizationState(),
+		[client],
+	)
 	const folderSync = useMemo(() => {
 		let service: ReturnType<typeof createFolderSynchronizer> | undefined
 		const getService = () => {
-			service ??= createFolderSynchronizer(runtime.routes, client)
+			service ??= createFolderSynchronizer(
+				runtime.routes,
+				client,
+				collectionRouting
+					? {
+							state: synchronizationState,
+							beforeRemove: async (signal) =>
+								(
+									await createCollectionRoutingGuard(
+										collectionRouting,
+										runtime.routes,
+										client,
+									)(signal)
+								).ok,
+						}
+					: { state: synchronizationState },
+			)
 			return service
 		}
 		return createFolderSyncController(
@@ -127,15 +183,25 @@ export function BrowserStateProvider({
 				return getService().remove(pathname, signal)
 			},
 		)
-	}, [runtime, client, dataStore])
+	}, [runtime, client, dataStore, collectionRouting, synchronizationState])
 	useEffect(() => {
+		if (!routingReady) return
 		syncRef.current = folderSync
 		folderSync.start()
 		return () => {
 			syncRef.current = null
 			folderSync.stop()
 		}
-	}, [folderSync])
+	}, [folderSync, routingReady])
+	useEffect(() => {
+		if (routingReady) return
+		setPageCreation(undefined)
+		setFolderCreation(undefined)
+		setFolderRemoval(undefined)
+		setFolderRename(undefined)
+		setSyncOpen(false)
+		setPickerOpen(false)
+	}, [routingReady])
 	return (
 		<BrowserContext.Provider
 			value={{
@@ -172,7 +238,7 @@ export function BrowserStateProvider({
 			}}
 		>
 			{children}
-			{pageCreation && (
+			{routingReady && pageCreation && (
 				<PageCreateDialog
 					runtime={
 						pageCreation.collection
@@ -198,7 +264,7 @@ export function BrowserStateProvider({
 					}}
 				/>
 			)}
-			{folderCreation && (
+			{routingReady && folderCreation && (
 				<PagesFolderCreateDialog
 					request={folderCreation}
 					folderSync={folderSync}
@@ -221,14 +287,14 @@ export function BrowserStateProvider({
 					}}
 				/>
 			)}
-			{folderRemoval && (
+			{routingReady && folderRemoval && (
 				<FolderRemoveDialog
 					pathname={folderRemoval}
 					folderSync={folderSync}
 					onClose={() => setFolderRemoval(undefined)}
 				/>
 			)}
-			{folderRename && renameController && (
+			{routingReady && folderRename && renameController && (
 				<FolderRenameDialog
 					controller={renameController}
 					{...(folderRename.pathname
@@ -244,7 +310,7 @@ export function BrowserStateProvider({
 					}}
 				/>
 			)}
-			{syncOpen && (
+			{routingReady && syncOpen && (
 				<FolderSyncDialog
 					folderSync={folderSync}
 					onClose={() => setSyncOpen(false)}

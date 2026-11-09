@@ -1,4 +1,6 @@
 /** Native document action: fields save drafts; Publish checks and saves without extra confirmation. */
+import { useCollectionRouting } from '../collections/use-routing.js'
+import type { UrlPublicationOptions } from '../url/publication.js'
 import { Box, Button, Card, Flex, Stack, Text } from '@sanity/ui'
 import { useToast } from '@sanity/ui/toast'
 import { useEffect, useMemo, useRef, useState } from 'react'
@@ -18,6 +20,10 @@ import {
 } from './publication.js'
 
 export function redirectPublishFailure(reason: string): string {
+	if (reason === 'collection-prefix-unpublished')
+		return 'A collection has an unpublished URL prefix. Redirect changes must wait until that prefix is published or restored to its live value. Publishing collection-prefix changes is not supported yet.'
+	if (reason === 'routing-changed')
+		return 'Collection URLs changed during this check. Try publishing again to check the latest URLs.'
 	switch (reason) {
 		case 'review-stale':
 			return 'The redirect or another URL changed while we were checking it. Retry publishing to check the latest information.'
@@ -110,16 +116,24 @@ function RedirectError({
 export function createRedirectPublishAction(
 	NativeAction: DocumentActionComponent,
 	routes: PagesRouteConfig,
-	options: { readonly reservedPaths?: readonly string[] } = {},
+	options: UrlPublicationOptions = {},
 ): DocumentActionComponent {
 	const PublishAction: DocumentActionComponent = (props) => {
 		// Preserve Sanity's permission/validation/lock behavior, but never call the
 		// native onHandle: every redirect write must use our guarded controller.
 		const native = NativeAction(props)
+		const routing = useCollectionRouting(options.collectionRouting, [
+			'published',
+		])
+		const activeRoutes =
+			routing?.snapshot.status === 'ready'
+				? routing.snapshot.value.routes
+				: routes
+		const routingReady = !routing || routing.snapshot.status === 'ready'
 		const client = useClient({ apiVersion: '2026-10-01' })
 		const controller = useMemo(
-			() => createRedirectPublicationController(routes, client, options),
-			[client, props.id],
+			() => createRedirectPublicationController(activeRoutes, client, options),
+			[client, props.id, activeRoutes],
 		)
 		const toast = useToast()
 		const sync = useSyncState(props.id, props.type)
@@ -129,6 +143,7 @@ export function createRedirectPublishAction(
 			true,
 		)
 		const ready =
+			routingReady &&
 			!!native &&
 			!native.disabled &&
 			!native.dialog &&
@@ -323,6 +338,9 @@ export function createRedirectPublishAction(
 						? 'Publishing…'
 						: native.label,
 			disabled: uncertain ? open : !ready || phase !== 'idle' || open,
+			title: !routingReady
+				? 'Collection URLs could not be loaded. Retry after checking the collection settings.'
+				: native.title,
 			onHandle: () => {
 				if (uncertain) {
 					setOpen(true)

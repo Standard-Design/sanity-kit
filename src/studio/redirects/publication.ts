@@ -7,6 +7,8 @@
  * Revision checks protect existing versions. These checks do not lock the whole
  * URL namespace: external writers and concurrent new URLs still need coordination.
  */
+import type { UrlPublicationOptions } from '../url/publication.js'
+import { createCollectionRoutingGuard } from '../collections/routing-guard.js'
 import type { Mutation } from '@sanity/client'
 import { getPublishedId } from 'sanity'
 import {
@@ -87,6 +89,7 @@ const fetchOptions = {
 interface Evidence {
 	readonly review: RedirectPublishReview
 	readonly fingerprint: string
+	readonly routingFingerprint?: string
 	readonly draft: Record<string, unknown>
 }
 
@@ -118,8 +121,11 @@ function publishedCopy(
 export function createRedirectPublicationController(
 	routes: PagesRouteConfig,
 	client: PagesClient,
-	options: { readonly reservedPaths?: readonly string[] } = {},
+	options: UrlPublicationOptions = {},
 ) {
+	const guardRouting = options.collectionRouting
+		? createCollectionRoutingGuard(options.collectionRouting, routes, client)
+		: undefined
 	const registry = createPagesRegistry(routes)
 	const resolve = createSanityUrlResolver(routes)
 	const source = client.withConfig({
@@ -180,6 +186,12 @@ export function createRedirectPublicationController(
 		)
 			return blocked('invalid-document')
 		try {
+			const routing = await guardRouting?.(signal)
+			if (routing && !routing.ok)
+				return {
+					...blocked(routing.reason),
+					...(routing.accessIssues ? { issues: routing.accessIssues } : {}),
+				}
 			const accessOptions = {
 				url: `/projects/${projectId}/datasets/${dataset}/acl`,
 				fetch: { cache: 'no-store', next: undefined },
@@ -306,7 +318,9 @@ export function createRedirectPublicationController(
 			return {
 				review,
 				draft: complete,
+				...(routing ? { routingFingerprint: routing.fingerprint } : {}),
 				fingerprint: JSON.stringify([
+					routing?.fingerprint,
 					loaded.snapshot.inventory.documents,
 					raw,
 					complete,
@@ -419,6 +433,14 @@ export function createRedirectPublicationController(
 						unit: 'bytes',
 					},
 				}
+			const routing = await guardRouting?.()
+			if (routing && !routing.ok)
+				return {
+					...blocked(routing.reason),
+					...(routing.accessIssues ? { issues: routing.accessIssues } : {}),
+				}
+			if (routing && routing.fingerprint !== fresh.routingFingerprint)
+				return blocked('review-stale')
 			if (!choice.isCurrent()) return blocked('review-stale')
 			if (getPending(reviewed.documentId)) return blocked('outcome-unknown')
 			const pending: PendingRedirect = { receipt, review: reviewed }

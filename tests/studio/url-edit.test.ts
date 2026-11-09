@@ -92,6 +92,7 @@ function transport(
 		},
 	)
 	const source = {
+		withConfig: (): unknown => source,
 		fetch,
 		request,
 		config: () => ({ projectId: 'proof', dataset: 'development' }),
@@ -105,6 +106,7 @@ function transport(
 		mutations,
 		fetch,
 		request,
+		client,
 		controller: createUrlEditController(routes, client, options),
 		setGrants(value: unknown) {
 			grants = value
@@ -584,5 +586,125 @@ describe('URL input edit preparation', () => {
 		release()
 		expect(await load).toEqual({ status: 'blocked', reason: 'aborted' })
 		expect(io.mutations).toEqual([])
+	})
+})
+
+const collectionRouting = {
+	pages: routes.pages,
+	collections: [
+		{
+			...routes.collections[0]!,
+			settingsDocumentId: 'journal-settings',
+			routePrefix: { mode: 'default' as const, value: '/journal' },
+		},
+	],
+}
+const collectionSettings = (id: string, prefix: string) => ({
+	_id: id,
+	_type: 'sanityKitCollectionRoute',
+	_rev: id,
+	collection: 'journal',
+	prefix: { _type: 'slug', current: prefix },
+})
+describe('settings-aware URL editing', () => {
+	it('rejects a page URL owned by a collection item in the draft routing space', async () => {
+		const io = transport([
+			page(),
+			collectionSettings('journal-settings', '/journal'),
+			collectionSettings('drafts.journal-settings', '/blog'),
+			{ _id: 'post-1', _rev: 'p1', _type: 'post', slug: { current: 'team' } },
+		])
+		const previewRoutes = {
+			...routes,
+			collections: [{ ...routes.collections[0]!, routePrefix: '/blog' }],
+		}
+		const controller = createUrlEditController(previewRoutes, io.client, {
+			collectionRouting,
+		})
+		expect(
+			await controller.prepare({
+				document: page(),
+				storedValue: '/blog/team',
+				readOnly: false,
+			}),
+		).toMatchObject({ status: 'blocked', reason: 'url-in-use' })
+		expect(io.mutations).toHaveLength(0)
+	})
+	it('rejects a collection slug that would collide with a page only in live routing', async () => {
+		const doc = {
+			_id: 'drafts.post-1',
+			_rev: 'p1',
+			_type: 'post',
+			slug: { current: 'first' },
+		}
+		const io = transport([
+			doc,
+			page('occupied', '/journal/team'),
+			collectionSettings('journal-settings', '/journal'),
+			collectionSettings('drafts.journal-settings', '/blog'),
+		])
+		const previewRoutes = {
+			...routes,
+			collections: [{ ...routes.collections[0]!, routePrefix: '/blog' }],
+		}
+		const controller = createUrlEditController(previewRoutes, io.client, {
+			collectionRouting,
+		})
+		expect(
+			await controller.prepare({
+				document: doc,
+				storedValue: 'team',
+				readOnly: false,
+			}),
+		).toMatchObject({ status: 'blocked', reason: 'url-in-use' })
+	})
+	it('uses the draft prefix without rewriting the stored collection slug', async () => {
+		const doc = {
+			_id: 'drafts.post-1',
+			_rev: 'p1',
+			_type: 'post',
+			slug: { current: 'first' },
+		}
+		const io = transport([
+			doc,
+			collectionSettings('journal-settings', '/journal'),
+			collectionSettings('drafts.journal-settings', '/blog'),
+		])
+		const previewRoutes = {
+			...routes,
+			collections: [{ ...routes.collections[0]!, routePrefix: '/blog' }],
+		}
+		const controller = createUrlEditController(previewRoutes, io.client, {
+			collectionRouting,
+		})
+		expect(
+			await controller.prepare({
+				document: doc,
+				storedValue: 'team',
+				readOnly: false,
+			}),
+		).toMatchObject({
+			status: 'ready',
+			candidate: { url: { pathname: '/blog/team' }, storedValue: 'team' },
+		})
+		expect(io.mutations).toHaveLength(0)
+	})
+	it('refuses stale field routing after a prefix changes', async () => {
+		const io = transport([
+			page(),
+			collectionSettings('journal-settings', '/journal'),
+			collectionSettings('drafts.journal-settings', '/blog'),
+		])
+		const controller = createUrlEditController(routes, io.client, {
+			collectionRouting,
+		})
+		expect(
+			await controller.prepare({
+				document: page(),
+				storedValue: '/new/team',
+				readOnly: false,
+			}),
+		).toMatchObject({ status: 'blocked', reason: 'routing-changed' })
+		expect(io.mutations).toHaveLength(0)
 	})
 })

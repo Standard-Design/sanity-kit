@@ -16,9 +16,11 @@ committed and pushed. Guarded redirect publishing (`0648541`) and the simpler
 Publish/Delete workflow (`b6d7516`) are now committed and pushed too. The folder
 rename writing and recovery slice (`148827e`) is also committed and pushed.
 Shared collection routing sessions (`48e6adb`) and the plain-text URL input
-option (`4bc5f53`) are also committed and pushed. The next review slice connects
-folder renaming to the navigator. A separate collection prerequisite checks URL
-ownership against both published and draft prefixes before live UI integration.
+option (`4bc5f53`) are also committed and pushed. Folder rename UI (`2627b13`)
+and dual-perspective URL ownership checks (`1ac90dd`) are committed and pushed.
+The current review slice connects collection settings to Pages, native locations,
+URL fields, and the proof website. Prefix publishing remains the next collection
+workflow.
 
 ## Parallel tracks
 
@@ -65,8 +67,9 @@ Completed work is reviewed and committed in separate slices.
   The private reading/session boundary is implemented and tested. A separate
   review slice now checks both published and draft URL spaces, including active
   redirects, using fresh settings and access evidence. Live Pages,
-  input, and preview integration remains next: do not enable partial integration
-  where the displayed URL and uniqueness or publish checks disagree.
+  input, native locations, and proof preview integration are now being reviewed
+  together, including fresh guards for URL-changing actions. Reviewed collection
+  prefix publication remains separate.
 
 The folder and redirect writers share the policy below, but their operations
 remain distinct: publishing a redirect intentionally publishes that draft;

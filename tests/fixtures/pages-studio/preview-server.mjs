@@ -3,6 +3,7 @@
  * A server-side viewer token enables drafts; no credentials enter the JS bundle.
  * Do not deploy this development server or bind it to a public interface.
  */
+import { Buffer } from 'node:buffer'
 import { createServer } from 'node:http'
 import { fileURLToPath } from 'node:url'
 import { createClient } from '@sanity/client'
@@ -27,12 +28,26 @@ const bundle = await build({
 	format: 'esm',
 	platform: 'browser',
 })
+// Compile the fixture's shared TypeScript routing helper without generating a
+// checked-in build artifact. It contains pure kit URL helpers, not Studio code.
+const routingBundle = await build({
+	entryPoints: [
+		fileURLToPath(new URL('./preview-routing.ts', import.meta.url)),
+	],
+	bundle: true,
+	write: false,
+	format: 'esm',
+	platform: 'node',
+})
+const { loadFixtureArticlePrefix } = await import(
+	`data:text/javascript;base64,${Buffer.from(routingBundle.outputFiles[0].text).toString('base64')}`
+)
 const query = `{
-  "page": *[_type in ["kitProofPage", "kitProofPost", "kitProofLanding", "kitProofCollectionArticle"] && coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => "/articles/" + slug.current)) == $path][0]{
-    _id, _type, title, body, "pathname": coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => "/articles/" + slug.current)),
+  "page": *[_type in ["kitProofPage", "kitProofPost", "kitProofLanding", "kitProofCollectionArticle"] && coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => $articlePrefix + "/" + slug.current)) == $path][0]{
+    _id, _type, title, body, "pathname": coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => $articlePrefix + "/" + slug.current)),
     "shared": select(shared->_type == "kitProofShared" => shared->{_id, _type, title, body})
   },
-  "links": *[_type in ["kitProofPage", "kitProofPost", "kitProofLanding", "kitProofCollectionArticle"] && defined(coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => "/articles/" + slug.current)))] | order(_id asc)[0...50]{title, "pathname": coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => "/articles/" + slug.current))}
+  "links": *[_type in ["kitProofPage", "kitProofPost", "kitProofLanding", "kitProofCollectionArticle"] && defined(coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => $articlePrefix + "/" + slug.current)))] | order(_id asc)[0...50]{title, "pathname": coalesce(pathname.current, route, select(_type == "kitProofCollectionArticle" && defined(slug.current) => $articlePrefix + "/" + slug.current))}
 }`
 const html = `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Pages fixture preview</title><link rel="stylesheet" href="/fixture-client.css"><style>body{font:18px/1.6 system-ui;margin:3rem;color:#20232b}nav{font-size:14px}footer{border-top:1px solid #ddd;margin-top:5rem;padding:2rem 0}</style></head><body><main>Loading fixture preview…</main><script type="module" src="/fixture-client.js"></script></body></html>`
 
@@ -79,9 +94,10 @@ createServer(async (request, response) => {
 				response.writeHead(400).end('Invalid perspective')
 				return
 			}
+			const articlePrefix = await loadFixtureArticlePrefix(client, perspective)
 			const data = await client.fetch(
 				query,
-				{ path: url.searchParams.get('path') ?? '/' },
+				{ path: url.searchParams.get('path') ?? '/', articlePrefix },
 				{ perspective },
 			)
 			// Fixture authors can enter invalid URLs. Never render them as executable links.

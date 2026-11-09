@@ -147,6 +147,7 @@ const studioPeers = [
 	'react-focus-lock',
 	'i18next',
 	'react-i18next',
+	'rxjs',
 ]
 for (const name of studioPeers)
 	assert.equal(packedManifest.peerDependenciesMeta[name]?.optional, true)
@@ -384,8 +385,12 @@ for (const matrix of matrices) {
 	)
 	assert.deepEqual(installed, distManifest)
 	// Visual Editing already depends on Sanity UI/styled-components. Minimal
-	// consumers need none of these; full frontend consumers must still lack Sanity.
-	for (const name of matrix.full ? ['sanity'] : studioPeers) {
+	// consumers need none of the Studio UI peers; full frontend consumers must
+	// still lack Sanity. RxJS is also an existing dependency of @sanity/client,
+	// so its presence alone cannot indicate that Studio was pulled in.
+	for (const name of matrix.full
+		? ['sanity']
+		: studioPeers.filter((peer) => peer !== 'rxjs')) {
 		assert.equal(
 			existsSync(join(cwd, 'node_modules', name)),
 			false,

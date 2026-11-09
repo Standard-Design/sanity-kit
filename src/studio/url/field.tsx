@@ -5,15 +5,18 @@
  */
 import {
 	defineField,
+	usePerspective,
 	type ObjectFieldProps,
 	type SlugValue,
 	type SlugDefinition,
 	type SlugInputProps,
 	type SlugOptions,
 } from 'sanity'
+import { Button, Card, Stack, Text } from '@sanity/ui'
 import { createUrlAuthoring } from '../../url/authoring.js'
 import {
 	createPagesRegistry,
+	pageSlug,
 	type PagesRouteConfig,
 } from '../../url/registry.js'
 import { createSanityUrlResolver } from '../../url/resolve.js'
@@ -23,14 +26,20 @@ import { createUrlIsUnique } from './is-unique.js'
 import { UrlValidationField } from './validation.js'
 import {
 	useUrlPublicationEnabled,
+	assertCollectionRouteRegistration,
 	urlPublicationConfigKey,
 } from './publication-context.js'
+import { createCollectionUrlIsUnique } from '../collections/url-conflicts.js'
+import { useCollectionRouting } from '../collections/use-routing.js'
+import { type CollectionRoutingConfig } from '../../url/settings/resolve.js'
 
 export interface SanityUrlFieldDefinition extends Omit<
 	SlugDefinition,
 	'type' | 'options'
 > {
 	readonly routes: PagesRouteConfig
+	/** Opt into settings-backed prefixes; routes supply registration only. */
+	readonly collectionRouting?: CollectionRoutingConfig
 	/** Page pathname controls only; collection prefixes remain locked. */
 	readonly inputMode?: 'folders' | 'text'
 	/** Native generation callbacks; uniqueness belongs to the shared URL space. */
@@ -47,6 +56,7 @@ export interface SanityUrlFieldDefinition extends Omit<
 export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 	const {
 		routes,
+		collectionRouting,
 		validation,
 		options,
 		inputMode = 'folders',
@@ -55,7 +65,11 @@ export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 	if (inputMode !== 'folders' && inputMode !== 'text')
 		throw new Error('URL inputMode must be "folders" or "text".')
 	const registry = createPagesRegistry(routes)
-	const publicationKey = urlPublicationConfigKey(routes)
+	const settings = collectionRouting
+		? structuredClone(collectionRouting)
+		: undefined
+	if (settings) assertCollectionRouteRegistration(routes, settings)
+	const publicationKey = urlPublicationConfigKey(routes, settings)
 	// Take a copy so input, native validation, and uniqueness cannot disagree if
 	// an application later mutates its original configuration object.
 	const snapshot: PagesRouteConfig = Object.freeze({
@@ -82,6 +96,49 @@ export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 	if (options && Object.hasOwn(options, 'isUnique'))
 		throw new Error('The URL field supplies its own shared uniqueness check.')
 	const resolve = createSanityUrlResolver(snapshot)
+	function SettingsInput(props: SlugInputProps) {
+		const perspective = usePerspective()
+		// This form edits the draft even when Presentation previews the live site.
+		// A published iframe must not change the prefix attached to a draft slug.
+		const routing = useCollectionRouting(
+			settings!,
+			perspective.selectedReleaseId ? perspective.perspectiveStack : ['drafts'],
+			perspective.selectedReleaseId || perspective.selectedVariantNames[0],
+		)
+		const allowPublishedDrafts = useUrlPublicationEnabled(publicationKey)
+		const creationContext = useUrlCreationContext(props.path)
+		if (routing.snapshot.status !== 'ready')
+			return (
+				<Card
+					padding={3}
+					radius={2}
+					tone={
+						routing.snapshot.status === 'loading' ? 'transparent' : 'caution'
+					}
+				>
+					<Stack gap={3}>
+						<Text size={1}>
+							{routing.snapshot.status === 'loading'
+								? 'Loading collection URLs…'
+								: 'Collection URLs could not be loaded. Check the collection settings before editing this URL.'}
+						</Text>
+						{routing.snapshot.status !== 'loading' && (
+							<Button text="Retry" mode="ghost" onClick={routing.retry} />
+						)}
+					</Stack>
+				</Card>
+			)
+		return (
+			<SanityUrlInput
+				{...props}
+				routes={routing.snapshot.value.routes}
+				collectionRouting={settings!}
+				inputMode={inputMode}
+				allowPublishedDrafts={allowPublishedDrafts}
+				{...(creationContext ? { creationContext } : {})}
+			/>
+		)
+	}
 	function Input(props: SlugInputProps) {
 		const allowPublishedDrafts = useUrlPublicationEnabled(publicationKey)
 		const creationContext = useUrlCreationContext(props.path)
@@ -108,12 +165,18 @@ export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 		type: 'slug',
 		options: {
 			...options,
-			isUnique: createUrlIsUnique(snapshot),
+			isUnique: settings
+				? createCollectionUrlIsUnique(settings)
+				: createUrlIsUnique(snapshot),
 			// Pages uses this marker to offer folder creation only for fields that
 			// consume the intent hint through the guarded URL editing workflow.
 			__sanityKitUrlField: true,
 		} as SlugOptions & { __sanityKitUrlField: true },
-		components: { ...native.components, input: Input, field: Field },
+		components: {
+			...native.components,
+			input: settings ? SettingsInput : Input,
+			field: Field,
+		},
 		validation: (rule, context) => {
 			const format = rule.custom((value, nativeContext) => {
 				const type = registry.types.find(
@@ -138,6 +201,12 @@ export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {
 					value.current === ''
 				)
 					return true
+				// A collection's effective prefix belongs to the fresh uniqueness
+				// check below, not the static registration used to locate its field.
+				if (settings && type.pathMode === 'slug')
+					return pageSlug(value.current)
+						? true
+						: 'Enter one valid URL segment without slashes.'
 				const document: Record<string, unknown> = { _type: type.schemaType }
 				let parent = document
 				for (const part of expected.slice(0, -1)) {

@@ -47,10 +47,17 @@ import {
 	type PagesRouteConfig,
 } from '../../url/registry.js'
 import { createSanityUrlResolver } from '../../url/resolve.js'
+import { useCollectionRouting } from '../collections/use-routing.js'
+import {
+	checkNativeUrlPublication,
+	storedUrl,
+	missingStoredUrl,
+} from './native-publication.js'
 import {
 	createUrlPublicationController,
 	type UrlPublicationReview,
 	type UrlPublicationConflict,
+	type UrlPublicationOptions,
 } from './publication.js'
 import {
 	getUrlPublicationBlocked,
@@ -517,6 +524,10 @@ function PublicationError({
 
 /** Keep failure wording editorial; detailed result codes stay in the controller. */
 function failureMessage(reason: string): string {
+	if (reason === 'collection-prefix-unpublished')
+		return 'A collection has an unpublished URL prefix. Publishing page URL changes must wait until the collection prefix is published or restored to its live value. Publishing collection-prefix changes is not supported yet.'
+	if (reason === 'routing-changed')
+		return 'Collection URLs changed during this check. Close this dialog and try publishing again to review the latest URLs.'
 	if (reason.includes('permission') || reason.includes('access'))
 		return 'We could not verify the access needed for this URL change. Check your connection and try again. If this continues, contact someone who manages project permissions to check your access.'
 	if (reason === 'release-version')
@@ -541,20 +552,30 @@ function failureMessage(reason: string): string {
 export function createUrlPublishAction(
 	NativeAction: DocumentActionComponent,
 	routes: PagesRouteConfig,
-	options: { readonly reservedPaths?: readonly string[] } = {},
+	options: UrlPublicationOptions = {},
 ): DocumentActionComponent {
-	const registry = createPagesRegistry(routes)
-	const resolve = createSanityUrlResolver(routes)
 	const PublishAction: DocumentActionComponent = (props) => {
 		// Calling the supplied action preserves native permission, lock, validation,
 		// perspective, and shortcut behavior. It is the supported Studio extension
 		// pattern; never import Sanity's private PublishAction implementation.
 		const native = NativeAction(props)
+		const routing = useCollectionRouting(options.collectionRouting, [
+			'published',
+		])
+		// Unavailable settings disable writes. Registration remains usable for
+		// displaying a disabled action, never as fallback routing evidence.
+		const activeRoutes =
+			routing?.snapshot.status === 'ready'
+				? routing.snapshot.value.routes
+				: routes
+		const routingReady = !routing || routing.snapshot.status === 'ready'
+		const registry = createPagesRegistry(activeRoutes)
+		const resolve = createSanityUrlResolver(activeRoutes)
 		const toast = useToast()
 		const client = useClient({ apiVersion: '2026-10-01' })
 		const controller = useMemo(
-			() => createUrlPublicationController(routes, client, options),
-			[client, props.id],
+			() => createUrlPublicationController(activeRoutes, client, options),
+			[client, props.id, activeRoutes],
 		)
 		const scope = {
 			projectId: client.config().projectId ?? '',
@@ -580,7 +601,12 @@ export function createUrlPublishAction(
 			oldUrl?.ok === true &&
 			newUrl?.ok === true &&
 			oldUrl.value.pathname !== newUrl.value.pathname
+		const absentUrl =
+			options.collectionRouting &&
+			missingStoredUrl(storedUrl(activeRoutes, props.published)) &&
+			missingStoredUrl(storedUrl(activeRoutes, props.draft))
 		const invalid =
+			!absentUrl &&
 			registered &&
 			!!props.published &&
 			!!props.draft &&
@@ -588,6 +614,7 @@ export function createUrlPublishAction(
 		const unsupported =
 			changed && !!(props.liveEdit || props.release || props.version)
 		const ready =
+			routingReady &&
 			!!native &&
 			!native.disabled &&
 			!native.dialog &&
@@ -617,6 +644,7 @@ export function createUrlPublishAction(
 			props,
 			native,
 			ready,
+			routingReady,
 			scope,
 			changed,
 			controller,
@@ -902,6 +930,67 @@ export function createUrlPublishAction(
 				}
 			}
 		}
+		// Content-only updates still use Sanity's native Publish action, after a
+		// fresh ownership check. Read raw stored values so a changed prefix cannot
+		// disguise an edited slug as an unchanged URL.
+		async function publishNative() {
+			if (!options.collectionRouting) {
+				current.current.native?.onHandle?.()
+				return
+			}
+			const captured = current.current
+			const draft = captured.props.draft
+			if (!draft || !captured.ready || inFlight.current) return
+			abort.current?.abort()
+			const request = new AbortController()
+			abort.current = request
+			inFlight.current = true
+			setPhase('reviewing')
+			setDismissed(false)
+			try {
+				const result = await checkNativeUrlPublication(
+					options.collectionRouting,
+					activeRoutes,
+					client,
+					draft,
+					captured.props.published,
+					request.signal,
+				)
+				if (!canReport() || request.signal.aborted) return
+				if (
+					current.current.props.draft?._rev !== draft._rev ||
+					current.current.props.published?._rev !==
+						captured.props.published?._rev ||
+					!current.current.ready
+				) {
+					setError(
+						'The document or routing information changed. Try publishing again to check the latest version.',
+					)
+				} else if (!result.ok) {
+					setError(
+						result.reason === 'url-in-use'
+							? 'This URL is already used by another page or redirect in the live or preview site. Choose a different URL before publishing.'
+							: result.reason === 'url-changed'
+								? 'The stored URL changed. Reload this document to review the URL change before publishing.'
+								: 'The page URLs could not be checked. Check the collection settings and your connection, then try again.',
+					)
+				} else {
+					setDismissed(true)
+					current.current.native?.onHandle?.()
+				}
+			} catch {
+				if (canReport() && !request.signal.aborted)
+					setError(
+						'The page URLs could not be checked. Check your connection and try again.',
+					)
+			} finally {
+				if (canReport()) {
+					inFlight.current = false
+					if (!request.signal.aborted) setPhase('idle')
+				}
+			}
+		}
+
 		if (!native || !registered) return native
 		const stale = !!review && !isCurrent(review)
 		const recovering = phase === 'unknown'
@@ -913,6 +1002,7 @@ export function createUrlPublishAction(
 			disabled: recovering
 				? showingDialog
 				: native.disabled ||
+					!routingReady ||
 					localPending ||
 					invalid ||
 					unsupported ||
@@ -921,13 +1011,15 @@ export function createUrlPublishAction(
 					(changed && !ready),
 			title: recovering
 				? 'Check whether the last attempt succeeded before publishing this page again.'
-				: localPending
-					? 'Wait for the URL edit to finish, or correct its error.'
-					: invalid
-						? 'The current or proposed URL cannot be resolved.'
-						: unsupported
-							? 'URL changes in releases and live-edit documents are not supported yet.'
-							: native.title,
+				: !routingReady
+					? 'Collection URLs could not be loaded. Retry after checking the collection settings.'
+					: localPending
+						? 'Wait for the URL edit to finish, or correct its error.'
+						: invalid
+							? 'The current or proposed URL cannot be resolved.'
+							: unsupported
+								? 'URL changes in releases and live-edit documents are not supported yet.'
+								: native.title,
 			onHandle: () => {
 				if (!canReport()) return
 				if (current.current.phase === 'unknown') {
@@ -936,6 +1028,7 @@ export function createUrlPublishAction(
 				}
 				if (restorePending(false)) return
 				if (
+					!current.current.routingReady ||
 					current.current.native?.disabled ||
 					current.current.phase !== 'idle' ||
 					current.current.review ||
@@ -947,7 +1040,7 @@ export function createUrlPublishAction(
 				if (current.current.changed) {
 					void begin()
 				} else if (!current.current.invalid && !current.current.unsupported)
-					current.current.native?.onHandle?.()
+					void publishNative()
 			},
 			dialog: showingDialog
 				? {

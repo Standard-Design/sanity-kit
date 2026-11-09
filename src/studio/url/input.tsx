@@ -41,6 +41,7 @@ import { useUrlAutosave } from './autosave.js'
 import { useUrlFieldError } from './validation.js'
 import { useUrlPublicationState } from './publication-state.js'
 import type { SanityKitCreationContext } from './creation-context.js'
+import type { CollectionRoutingConfig } from '../../url/settings/resolve.js'
 
 // Studio's document-saving indicator uses the sync symbol with a one-second
 // eased rotation. Use the public icon rather than importing its private status
@@ -166,6 +167,7 @@ function CopyUrlButton({
 /** Kept private while the full field and publication integration are accepted. */
 export interface SanityUrlInputProps extends SlugInputProps {
 	routes: PagesRouteConfig
+	collectionRouting?: CollectionRoutingConfig
 	inputMode?: 'folders' | 'text'
 	/** Paired with the kit's publication action; never a live URL write. */
 	allowPublishedDrafts?: boolean
@@ -174,6 +176,8 @@ export interface SanityUrlInputProps extends SlugInputProps {
 }
 
 function message(reason: string): string {
+	if (reason === 'routing-changed' || reason === 'conflicts-routing-changed')
+		return 'Collection URLs changed while this edit was being checked. Reload URL information and try again.'
 	if (reason.includes('published'))
 		return 'This page is published. To edit its URL, enable the URL-change publishing workflow in this Studio.'
 	if (reason.includes('release'))
@@ -212,12 +216,16 @@ function canRetrySave(reason: string): boolean {
 		'folders-conflict',
 		'folder-outcome-unknown',
 		'busy',
+		'routing-changed',
+		'conflicts-routing-changed',
+		'conflicts-conflicts-changed',
 	].includes(reason)
 }
 
 export function SanityUrlInput(props: SanityUrlInputProps) {
 	const {
 		routes,
+		collectionRouting,
 		allowPublishedDrafts,
 		creationContext,
 		inputMode = 'folders',
@@ -256,8 +264,9 @@ export function SanityUrlInput(props: SanityUrlInputProps) {
 		() =>
 			createUrlEditController(routes, client, {
 				allowPublishedDrafts: allowPublishedDrafts === true,
+				...(collectionRouting ? { collectionRouting } : {}),
 			}),
-		[routes, client, allowPublishedDrafts],
+		[routes, client, allowPublishedDrafts, collectionRouting],
 	)
 	const registered = registry.types.find(
 		(type) => type.schemaType === document?._type,

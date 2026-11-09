@@ -57,7 +57,15 @@ function fixture(
 			defineType({
 				name: 'post',
 				type: 'document',
-				fields: [defineSanityUrlField({ name: 'slug', routes })],
+				fields: [
+					defineSanityUrlField({
+						name: 'slug',
+						routes: options.routes ?? routes,
+						...(options.collectionRouting
+							? { collectionRouting: options.collectionRouting }
+							: {}),
+					}),
+				],
 			}),
 		],
 	})
@@ -74,6 +82,9 @@ function fixture(
 			).get() as Promise<unknown>,
 	)
 	vi.spyOn(client, 'withConfig').mockReturnValue(client)
+	vi.spyOn(client, 'request').mockResolvedValue([
+		{ filter: 'true', permissions: ['read'] },
+	])
 	vi.spyOn(client, 'fetch').mockImplementation(fetch as typeof client.fetch)
 	return {
 		field,
@@ -242,5 +253,115 @@ describe('native URL field definition', () => {
 		const { validate } = fixture({ routes: mutable })
 		mutable.pages[0]!.pathnameField = 'other.current'
 		expect(await validate(document('page', 'pathname', '/about'))).toEqual([])
+	})
+})
+
+describe('settings-aware native URL field validation', () => {
+	const collectionRouting = {
+		pages: routes.pages,
+		excludePaths: routes.excludePaths ?? [],
+		collections: [
+			{
+				name: 'journal',
+				title: 'Journal',
+				settingsDocumentId: 'journal-settings',
+				index: { schemaType: 'page', pathname: '/journal' },
+				items: [{ schemaType: 'post', slugField: 'slug.current' }],
+			},
+		],
+	}
+	const settings = [
+		{
+			_id: 'journal-settings',
+			_rev: 's1',
+			_type: 'sanityKitCollectionRoute',
+			collection: 'journal',
+			prefix: { _type: 'slug', current: '/journal' },
+		},
+		{
+			_id: 'drafts.journal-settings',
+			_rev: 's2',
+			_type: 'sanityKitCollectionRoute',
+			collection: 'journal',
+			prefix: { _type: 'slug', current: '/blog' },
+		},
+	]
+	it('validates the same native slug object against live and preview collection URLs', async () => {
+		const { validate } = fixture({ collectionRouting }, [
+			...settings,
+			{ _id: 'post-1', _type: 'post', _rev: 'p1', slug: { current: 'taken' } },
+		])
+		for (const pathname of ['/journal/taken', '/blog/taken'])
+			expect(await validate(document('page', 'pathname', pathname))).toEqual(
+				expect.arrayContaining([
+					expect.objectContaining({ code: 'slug.not-unique' }),
+				]),
+			)
+		expect(await validate(document('page', 'pathname', '/available'))).toEqual(
+			[],
+		)
+	})
+	it('keeps collection slug storage while checking a live-only page collision', async () => {
+		const { validate } = fixture({ collectionRouting }, [
+			...settings,
+			{
+				_id: 'page-1',
+				_type: 'page',
+				_rev: 'p1',
+				pathname: { current: '/journal/taken' },
+			},
+		])
+		expect(await validate(document('post', 'slug', 'taken'))).toEqual(
+			expect.arrayContaining([
+				expect.objectContaining({ code: 'slug.not-unique' }),
+			]),
+		)
+		expect(await validate(document('post', 'slug', 'available'))).toEqual([])
+	})
+	it('does not validate a current collection slug against the obsolete configured prefix', async () => {
+		const moved = settings.map((row) => ({
+			...row,
+			prefix: { _type: 'slug', current: '/blog' },
+		}))
+		const reservations = ['/journal/example']
+		const dynamic = { ...collectionRouting, excludePaths: reservations }
+		const configured = { ...routes, excludePaths: reservations }
+		const field = defineSanityUrlField({
+			name: 'slug',
+			routes: configured,
+			collectionRouting: dynamic,
+		})
+		const rule = { custom: vi.fn((callback: unknown) => callback) }
+		const check = field.validation(rule as never, {} as never) as unknown as (
+			value: unknown,
+			context: unknown,
+		) => unknown
+		expect(
+			check(
+				{ _type: 'slug', current: 'example' },
+				{ document: { _type: 'post' }, path: ['slug'] },
+			),
+		).toBe(true)
+		const { validate } = fixture(
+			{ routes: configured, collectionRouting: dynamic },
+			moved,
+		)
+		expect(await validate(document('post', 'slug', 'example'))).toEqual([])
+	})
+	it('rejects mismatched registration instead of validating one field and editing another', () => {
+		expect(() =>
+			fixture({
+				collectionRouting: {
+					...collectionRouting,
+					pages: [{ schemaType: 'page', pathnameField: 'other.current' }],
+				},
+			}),
+		).toThrow('same document types')
+	})
+	it('does not allow missing settings to silently validate against configured defaults', async () => {
+		const { validate } = fixture({ collectionRouting })
+		expect(
+			await validate(document('page', 'pathname', '/available')),
+		).not.toEqual([])
 	})
 })

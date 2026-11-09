@@ -4,6 +4,8 @@
  * validation/sync readiness; this boundary checks fresh URLs, access, revisions,
  * redirect rules, and uncertain outcomes. See docs/url-field.md.
  */
+import type { CollectionRoutingConfig } from '../../url/settings/resolve.js'
+import { createCollectionRoutingGuard } from '../collections/routing-guard.js'
 import {
 	safeRedirectRecordId,
 	redirectRowDetails,
@@ -90,6 +92,7 @@ export type UrlPublicationReviewResult =
 	| { readonly status: 'ready'; readonly review: UrlPublicationReview }
 	| UrlPublicationBlocked
 export interface UrlPublicationOptions {
+	readonly collectionRouting?: CollectionRoutingConfig
 	readonly reservedPaths?: readonly string[]
 }
 interface ReviewRequest {
@@ -100,6 +103,7 @@ interface ReviewRequest {
 interface Evidence {
 	readonly review: UrlPublicationReview
 	readonly fingerprint: string
+	readonly routingFingerprint?: string
 	readonly redirects: readonly unknown[]
 	readonly documents: readonly Record<string, unknown>[]
 	readonly before: readonly string[]
@@ -134,6 +138,9 @@ export function createUrlPublicationController(
 	client: PagesClient,
 	options: UrlPublicationOptions = {},
 ) {
+	const guardRouting = options.collectionRouting
+		? createCollectionRoutingGuard(options.collectionRouting, routes, client)
+		: undefined
 	const registry = createPagesRegistry(routes)
 	const resolve = createSanityUrlResolver(routes)
 	const load = createFolderLoader({ routes }, client)
@@ -233,6 +240,14 @@ export function createUrlPublicationController(
 		)
 			return blocked('invalid-document-id')
 		try {
+			const routing = await guardRouting?.(signal)
+			if (routing && !routing.ok)
+				return {
+					...blocked(routing.reason),
+					...(routing.accessIssues
+						? { accessIssues: routing.accessIssues }
+						: {}),
+				}
 			const accessOptions = {
 				url: `/projects/${projectId}/datasets/${dataset}/acl`,
 				tag: rawOptions.tag,
@@ -340,7 +355,12 @@ export function createUrlPublicationController(
 					newPathname: newUrl.value.pathname,
 					affectedRedirects: [],
 				}),
-				fingerprint: JSON.stringify([documents, redirects]),
+				fingerprint: JSON.stringify([
+					documents,
+					redirects,
+					routing?.fingerprint,
+				]),
+				...(routing ? { routingFingerprint: routing.fingerprint } : {}),
 				redirects,
 				documents,
 				before,
@@ -632,6 +652,18 @@ export function createUrlPublicationController(
 						phase: 'proposed',
 					},
 				}
+
+			const routing = await guardRouting?.()
+			if (routing && !routing.ok)
+				return {
+					...blocked(routing.reason),
+					...(routing.accessIssues
+						? { accessIssues: routing.accessIssues }
+						: {}),
+				}
+			if (routing && routing.fingerprint !== fresh.routingFingerprint)
+				return blocked('review-stale')
+			if (!choice.isCurrent()) return blocked('review-stale')
 
 			// Keep the exact receipt before dispatch: even a rejected promise can
 			// mean the server committed but its response was lost.

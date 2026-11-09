@@ -7,7 +7,7 @@ slug field.
 
 This first implementation is private and under review. The proof Studio imports
 it directly from source; there is no public package export or release yet.
-It supports fixed collection prefixes and draft URL editing. With the private
+It supports fixed collection prefixes, opt-in settings-backed prefixes, and draft URL editing. With the private
 publication plugin installed, editors can also edit drafts of published pages.
 Documents with release versions and `liveEdit` schemas remain protected. Without
 that plugin, the field still limits editing to unpublished documents.
@@ -34,6 +34,21 @@ navigator; it does not need a mounted Pages tool to supply the folder list.
 Folder rename and removal remain navigator actions. Location hints from a
 Pages **Create page** action are optional; an ordinary Structure-created document
 does not need one.
+
+### Settings-backed collection prefixes
+
+Pass the same optional `collectionRouting` to the field and
+`withUrlPublication` when collections read their prefixes from settings documents.
+The field loads draft routing and checks URL ownership against both draft and
+published routes. Loading or unreadable settings disable URL edits instead of
+using a guessed prefix. Standalone Structure fields support this too.
+
+An article can still store `first-post` while the field displays
+`/stories/first-post` from its collection's settings draft. Publishing the article
+does not publish that settings draft. URL-changing publication requires matching
+live/draft routing until the separate prefix-publish workflow is ready;
+content-only updates use fresh checks without activating a draft prefix.
+See [live collection routing](collection-routing.md#connecting-live-routing-to-studio-and-the-website).
 
 ### Text input and stored strings are separate choices
 
@@ -62,7 +77,7 @@ Generation waits for malformed paths to be corrected. A blank input generates
 at the site root. A contextual creation action pre-fills its folder with a
 trailing slash, so Generate uses that folder unless the editor clears it.
 
-Collection items retain their fixed prefix beside the editable segment in both
+Collection items retain their resolved, read-only prefix beside the editable segment in both
 modes. Text mode does not make a collection prefix editable on individual items.
 In folder mode, an invalid existing page pathname can still appear in a full-path
 repair input; that recovery behavior is separate from the configuration option.
@@ -351,8 +366,10 @@ every document to store its website prefix.
 
 Collection prefixes are shown as locked text in this slice. Existing collection
 items that store full paths keep that storage; the input preserves their current
-parent path while changing the final segment. Editable collection settings and
-moving a legacy item between nested folders remain later work.
+parent path while changing the final segment. Settings-backed collections use
+`collectionRouting` to read their draft prefix; editors change that prefix in the
+collection settings document, not on each item. Moving a legacy item between
+nested folders remains later work.
 
 The field never stores the derived `{pathname, prefix, slug}` object. Existing
 slug-object metadata is preserved: it sets `current` rather than replacing the

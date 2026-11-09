@@ -1,3 +1,4 @@
+import { checkNativeUrlPublication } from '../../src/studio/url/native-publication.js'
 import { evaluate, parse } from 'groq-js'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { createClient, type ClientConfig, type Action } from '@sanity/client'
@@ -1780,5 +1781,206 @@ describe('publication limit diagnostics', () => {
 		if (result.status !== 'blocked') throw new Error('Expected blocked review')
 		expect(result.limit?.actual).toBeGreaterThan(1_048_576)
 		expect(io.action).not.toHaveBeenCalled()
+	})
+})
+
+describe('settings-aware page URL publication', () => {
+	const dynamic = {
+		pages: routes.pages,
+		excludePaths: routes.excludePaths,
+		collections: [
+			{
+				name: 'journal',
+				title: 'Journal',
+				settingsDocumentId: 'journal-settings',
+				index: { schemaType: 'page', pathname: '/insights' },
+				items: [{ schemaType: 'post', slugField: 'slug.current' }],
+			},
+		],
+	}
+	const active = {
+		...routes,
+		collections: [{ ...dynamic.collections[0]!, routePrefix: '/journal' }],
+	}
+	const settings = (id: string, prefix = '/journal') => ({
+		_id: id,
+		_type: 'sanityKitCollectionRoute',
+		_rev: id,
+		collection: 'journal',
+		prefix: { _type: 'slug', current: prefix },
+	})
+	it('preserves the guarded workflow when draft and live collection routes agree', async () => {
+		const io = transport([settings('journal-settings')])
+		const controller = createUrlPublicationController(active, io.client, {
+			collectionRouting: dynamic,
+		})
+		const reviewed = await controller.review(requested)
+		expect(reviewed.status).toBe('ready')
+		if (reviewed.status !== 'ready') throw new Error(JSON.stringify(reviewed))
+		expect(await controller.publish(reviewed.review, currentChoice)).toEqual({
+			status: 'published',
+		})
+		expect(io.action).toHaveBeenCalledOnce()
+	})
+	it('blocks URL publication while a collection prefix has unpublished changes', async () => {
+		const io = transport([
+			settings('journal-settings'),
+			settings('drafts.journal-settings', '/blog'),
+		])
+		const controller = createUrlPublicationController(active, io.client, {
+			collectionRouting: dynamic,
+		})
+		expect(await controller.review(requested)).toMatchObject({
+			status: 'blocked',
+			reason: 'collection-prefix-unpublished',
+		})
+		expect(io.action).not.toHaveBeenCalled()
+	})
+	it('does not use a reviewed prefix after its settings revision changes', async () => {
+		const io = transport([settings('journal-settings')])
+		const controller = createUrlPublicationController(active, io.client, {
+			collectionRouting: dynamic,
+		})
+		const reviewed = await controller.review(requested)
+		if (reviewed.status !== 'ready') throw new Error(JSON.stringify(reviewed))
+		io.dataset.find((row) => row._id === 'journal-settings')!._rev =
+			'new-settings-revision'
+		expect(
+			await controller.publish(reviewed.review, currentChoice),
+		).toMatchObject({ status: 'blocked', reason: 'review-stale' })
+		expect(io.action).not.toHaveBeenCalled()
+	})
+	it('blocks when routing changes after the inventory reread and before dispatch', async () => {
+		const io = transport([settings('journal-settings')])
+		const controller = createUrlPublicationController(active, io.client, {
+			collectionRouting: dynamic,
+		})
+		const reviewed = await controller.review(requested)
+		if (reviewed.status !== 'ready') throw new Error(JSON.stringify(reviewed))
+		let changed = false
+		const result = await controller.publish(reviewed.review, {
+			createRedirect: true,
+			isCurrent: () => {
+				if (!changed) {
+					changed = true
+					io.dataset.push(settings('drafts.journal-settings', '/blog'))
+				}
+				return true
+			},
+		})
+		expect(result).toMatchObject({
+			status: 'blocked',
+			reason: 'collection-prefix-unpublished',
+		})
+		expect(io.action).not.toHaveBeenCalled()
+	})
+})
+
+describe('native publishing with settings-backed routing', () => {
+	const configuration = {
+		pages: routes.pages,
+		excludePaths: routes.excludePaths,
+		collections: [
+			{
+				name: 'journal',
+				title: 'Journal',
+				settingsDocumentId: 'journal-settings',
+				index: { schemaType: 'page', pathname: '/insights' },
+				items: [{ schemaType: 'post', slugField: 'slug.current' }],
+			},
+		],
+	}
+	const active = {
+		...routes,
+		collections: [
+			{ ...configuration.collections[0]!, routePrefix: '/journal' },
+		],
+	}
+	const settings = () => [
+		{
+			_id: 'journal-settings',
+			_rev: 's1',
+			_type: 'sanityKitCollectionRoute',
+			collection: 'journal',
+			prefix: { _type: 'slug', current: '/journal' },
+		},
+		{
+			_id: 'drafts.journal-settings',
+			_rev: 's2',
+			_type: 'sanityKitCollectionRoute',
+			collection: 'journal',
+			prefix: { _type: 'slug', current: '/blog' },
+		},
+	]
+	it('allows content-only publishing while the preview prefix differs', async () => {
+		const io = transport(settings())
+		expect(
+			await checkNativeUrlPublication(
+				configuration,
+				active,
+				io.client,
+				page('drafts.page-1', '/old', 'draft-rev'),
+				page('page-1', '/old', 'published-rev'),
+			),
+		).toEqual({ ok: true })
+	})
+	it('never delegates a stored URL mutation as a content-only publish', async () => {
+		const io = transport(settings())
+		expect(
+			await checkNativeUrlPublication(
+				configuration,
+				active,
+				io.client,
+				page('drafts.page-1', '/new', 'draft-rev'),
+				page('page-1', '/old', 'published-rev'),
+			),
+		).toEqual({ ok: false, reason: 'url-changed' })
+		expect(io.fetch).not.toHaveBeenCalled()
+	})
+	it('checks first publishing against collection URLs in both perspectives', async () => {
+		const io = transport([
+			...settings(),
+			{ _id: 'post-1', _type: 'post', _rev: 'p1', slug: { current: 'taken' } },
+		])
+		expect(
+			await checkNativeUrlPublication(
+				configuration,
+				active,
+				io.client,
+				page('drafts.new-page', '/blog/taken', 'r1'),
+			),
+		).toEqual({ ok: false, reason: 'url-in-use' })
+	})
+	it('allows optional absent URLs with differing draft prefixes after fresh settings checks', async () => {
+		const io = transport(settings())
+		expect(
+			await checkNativeUrlPublication(configuration, active, io.client, {
+				_id: 'drafts.empty',
+				_type: 'page',
+				_rev: 'r1',
+			}),
+		).toEqual({ ok: true })
+		expect(io.request).toHaveBeenCalled()
+	})
+	it('does not substitute the configured seed when settings cannot be read', async () => {
+		const io = transport()
+		expect(
+			await checkNativeUrlPublication(configuration, active, io.client, {
+				_id: 'drafts.empty',
+				_type: 'page',
+				_rev: 'r1',
+			}),
+		).toMatchObject({ ok: false })
+	})
+	it('does not treat malformed nonempty URL values as absent', async () => {
+		const io = transport(settings())
+		expect(
+			await checkNativeUrlPublication(
+				configuration,
+				active,
+				io.client,
+				page('drafts.invalid', 'invalid', 'r1'),
+			),
+		).toMatchObject({ ok: false })
 	})
 })

@@ -2,6 +2,7 @@ import { DocumentIcon } from '@sanity/icons/Document'
 import { defineField, defineType, type SchemaTypeDefinition } from 'sanity'
 import { defineSanityUrlField } from '../../../src/studio/url/field.js'
 import { proofRoutes } from './routes.js'
+import { proofLiveCollectionRouting } from './collection-routes.js'
 
 /** Fixture-owned types: no app schema is injected or changed by the future plugin. */
 export const schemaTypes: SchemaTypeDefinition[] = [
@@ -34,6 +35,7 @@ export const schemaTypes: SchemaTypeDefinition[] = [
 					})
 				: defineSanityUrlField({
 						routes: proofRoutes,
+						collectionRouting: proofLiveCollectionRouting,
 						name: 'pathname',
 						title: 'URL',
 						options: { source: 'title' },

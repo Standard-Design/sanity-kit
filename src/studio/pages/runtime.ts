@@ -9,6 +9,7 @@ import { createPagesRegistry, type PagesRouteConfig } from './registry.js'
 import { createBrowserModel } from './model.js'
 import { createPageResolvers } from './resolvers.js'
 import type { CollectionRoutingSnapshot } from '../collections/routing-session.js'
+import type { CollectionRoutingConfig } from '../../url/settings/resolve.js'
 
 /** One explicitly allowed native template. Studio supplies its default title. */
 export interface PagesCreateOptions {
@@ -30,6 +31,8 @@ export interface PagesToolOptions
 		Omit<PresentationPluginOptions, 'components' | 'locate' | 'resolve'> {
 	/** Overrides replace generated native resolvers, not browser route metadata. */
 	readonly resolve?: PresentationPluginOptions['resolve']
+	/** Load collection prefixes from settings; routes above still register types. */
+	readonly collectionRouting?: CollectionRoutingConfig
 	readonly collectionUi?: Readonly<Record<string, PagesCollectionUiOptions>>
 	/**
 	 * Eligible creation templates, in display order. A single object remains a
@@ -214,9 +217,9 @@ export type PagesRuntime = ReturnType<typeof createPagesRuntime>
  * native main-document lookup to refresh without remounting Presentation.
  *
  * Loading/error results deliberately have no runtime: no stale or placeholder
- * URL can escape. The store's separate settingsDocuments list lets the future
- * error shell keep Settings accessible. pagesTool does not call this yet; URL
- * authoring and publish checks must adopt the same context before live wiring.
+ * URL can escape. The store's separate settingsDocuments list keeps Settings
+ * accessible in the error shell. Pages calls this only when collectionRouting
+ * is explicitly installed; authoring still needs its own fresh write checks.
  */
 export function resolveCollectionPagesRuntime(
 	snapshot: CollectionRoutingSnapshot,
