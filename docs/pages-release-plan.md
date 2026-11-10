@@ -4,6 +4,37 @@ This plan divides the remaining Pages work into independently reviewable slices.
 It records the parallel work approved on November 5, 2026. It is a work plan,
 not a list of features already available in the published package.
 
+## Remaining release checklist
+
+Update this checklist after each slice approval and include the current list in
+the approval handoff. Remove finished work from the remaining list; retain its
+commit in the progress record below. A completed implementation remains separate
+from a reviewed, committed slice and from live acceptance.
+
+Last approved slice: first-publication URL planner, `5ffe637`. The classification
+(`adcd4db`) and native write/schema authorization (`dd1b9ee`) slices are also
+approved, committed, and pushed.
+
+| Slice                                    | What remains                                                                                                                                            | Status                                                      |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------- |
+| 1. First-publication data review         | Read complete data with verified access and recheck new, changed, or removed documents before publishing.                                               | Implemented; staged for review                              |
+| 2. Collection-prefix dialog and session  | Show the reviewed changes, keep editor choices current, and handle pending, failed, or uncertain saves.                                                 | Implemented; final review underway; unstaged                |
+| 3. First and unchanged-prefix publishing | Safely publish initial settings and ordinary settings edits that do not move URLs.                                                                      | Implementation underway                                     |
+| 4. Native settings Publish integration   | Connect all three publishing paths to the Studio action, validation state, permissions, and recovery UI.                                                | Pending dependencies                                        |
+| 5. Live collection-publishing acceptance | Exercise first publish, name-only edits, repeated prefix moves, redirects, conflicts, cancellation, and recovery in the real Studio and website.        | Pending integration                                         |
+| 6. Final navigator acceptance            | Finish extreme-label/narrow-layout checks and browser performance measurements with larger lists; fix observed problems.                                | Pending                                                     |
+| 7. Public API completion                 | Export the supported field, settings, folder-import, redirect, and routing integrations with clear consumer contracts.                                  | Audit complete; exports pending final contracts             |
+| 8. Installed-consumer integration        | Test the packed package in consumer-owned Studio/app fixtures, including standalone fields, Pages, settings, and redirect middleware.                   | Existing package checks pass; new integrations still needed |
+| 9. Combined release acceptance           | Verify the workflows together: permissions, concurrent edits, uncertain writes, preview/live routing, cache refresh, and supported dependency versions. | Pending integrated acceptance                               |
+| 10. Release preparation                  | Reconcile guides and examples, prepare version/release notes, verify the final package and CI, and present the release for approval.                    | Pending preceding checks                                    |
+
+These are the remaining review checkpoints, not a promise that each must be one
+commit. Split a checkpoint only when implementation or review establishes a
+useful boundary, and record that change here. Publishing the release follows its
+own approval after these checks are complete.
+
+## Progress record
+
 The first parallel round is committed and pushed: empty-folder removal
 (`d8a1ccf`), collection settings draft editing (`e13643f`), and redirect request
 handling with optional consumer caching (`437540d`). The separate CI timing fix
@@ -51,12 +82,13 @@ The private [collection-prefix core](collection-prefix-publication.md) now
 reviews changes, checks read access, and can publish reviewed settings and
 redirects together through its required authorization callback. It saves
 recovery information before sending the request and checks an exact receipt if
-the outcome is uncertain. That callback still needs a native write/schema
-adapter before editors can use the workflow.
+the outcome is uncertain. The native write/schema adapter is implemented; the
+editor workflow still needs to connect it to publishing.
 
 The November 10 round works on three separate areas:
 
-- Implement native write and schema checks for the writer's exact action targets.
+- Complete native write and schema checks for the writer's exact action targets
+  (now approved in `dd1b9ee`).
 - Settle the settings Publish integration, including first publication, edits
   that keep the prefix unchanged, and review/recovery UI.
 - Audit public exports and installed-consumer coverage. The source-only report

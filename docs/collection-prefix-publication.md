@@ -347,9 +347,36 @@ An accepted plan lists newly available live URLs, draft URLs, the revisions
 reviewed, and settings identities that were absent. A later recheck must notice
 new documents as well as edits to existing ones. The inventory's completeness
 and read-access declarations are supplied by the caller; the pure planner cannot
-prove them. A fresh reader, permission checks, and a guarded publish action still
-need to connect this plan to Studio. Calling it writes nothing and does not
-enable Publish.
+prove them. The reader below supplies checked data to the planner. A guarded
+publish action still needs to connect this plan to Studio. Calling the planner
+writes nothing and does not enable Publish.
+
+## Loading and rechecking first-publication evidence
+
+`createCollectionSettingsActivationReviewer(routes, client, {confirmReadAccess})`
+in `src/studio/collections/settings-activation-review.ts` connects the planner to
+Sanity reads. It checks that the caller can read all required document versions,
+loads the settings, page/item URLs, and redirects, and checks access again before
+accepting the result. A successful but permission-filtered query is not treated
+as a complete inventory.
+
+`review({collection, draftRevision}, signal)` returns either a checked review or
+a reason to stop. Reads use the raw perspective without CDN, caching, or automatic
+retries. Queries fetch one extra row beyond each supported count so the reader
+can detect an incomplete result rather than quietly check only part of the site.
+Settings are fetched by identity, so an unexpected document type at a settings
+ID cannot be mistaken for a missing document.
+
+`recheck(review, signal)` repeats the reads and access checks. It detects newly
+created documents as well as edits and deletions. For example, another editor
+might create a page at a proposed collection URL after the first review, or
+publish settings that were previously absent. The reader accepts only original
+review objects that it created; copying a result does not create a valid review.
+
+These checks still write nothing. Uncached GROQ queries can briefly lag committed
+document changes, and a recheck does not lock the dataset. The future publisher
+must apply final revision/creation guards and handle uncertain outcomes before
+this workflow can be enabled in Studio.
 
 ## What remains before editors can publish prefixes
 
