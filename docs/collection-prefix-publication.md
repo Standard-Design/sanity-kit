@@ -280,6 +280,42 @@ redirect revision is caught by the transaction's revision guards; a newly added
 item, release, or conflicting URL elsewhere may appear after the last inventory
 check. Stronger cross-document coordination would require a separate design.
 
+## Choosing the settings-publishing workflow
+
+The private `createCollectionSettingsPublicationClassifier(routes)` helper in
+`src/studio/collections/settings-publication-plan.ts` distinguishes three cases:
+
+- **First publication:** a settings draft exists and the published settings
+  document does not. An editable prefix activates collection URLs for the first
+  time. A locked prefix already comes from code, so publishing its first settings
+  document does not activate or move those URLs.
+- **Unchanged prefix:** both settings versions exist and their effective prefixes
+  match. Changing the display name is a typical example. The later integration
+  can preserve ordinary Publish behavior instead of showing a URL-move review.
+- **Prefix change:** publishing the draft would move item URLs. This needs the
+  reviewed prefix-change workflow described above.
+
+Its `classify({collection, published, draft})` method requires both document slots.
+Explicit `null` means the caller established absence; omitted or `undefined`
+values mean incomplete evidence. A draft must exist. The helper checks document
+identities, collection binding, revisions, and editable prefix storage. It rejects
+a release document supplied instead of the ordinary draft or published version.
+A configured default never replaces a missing stored prefix or becomes an
+invented live prefix.
+
+The result identifies the workflow and captures the document revisions. It is
+**not permission to publish**: it does not inspect page/redirect inventories,
+check other collections for collisions, validate the whole settings schema,
+prove read/write access, or discover release versions elsewhere in the dataset.
+An empty query alone does not establish readable absence.
+
+Classification resolves only the selected collection. Other collections can also
+be waiting for their first settings documents, so requiring a complete frontend
+routing context at this step would prevent setup from progressing. This does not
+change the frontend resolver or invent fallback routes. First publication still
+needs a separate check of the newly available URLs against the rest of the site
+before it can be enabled.
+
 ## What remains before editors can publish prefixes
 
 The native schema/write authorization adapter, a clear review dialog, and its
