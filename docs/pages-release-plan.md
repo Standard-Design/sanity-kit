@@ -22,21 +22,22 @@ Live collection routing (`f51b428`) is also committed and pushed, with passing C
 It connects settings to Pages, native locations, URL fields, and the proof website.
 React Router redirect middleware (`783dfe9`) and navigator focus/label fixes
 (`3cb9acb`) are now committed and pushed. The collection-prefix planning
-checkpoint (`a922c54`) is committed and pushed too. Prefix publishing remains the
-next collection workflow.
+checkpoint (`a922c54`), native read-access checks (`b3e2831`), and writer/recovery
+core (`77b0fa2`) are committed. The guide-packaging fix (`afccbcc`) is committed
+too. These foundations do not yet enable collection settings Publish: native
+write/schema checks and the editor workflow still need integration.
 
 ## Parallel tracks
 
-| Track                           | Current work                                                                                      | Review boundary                                                                  |
-| ------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Collection-prefix publishing    | Plan affected URLs and redirects, then add guarded writing and the publish review                 | Keep native settings publishing blocked until the full workflow is safe          |
-| Frontend redirects and caching  | Verify actual request handling, authenticated preview bypass, cache refresh, and failure behavior | The consumer owns storage and infrastructure; the kit supplies reusable behavior |
-| Navigator acceptance and polish | Check keyboard use, narrow layouts, loading/error states, and larger collections                  | Fix observed problems without changing the approved visual design                |
+| Track                           | Current work                                                                                            | Review boundary                                                                  |
+| ------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Collection-prefix publishing    | Connect native write/schema checks, handle first and unchanged-prefix saves, and add the publish review | Keep native settings publishing blocked until the full workflow is safe          |
+| Frontend redirects and caching  | Verify actual request handling, authenticated preview bypass, cache refresh, and failure behavior       | The consumer owns storage and infrastructure; the kit supplies reusable behavior |
+| Navigator acceptance and polish | Check keyboard use, narrow layouts, loading/error states, and larger collections                        | Fix observed problems without changing the approved visual design                |
 
 Implementation tracks use isolated checkouts or explicitly assigned files.
 Completed work receives integration checks and a plain-language review in the
-main checkout. A completed
-agent task is not permission to commit or publish it. Each slice still needs the
+main checkout. A completed agent task is not permission to commit or publish it. Each slice still needs the
 user's commit approval.
 
 The November 9 round runs these three tracks together, with separate file
@@ -46,15 +47,24 @@ checks each completed result, then stages one slice at a time for approval.
 Other completed work stays unstaged until its turn. No track commits or pushes
 without approval.
 
-The approved private, read-only
-[collection-prefix planner](collection-prefix-publication.md) prepares URL and
-redirect changes and rechecks the evidence. It does not write settings or enable
-Publish. The next parallel round develops its native read-permission adapter and
-guarded writer/recovery core while auditing consumer APIs and package contents.
-The Studio dialog and integration follow those foundations. Initial settings
-publication and same-prefix settings edits also need explicit handling before
-that workflow is complete. Navigator browser performance and extreme
-narrow-layout checks remain recorded in the
+The private [collection-prefix core](collection-prefix-publication.md) now
+reviews changes, checks read access, and can publish reviewed settings and
+redirects together through its required authorization callback. It saves
+recovery information before sending the request and checks an exact receipt if
+the outcome is uncertain. That callback still needs a native write/schema
+adapter before editors can use the workflow.
+
+The November 10 round works on three separate areas:
+
+- Implement native write and schema checks for the writer's exact action targets.
+- Settle the settings Publish integration, including first publication, edits
+  that keep the prefix unchanged, and review/recovery UI.
+- Audit public exports and installed-consumer coverage. The source-only report
+  is `docs/pages-public-api-readiness.md`; it separates usable package entries
+  from private integrations and records the installation tests still needed.
+
+The Studio dialog follows those foundations. Navigator browser performance and
+extreme narrow-layout checks remain in the
 [acceptance guide](navigator-acceptance.md).
 
 The standalone proof website will not gain a perspective selector in this round.
