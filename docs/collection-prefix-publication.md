@@ -1,4 +1,4 @@
-# Reviewing collection-prefix changes
+# Reviewing and publishing collection-prefix changes
 
 ## What this checkpoint does
 
@@ -7,11 +7,16 @@ what those items store. If Journal moves from `/journal` to `/blog`, a post whos
 slug is `first-post` moves from `/journal/first-post` to `/blog/first-post`.
 The slug stays `first-post`.
 
-This checkpoint adds a **private, read-only planning foundation**. It can list the
-live URLs that would change, check the surrounding routing data, and prepare the
-redirect changes for review. It cannot publish settings or change redirects.
+This checkpoint adds a **private publishing core** on top of the read-only
+planner. It can review the live URLs that would change, then publish the reviewed
+settings and redirect changes together. It also records enough information to
+check the outcome if the connection is lost.
+
 There is no new Studio dialog, and the settings document's native Publish action
-remains disabled.
+remains disabled. The core requires an explicit schema and write-permission
+adapter before it can send a request; that adapter and the editor workflow are
+not installed yet. These are private building blocks, not a consumer-ready
+publishing integration.
 
 The work builds on [collection routing](collection-routing.md), the shared
 [redirect rules](redirects.md), and the reviewed bulk redirect planner used by
@@ -124,9 +129,9 @@ previous review from being accepted as current. The reviewer recognizes only
 reviews created by that instance; a reconstructed object is not a valid review.
 
 Neither method writes. A successful recheck also does not lock the dataset.
-An external writer can still create a conflict afterward; the eventual writer
-must recheck immediately before dispatch and protect affected revisions in its
-atomic operation.
+Another write can still create a conflict afterward. The guarded writer rechecks
+immediately before dispatch and protects the settings and redirect revisions
+inside its atomic operation. The concurrency boundary is explained below.
 
 ## Read access is an integration requirement
 
@@ -160,20 +165,130 @@ versions, 100 affected item versions, 2,000,000 bytes of projected inventory, an
 use the existing bulk redirect limits. Reads fetch one extra row to detect
 truncation; exceeding a bound is an error, never permission to review a subset.
 
+The writer separately limits the two full settings documents to 1,048,576 bytes
+and the exact serialized Actions request, including its receipt, to 1,048,576
+bytes. A receipt may contain escaped review data, so the writer measures the
+actual request rather than estimating from the plan's size. The persisted
+recovery envelope also has its own defensive parsing bound.
+
 These are implementation bounds for this private checkpoint, not Sanity service
-limits. A future transaction must separately measure its exact mutations and
-receipt. Fitting the review does not mean a publish request will fit.
+limits. Fitting the review does not mean a publish request will fit.
+
+## The guarded writer
+
+`src/studio/collections/prefix-write.ts` exposes the private
+`createCollectionPrefixController(options, client)` factory. Its methods are:
+
+- `review(choice, signal)`: builds the existing routing review, loads the complete
+  published and draft settings documents, checks their revisions, and asks the
+  supplied adapter to authorize the exact proposed work.
+- `publish(review, {isCurrent, signal})`: accepts only a review produced by this
+  controller, repeats the read checks and inventory review, repeats write
+  authorization, and checks that the editor still accepts this review. It saves
+  recovery information before sending one request.
+- `getPending()`: reports a previously sent operation whose outcome is unresolved.
+- `reconcile()`: checks the exact receipt for that operation without sending the
+  settings or redirects again.
+
+A ready review includes the complete published and draft settings documents.
+**Publishing applies the whole reviewed settings draft**, just like ordinary
+Publish. If the draft also changes the collection display name or another
+settings field, that change is included. Item drafts and independently located
+index pages remain untouched. The future review UI must make this scope clear.
+
+The writer sends one [Sanity Actions API transaction](https://www.sanity.io/docs/http-reference/actions):
+
+1. Existing aliases get a fresh draft copied from their exact published revision.
+   Only the destination is changed, and that draft is published. The server copy
+   preserves fields that were not in the routing query. If another redirect draft
+   has appeared, creating this fresh draft fails instead of publishing that
+   editor's work.
+2. Optional new redirects are created under fresh random IDs and published.
+3. The settings draft is published only if its revision and the published
+   settings revision still match the review.
+4. A confirmation receipt is created and published in the same transaction.
+
+The batch succeeds together or changes nothing. The writer never includes item
+patches, item publications, or index-page updates. Request retries are disabled.
+Generated redirect and receipt IDs belong to this one reviewed operation; they
+are not deterministic IDs derived from URL text.
+
+## Write and schema authorization
+
+The required `authorize` callback receives the project and dataset, an exact
+receipt ID, and a list of action targets. Targets distinguish publishing the
+complete settings draft, creating/editing/publishing a fresh draft of an existing
+redirect, and creating/publishing a new redirect or receipt.
+
+The adapter must check the whole sequence for each target, including draft
+creation and removal during Publish. For existing redirects it must load the
+complete document at the specified revision to evaluate conditional rules.
+It must validate the settings draft and applicable redirect schema rules, honor
+document and changed-field `readOnly` rules, and verify the actual native write
+permissions. A currently enabled Publish button is not a substitute for these
+checks.
+
+Every target needs one explicit `granted`, `missing`, `unverified`, or `protected`
+answer. Exact published and draft receipt reads must also be granted, even before
+those identities exist. The native helper
+`checkCollectionPrefixReceiptReadAccess(client, receiptId, signal)` can supply
+that read check. Empty, duplicate, partial, malformed, and denied answers block
+the request. A native schema/write adapter is still required before UI integration;
+this callback is not a claim that those checks are already installed.
+
+## Lost connections and recovery
+
+`src/studio/collections/prefix-pending.ts` keeps the exact receipt before dispatch.
+The default store is this tab's session storage. A supplied storage adapter must
+also survive reloads. If the store is unavailable, full, or cannot read back the
+saved value, the writer does not send the request.
+
+The receipt uses `sanityKit.collectionPrefixPublication.<random operation ID>`
+and type `sanityKitCollectionPrefixPublication`. It records the exact reviewed
+plan and generated redirect IDs. Recovery compares all expected receipt fields;
+finding an unrelated receipt, or only seeing the new prefix in a query, does not
+count as confirmation.
+
+A matching transaction response confirms success. A known request rejection
+confirms failure. If the response is lost or cannot be recognized, the controller
+reads the receipt directly through Sanity's uncached Document API. A matching
+receipt confirms the whole atomic batch. A missing, unreadable, or mismatched
+receipt leaves the result **unknown**; it does not prove that the request failed.
+
+While an operation is unresolved, another write through this controller or a
+mounted controller sharing its scope is blocked. Reloading the tab restores the
+receipt check. There is no automatic resubmission or timeout that clears the
+record. Resolving a genuinely inconclusive operation will need a deliberate
+support/recovery policy in the upcoming UI integration.
+
+The pending slot coordinates this JavaScript process and survives the current
+tab's reloads. It is not a dataset-wide lock or a cross-tab transaction coordinator.
+
+## What the transaction cannot lock
+
+Atomicity covers the target settings, changed redirects, and receipt. Current
+read checks are not database-wide uniqueness or release locks. Collection items,
+other settings documents, and untouched redirect records are rechecked, but are
+not written merely to lock their revisions. Fresh GROQ reads also use Sanity's
+query store, which can briefly lag committed document changes; disabling caching
+does not remove that delay.
+
+A concurrent uncoordinated write can therefore race the final read. This includes
+native autosave, another Studio tab, another kit action, an import, or an API
+script—not only external systems. A changed target settings revision or changed
+redirect revision is caught by the transaction's revision guards; a newly added
+item, release, or conflicting URL elsewhere may appear after the last inventory
+check. Stronger cross-document coordination would require a separate design.
 
 ## What remains before editors can publish prefixes
 
-The next implementation must provide the native schema and write-authorization
-adapter, a clear review dialog, and a bounded atomic operation that publishes the
-reviewed settings together with redirect changes and a confirmation receipt.
-It must preserve unrelated item drafts, guard affected revisions, and recover
-uncertain network outcomes without blindly sending the write again.
+The native schema/write authorization adapter, a clear review dialog, and its
+pending/confirmation/recovery states must still be integrated. Initial settings
+publication and same-prefix settings publication remain explicitly unsupported.
+Native settings Publish must stay disabled until the complete guarded path is
+installed.
 
-Initial settings publication, same-prefix settings publication, and the policy
-for any other fields in the settings draft need explicit handling in that
-workflow. Native settings Publish must stay disabled until the complete guarded
-path is installed. Live acceptance will then need to verify the Studio review,
+The core has focused automated tests, including simulated atomic failures and
+cold-start receipt recovery. Live acceptance must still verify actual server
+Actions semantics, native permissions and schema validation, the Studio review,
 published and preview routing, redirect behavior, and consumer cache refresh.
