@@ -151,6 +151,10 @@ describe('collection-prefix planning', () => {
 				ok: false,
 				reason: 'url-collision',
 				pathname: '/blog/alpha',
+				documents: [
+					{ id: 'page-2', schemaType: 'page', title: 'An ordinary page' },
+					{ id: 'post-1', schemaType: 'post', title: 'First post' },
+				],
 			})
 		},
 	)
@@ -199,9 +203,43 @@ describe('collection-prefix planning', () => {
 		(id) => {
 			expect(
 				plan({ documents: [...inventory().documents, post(id)] }),
-			).toMatchObject({ ok: false, reason: 'release-version', documentId: id })
+			).toMatchObject({
+				ok: false,
+				reason: 'release-version',
+				documentId: id,
+				release: {
+					id: 'release-a',
+					document: {
+						id: id.split('.').slice(2).join('.'),
+						schemaType: 'post',
+						title: 'First post',
+					},
+				},
+			})
 		},
 	)
+	it('shows the live item URL instead of the release or draft slug and proposed prefix', () => {
+		const result = plan({
+			documents: [
+				post('versions.launch.post-1', 'release-slug'),
+				post('drafts.post-1', 'draft-slug'),
+				post('post-1', 'live-slug'),
+			],
+		})
+		expect(result).toMatchObject({
+			ok: false,
+			reason: 'release-version',
+			release: { currentPublishedPathname: '/journal/live-slug' },
+		})
+	})
+	it('does not invent a live URL for a release-only item', () => {
+		const result = plan({
+			documents: [post('versions.launch.new-post', 'future-slug')],
+		})
+		expect(result).toMatchObject({ ok: false, reason: 'release-version' })
+		if (!result.ok)
+			expect(result.release).not.toHaveProperty('currentPublishedPathname')
+	})
 	it('blocks settings release versions even if their type was written incorrectly', () => {
 		const id = 'versions.release-a.journal-settings'
 		expect(
@@ -211,7 +249,75 @@ describe('collection-prefix planning', () => {
 					{ ...setting(id, '/future'), _type: 'unexpected' },
 				],
 			}),
-		).toMatchObject({ ok: false, reason: 'release-version', documentId: id })
+		).toMatchObject({
+			ok: false,
+			reason: 'release-version',
+			documentId: id,
+			release: {
+				id: 'release-a',
+				document: {
+					id: 'journal-settings',
+					schemaType: 'unexpected',
+					title: 'Journal collection settings',
+				},
+			},
+		})
+	})
+	it.each([
+		['Articles', 'Articles collection settings'],
+		['', 'Journal collection settings'],
+		[undefined, 'Journal collection settings'],
+	])(
+		'names release settings from the saved display name %s or configuration',
+		(displayName, title) => {
+			expect(
+				plan({
+					settings: [
+						...inventory().settings,
+						{
+							...setting('versions.launch.journal-settings'),
+							displayName,
+						},
+					],
+				}),
+			).toMatchObject({
+				reason: 'release-version',
+				release: { id: 'launch', document: { title } },
+			})
+		},
+	)
+	it('uses the configured title field for released items and preserves dotted document IDs', () => {
+		const config = {
+			...configuration,
+			collections: configuration.collections!.map((collection) => ({
+				...collection,
+				items: collection.items.map((item) => ({
+					...item,
+					titleField: 'heading.text',
+				})),
+			})),
+		}
+		const result = createCollectionPrefixPlanner(config).plan(choice, {
+			...inventory(),
+			documents: [
+				...inventory().documents,
+				{
+					...post('versions.launch.story.first'),
+					heading: { text: 'Launch story' },
+				},
+			],
+		})
+		expect(result).toMatchObject({
+			reason: 'release-version',
+			release: {
+				id: 'launch',
+				document: {
+					id: 'story.first',
+					schemaType: 'post',
+					title: 'Launch story',
+				},
+			},
+		})
 	})
 	it.each(['drafts.alias', 'versions.release-a.alias'])(
 		'refuses redirect work with planned changes in %s even on opt-out',
@@ -225,6 +331,18 @@ describe('collection-prefix planning', () => {
 				ok: false,
 				reason: 'redirect-conflict',
 				redirect: { reason: 'pending-redirect-change', recordId: id },
+				...(id.startsWith('versions.')
+					? {
+							release: {
+								id: 'release-a',
+								document: {
+									id: 'alias',
+									schemaType: 'sanityKitRedirect',
+									title: '/old-alpha → /journal/alpha',
+								},
+							},
+						}
+					: {}),
 			})
 		},
 	)

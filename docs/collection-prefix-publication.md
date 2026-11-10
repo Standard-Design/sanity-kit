@@ -12,8 +12,9 @@ planner. It can review the live URLs that would change, then publish the reviewe
 settings and redirect changes together. It also records enough information to
 check the outcome if the connection is lost.
 
-There is no new Studio dialog, and the settings document's native Publish action
-remains disabled. The core requires an explicit schema and write-permission
+The private [review dialog and session](collection-prefix-dialog.md) now render
+these changes and manage waiting/recovery. The settings document's native Publish
+action remains disabled until the separate integration is enabled. The core requires an explicit schema and write-permission
 adapter before it can send a request. The [native adapter](collection-prefix-write-access.md)
 is implemented separately; connecting it to the editor workflow remains ahead.
 These are private building blocks, not a consumer-ready

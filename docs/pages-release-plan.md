@@ -11,22 +11,22 @@ the approval handoff. Remove finished work from the remaining list; retain its
 commit in the progress record below. A completed implementation remains separate
 from a reviewed, committed slice and from live acceptance.
 
-Last approved slice: first-publication data review and recheck, `ded9f47`.
-The URL planner (`5ffe637`), classification (`adcd4db`), and native write/schema
-authorization (`dd1b9ee`) are also approved, committed, and pushed. The shared
-prepare-and-recheck pattern is retained for first and later settings publishing.
+Last approved slice: first and unchanged-prefix settings publishing, `96d50c7`.
+The data reviewer (`ded9f47`), URL planner (`5ffe637`), classification (`adcd4db`),
+and native write/schema authorization (`dd1b9ee`) are also approved, committed,
+and pushed. First and later publishing retain the shared prepare-and-recheck
+pattern.
 
-| Slice                                    | What remains                                                                                                                         | Status                                          |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------- |
-| 1. First and unchanged-prefix publishing | Publish initial settings and ordinary edits that keep the same prefix, with guarded writes and recovery.                             | Staged for review                               |
-| 2. Collection-prefix dialog and session  | Show reviewed changes and handle editor choices, pending saves, failures, and uncertain outcomes.                                    | Implemented; separate review next               |
-| 3. Native settings Publish integration   | Connect all three paths to the Studio action, validation, permissions, and recovery UI.                                              | Parallel implementation underway                |
-| 4. Live collection-publishing acceptance | Exercise first publish, name-only edits, repeated moves, redirects, conflicts, cancellation, and recovery in Studio and the website. | Pending integration                             |
-| 5. Final navigator acceptance            | Finish extreme-label/narrow-layout checks and browser performance measurements with larger lists; fix observed problems.             | Pending                                         |
-| 6. Public API completion                 | Export supported field, settings, folder-import, redirect, and routing integrations with clear contracts.                            | Audit complete; exports pending final contracts |
-| 7. Installed-consumer integration        | Test the packed package in consumer-owned Studio/app fixtures, including standalone fields and all new integrations.                 | Existing checks pass; new coverage still needed |
-| 8. Combined release acceptance           | Verify permissions, concurrent edits, recovery, preview/live routing, cache refresh, and supported dependency versions together.     | Pending integrated acceptance                   |
-| 9. Release preparation                   | Reconcile guides/examples, prepare version and release notes, verify package and CI, and present the release for approval.           | Pending preceding checks                        |
+| Slice                                    | What remains                                                                                                                         | Status                                           |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
+| 1. Collection-prefix dialog and session  | Show reviewed changes and handle editor choices, pending saves, failures, and uncertain outcomes.                                    | Staged for review                                |
+| 2. Native settings Publish integration   | Connect all three paths to the Studio action, validation, permissions, and recovery UI.                                              | Implemented and independently reviewed; unstaged |
+| 3. Live collection-publishing acceptance | Exercise first publish, name-only edits, repeated moves, redirects, conflicts, cancellation, and recovery in Studio and the website. | Pending integration                              |
+| 4. Final navigator acceptance            | Finish extreme-label/narrow-layout checks and browser performance measurements with larger lists; fix observed problems.             | Pending                                          |
+| 5. Public API completion                 | Export supported field, settings, folder-import, redirect, and routing integrations with clear contracts.                            | Audit complete; exports pending final contracts  |
+| 6. Installed-consumer integration        | Test the packed package in consumer-owned Studio/app fixtures, including standalone fields and all new integrations.                 | Existing checks pass; new coverage still needed  |
+| 7. Combined release acceptance           | Verify permissions, concurrent edits, recovery, preview/live routing, cache refresh, and supported dependency versions together.     | Pending integrated acceptance                    |
+| 8. Release preparation                   | Reconcile guides/examples, prepare version and release notes, verify package and CI, and present the release for approval.           | Pending preceding checks                         |
 
 These are the remaining review checkpoints, not a promise that each must be one
 commit. Split a checkpoint only when implementation or review establishes a
@@ -34,6 +34,12 @@ useful boundary, and record that change here. Publishing the release follows its
 own approval after these checks are complete.
 
 ## Progress record
+
+First settings publication and unchanged-prefix edits now have an approved guarded
+writer (`96d50c7`), following the activation planner (`5ffe637`) and reader/recheck
+(`ded9f47`). Both settings writers share exact-operation recovery and bounded
+completed history. The dialog/session is the next review checkpoint; native
+settings Publish integration remains separate work before live acceptance.
 
 The first parallel round is committed and pushed: empty-folder removal
 (`d8a1ccf`), collection settings draft editing (`e13643f`), and redirect request

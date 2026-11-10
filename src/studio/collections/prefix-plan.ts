@@ -91,6 +91,13 @@ export type CollectionPrefixReason =
 	| 'invalid-url'
 	| 'url-collision'
 	| 'redirect-conflict'
+/** Readable identity from the reviewed inventory, without fetching document bodies. */
+export interface CollectionPrefixDocumentSummary {
+	/** Canonical document ID for opening the editor, without a draft/release prefix. */
+	readonly id: string
+	readonly schemaType: string
+	readonly title: string
+}
 export type CollectionPrefixPlanResult =
 	| { readonly ok: true; readonly value: CollectionPrefixPlan }
 	| {
@@ -100,6 +107,13 @@ export type CollectionPrefixPlanResult =
 			readonly conflictingDocumentId?: string
 			readonly pathname?: string
 			readonly detail?: string
+			readonly documents?: readonly CollectionPrefixDocumentSummary[]
+			readonly release?: {
+				readonly id: string
+				readonly document: CollectionPrefixDocumentSummary
+				/** Published item version resolved against published settings, never its release slug. */
+				readonly currentPublishedPathname?: string
+			}
 			readonly redirect?: Extract<BulkRedirectResult, { ok: false }>
 	  }
 const record = (value: unknown): value is Record<string, unknown> =>
@@ -150,6 +164,22 @@ function freeze<T>(value: T): T {
 		Object.freeze(value)
 	}
 	return value
+}
+function documentSummary(
+	row: Record<string, unknown>,
+	title: unknown,
+): CollectionPrefixDocumentSummary {
+	return {
+		id: prefixVersionIdentity(row._id)!.base,
+		schemaType: row._type as string,
+		title: typeof title === 'string' && title.trim() ? title : 'Untitled',
+	}
+}
+function releaseSummary(row: Record<string, unknown>, title: unknown) {
+	return {
+		id: (row._id as string).split('.')[1]!,
+		document: documentSummary(row, title),
+	}
 }
 
 export function createCollectionPrefixPlanner(
@@ -245,12 +275,26 @@ export function createCollectionPrefixPlanner(
 				if (!settingsIds.has(identity.base)) return fail('invalid-inventory')
 				// Release-specific routing has no supported resolver yet. Do not guess
 				// that a planned settings version is harmless because its slug is equal.
-				if (identity.version === 'release')
+				if (identity.version === 'release') {
+					const definition = config.collections?.find(
+						(item) => item.settingsDocumentId === identity.base,
+					)
+					const name =
+						typeof row.displayName === 'string' && row.displayName.trim()
+							? row.displayName
+							: (definition?.displayName?.value ??
+								definition?.title ??
+								definition?.name)
 					return {
 						ok: false,
 						reason: 'release-version',
 						documentId: identity.id,
+						release: releaseSummary(
+							row,
+							name ? `${name} collection settings` : 'Collection settings',
+						),
 					}
+				}
 			}
 			const id = collection.settingsDocumentId
 			const published = inventory.settings.find(
@@ -331,12 +375,29 @@ export function createCollectionPrefixPlanner(
 				)
 				if (!type) return fail('invalid-inventory')
 				const target = type.collection === collection.name
-				if (target && identity.version === 'release')
+				const title = readField(row, type.titleField)
+				if (target && identity.version === 'release') {
+					// The release may have a different slug, or no published counterpart.
+					// Show only an established live URL; never invent one from draft data.
+					const live: unknown = inventory.documents.find(
+						(value) =>
+							record(value) &&
+							value._id === identity.base &&
+							value._type === row._type,
+					)
+					const liveUrl = live ? current.value.resolveUrl(live) : undefined
 					return {
 						ok: false,
 						reason: 'release-version',
 						documentId: identity.id,
+						release: {
+							...releaseSummary(row, title),
+							...(liveUrl?.ok
+								? { currentPublishedPathname: liveUrl.value.pathname }
+								: {}),
+						},
 					}
+				}
 				const paths: (string | null)[] = []
 				for (const context of [current, preview, proposed]) {
 					const result = context.value.resolveUrl(row)
@@ -349,7 +410,6 @@ export function createCollectionPrefixPlanner(
 						}
 					paths.push(result.ok ? result.value.pathname : null)
 				}
-				const title = readField(row, type.titleField)
 				rows.push({
 					...identity,
 					revision: row._rev as string,
@@ -383,6 +443,11 @@ export function createCollectionPrefixPlanner(
 							documentId: row.id,
 							conflictingDocumentId: owner.id,
 							pathname: path,
+							documents: [row, owner].map((item) => ({
+								id: item.base,
+								schemaType: item.schemaType,
+								title: item.title.trim() ? item.title : 'Untitled',
+							})),
 						}
 					owners.set(path, row)
 				}
@@ -424,8 +489,29 @@ export function createCollectionPrefixPlanner(
 				reservedPaths: registry.excludePaths,
 				reservedPathPrefixes: registry.reservedPathPrefixes,
 			})
-			if (!redirect.ok)
-				return { ok: false, reason: 'redirect-conflict', redirect }
+			if (!redirect.ok) {
+				const affectedRedirect = inventory.redirects.find(
+					(value) =>
+						(value as Record<string, unknown>)._id === redirect.recordId,
+				) as Record<string, unknown> | undefined
+				const release =
+					affectedRedirect &&
+					prefixVersionIdentity(affectedRedirect._id)?.version === 'release'
+						? releaseSummary(
+								affectedRedirect,
+								typeof affectedRedirect.source === 'string' &&
+									typeof affectedRedirect.destination === 'string'
+									? `${affectedRedirect.source} → ${affectedRedirect.destination}`
+									: 'Redirect',
+							)
+						: undefined
+				return {
+					ok: false,
+					reason: 'redirect-conflict',
+					redirect,
+					...(release ? { release } : {}),
+				}
+			}
 			const value = {
 				settings: {
 					collection: collection.name,

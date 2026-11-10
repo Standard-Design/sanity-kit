@@ -76,6 +76,12 @@ same route configuration the existing URL helpers already use. The approved priv
 loader reads the configured settings IDs and checks the response
 before resolving routes. Studio controls remain later work.
 
+[Collection URL review](collection-prefix-dialog.md) explains the private review
+dialog and session: URL changes, redirect choices, waiting, stale reviews, and
+checking uncertain save results. It builds on the
+[guarded collection writers](collection-prefix-publication.md). Native settings
+Publish wiring and live acceptance remain separate work.
+
 [Redirects](redirects.md) covers approved private snapshot validation and lookup,
 plus the approved published-rule loader. The loader validates the fetched
 snapshot before returning lookup results. The broader [redirect design](redirects-design.md)
