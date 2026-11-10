@@ -14,8 +14,9 @@ check the outcome if the connection is lost.
 
 There is no new Studio dialog, and the settings document's native Publish action
 remains disabled. The core requires an explicit schema and write-permission
-adapter before it can send a request; that adapter and the editor workflow are
-not installed yet. These are private building blocks, not a consumer-ready
+adapter before it can send a request. The [native adapter](collection-prefix-write-access.md)
+is implemented separately; connecting it to the editor workflow remains ahead.
+These are private building blocks, not a consumer-ready
 publishing integration.
 
 The work builds on [collection routing](collection-routing.md), the shared
@@ -233,8 +234,12 @@ answer. Exact published and draft receipt reads must also be granted, even befor
 those identities exist. The native helper
 `checkCollectionPrefixReceiptReadAccess(client, receiptId, signal)` can supply
 that read check. Empty, duplicate, partial, malformed, and denied answers block
-the request. A native schema/write adapter is still required before UI integration;
-this callback is not a claim that those checks are already installed.
+the request. The private
+`createNativeCollectionPrefixWriteAccess` adapter supplies these checks using
+the active workspace's native validation and document grants. See the
+[write-access guide](collection-prefix-write-access.md) for its schema, permission,
+and timeout behavior. The editor workflow must install the adapter; accepting
+this callback alone does not establish that it has done so.
 
 ## Lost connections and recovery
 
@@ -318,8 +323,8 @@ before it can be enabled.
 
 ## What remains before editors can publish prefixes
 
-The native schema/write authorization adapter, a clear review dialog, and its
-pending/confirmation/recovery states must still be integrated. Initial settings
+The implemented native schema/write authorization adapter, a clear review dialog,
+and its pending/confirmation/recovery states must still be integrated. Initial settings
 publication and same-prefix settings publication remain explicitly unsupported.
 Native settings Publish must stay disabled until the complete guarded path is
 installed.
