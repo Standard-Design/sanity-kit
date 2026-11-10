@@ -5,6 +5,7 @@
  * adapter and editor review must be supplied before enabling that workflow.
  * @see docs/collection-prefix-publication.md
  */
+import { createCollectionPublicationAttempts } from './prefix-attempts.js'
 import type { Action } from '@sanity/client'
 import type { CollectionRoutingConfig } from '../../url/settings/resolve.js'
 import {
@@ -21,6 +22,7 @@ import {
 	rememberPendingCollectionPrefix,
 	settlePendingCollectionPrefix,
 	type CollectionPrefixReceipt,
+	type CollectionPublicationReceipt,
 	type CollectionPrefixRecoveryStorage,
 	type CollectionPrefixSettlement,
 	type PendingCollectionPrefix,
@@ -54,6 +56,18 @@ export interface CollectionPrefixWriteClient {
  * conditional schema readOnly rules. A successful read check grants none of this.
  */
 export type CollectionPrefixWriteTarget =
+	| {
+			readonly key: string
+			readonly kind: 'publish-initial-settings'
+			readonly publishedId: string
+			readonly draft: Readonly<Record<string, unknown>>
+			readonly configuration: CollectionRoutingConfig
+	  }
+	| {
+			readonly key: string
+			readonly kind: 'create-settings-receipt'
+			readonly published: Readonly<Record<string, unknown>>
+	  }
 	| {
 			readonly key: string
 			readonly kind: 'publish-settings'
@@ -169,11 +183,12 @@ export function createCollectionPrefixController(
 	const proofs = new WeakMap<CollectionPrefixPublishReview, Prepared>()
 	const storage = options.recoveryStorage
 	let busy = false
-	let captured: PendingCollectionPrefix | undefined
+	const attempts = createCollectionPublicationAttempts()
 
-	function getPending(): CollectionPrefixReceipt | null {
+	function getPending(): CollectionPublicationReceipt | null {
 		const value = readPendingCollectionPrefix(scope, storage)
-		if (value) captured = value
+		if (value) attempts.remember(value)
+		else attempts.compact()
 		return value?.receipt ?? null
 	}
 	function pendingBlock(): Blocked | undefined {
@@ -399,15 +414,30 @@ export function createCollectionPrefixController(
 			return blocked(signal?.aborted ? 'aborted' : 'request-failed')
 		}
 	}
-	async function reconcile(): Promise<CollectionPrefixPublishResult> {
+	async function reconcile(
+		operationId?: string,
+	): Promise<CollectionPrefixPublishResult> {
 		let pending: PendingCollectionPrefix | undefined
 		try {
-			pending = readPendingCollectionPrefix(scope, storage) ?? captured
+			const current = readPendingCollectionPrefix(scope, storage)
+			if (
+				current &&
+				(!operationId || current.receipt.operationId === operationId)
+			)
+				attempts.remember(current)
+			const attempt = attempts.get(operationId)
+			if (attempt && !('receipt' in attempt))
+				return attempt.receiptType === 'sanityKitCollectionPrefixPublication'
+					? attempt.result
+					: blocked('other-publication-pending')
+			pending = attempt
 		} catch {
 			return blocked('recovery-invalid')
 		}
 		if (!pending) return blocked('no-pending-publish')
-		captured = pending
+		if (pending.receipt._type !== 'sanityKitCollectionPrefixPublication')
+			return blocked('other-publication-pending')
+		attempts.remember(pending)
 		if (pending.result) return pending.result
 		try {
 			const response = await source.request({
@@ -431,11 +461,13 @@ export function createCollectionPrefixController(
 					operationId: pending.receipt.operationId,
 				} as const
 				settlePendingCollectionPrefix(scope, pending, result, storage)
+				attempts.compact()
 				return result
 			}
 		} catch {
 			/* A missing or unreadable receipt does not prove rejection. */
 		}
+		attempts.compact()
 		return (
 			pending.result ?? {
 				status: 'unknown',
@@ -477,7 +509,7 @@ export function createCollectionPrefixController(
 			} catch {
 				return blocked('recovery-unavailable')
 			}
-			captured = operation
+			attempts.remember(operation)
 			proofs.delete(reviewed)
 			try {
 				const response = await source.request({
@@ -499,6 +531,7 @@ export function createCollectionPrefixController(
 						operationId: prepared.receipt.operationId,
 					} as const
 					settlePendingCollectionPrefix(scope, operation, result, storage)
+					attempts.compact()
 					return result
 				}
 			} catch (error) {
@@ -518,10 +551,15 @@ export function createCollectionPrefixController(
 									: 'request-rejected',
 					}
 					settlePendingCollectionPrefix(scope, operation, result, storage)
+					attempts.compact()
 					return result
 				}
 			}
-			return reconcile()
+			// Once dispatched, failure to read recovery evidence cannot prove rejection.
+			const recovered = await reconcile(prepared.receipt.operationId)
+			return recovered.status === 'blocked'
+				? { status: 'unknown', operationId: prepared.receipt.operationId }
+				: recovered
 		} finally {
 			busy = false
 		}

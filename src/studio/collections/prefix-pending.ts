@@ -1,5 +1,9 @@
 /**
- * Keep the exact receipt identity before a collection-prefix change is sent.
+ * Keep the exact receipt identity before collection settings are published.
+ * Prefix moves and settings-only saves share this project/dataset slot: an
+ * uncertain attempt of either kind blocks another routing write. Existing
+ * prefix receipts remain readable without inventing a former prefix for a
+ * first settings publication.
  * Session storage survives reloads; shared memory coordinates mounted views.
  * Neither a saved record nor an absent receipt is permission to repeat a write.
  */
@@ -15,13 +19,29 @@ export interface CollectionPrefixReceipt {
 	/** Serialized review and generated redirect IDs, compared exactly on recovery. */
 	readonly evidence: string
 }
+/** A settings-only publish has no former URL prefix and never invents one. */
+export interface CollectionSettingsPublicationReceipt {
+	readonly _id: string
+	readonly _type: 'sanityKitCollectionSettingsPublication'
+	readonly operationId: string
+	readonly documentId: string
+	readonly collection: string
+	readonly draftRevision: string
+	readonly publishedRevision: string | null
+	readonly prefix: string
+	readonly activatesUrls: boolean
+	readonly evidence: string
+}
+export type CollectionPublicationReceipt =
+	CollectionPrefixReceipt | CollectionSettingsPublicationReceipt
+
 export interface CollectionPrefixSettlement {
 	readonly status: 'published' | 'rejected'
 	readonly operationId: string
 	readonly reason?: 'conflict' | 'permission-denied' | 'request-rejected'
 }
 export interface PendingCollectionPrefix {
-	readonly receipt: CollectionPrefixReceipt
+	readonly receipt: CollectionPublicationReceipt
 	/** Only a confirmed server response or exact receipt match may set this. */
 	result?: CollectionPrefixSettlement
 }
@@ -42,13 +62,59 @@ const MAX_RECOVERY_BYTES = 2_097_152
 function storageOrDefault(storage?: CollectionPrefixRecoveryStorage) {
 	return storage ?? globalThis.sessionStorage
 }
-function parseReceipt(text: string): CollectionPrefixReceipt {
+function parseReceipt(text: string): CollectionPublicationReceipt {
 	if (text.length > MAX_RECOVERY_BYTES)
 		throw new Error('Collection-prefix change recovery exceeds its size limit.')
 	const value: unknown = JSON.parse(text)
 	if (!value || typeof value !== 'object' || Array.isArray(value))
 		throw new Error('Collection-prefix change recovery is invalid.')
 	const row = value as Record<string, unknown>
+	if (row._type === 'sanityKitCollectionSettingsPublication') {
+		const fields = [
+			'_id',
+			'_type',
+			'operationId',
+			'documentId',
+			'collection',
+			'draftRevision',
+			'publishedRevision',
+			'prefix',
+			'activatesUrls',
+			'evidence',
+		]
+		if (
+			Object.keys(row).length !== fields.length ||
+			!fields.every((key) => Object.hasOwn(row, key)) ||
+			typeof row.operationId !== 'string' ||
+			!/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(
+				row.operationId,
+			) ||
+			row._id !==
+				`sanityKit.collectionSettingsPublication.${row.operationId}` ||
+			typeof row.documentId !== 'string' ||
+			!/^[A-Za-z0-9_][A-Za-z0-9_.-]{0,127}$/u.test(row.documentId) ||
+			/^(drafts|versions)\./u.test(row.documentId) ||
+			typeof row.collection !== 'string' ||
+			!row.collection.trim() ||
+			typeof row.draftRevision !== 'string' ||
+			!row.draftRevision.trim() ||
+			!(
+				row.publishedRevision === null ||
+				(typeof row.publishedRevision === 'string' &&
+					row.publishedRevision.trim())
+			) ||
+			typeof row.prefix !== 'string' ||
+			pagePathname(row.prefix) !== row.prefix ||
+			row.prefix.length > 2048 ||
+			row.prefix.endsWith('/') ||
+			row.prefix.includes('//') ||
+			typeof row.activatesUrls !== 'boolean' ||
+			(row.activatesUrls && row.publishedRevision !== null) ||
+			typeof row.evidence !== 'string'
+		)
+			throw new Error('Collection settings publishing recovery is invalid.')
+		return Object.freeze(row as unknown as CollectionSettingsPublicationReceipt)
+	}
 	const fields = [
 		'_id',
 		'_type',

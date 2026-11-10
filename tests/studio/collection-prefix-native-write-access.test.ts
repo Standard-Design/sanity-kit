@@ -4,6 +4,7 @@ import { of, Observable, throwError } from 'rxjs'
 import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { createNativeCollectionPrefixWriteAccess } from '../../src/studio/collections/prefix-native-write-access.js'
 import { prefixChangesAreProtected } from '../../src/studio/collections/prefix-write-schema.js'
+import { configuration } from './collection-prefix-fixtures.js'
 import type {
 	CollectionPrefixWriteAccessRequest,
 	CollectionPrefixWriteTarget,
@@ -214,6 +215,222 @@ afterEach(() => {
 })
 
 describe('collection-prefix native write authorization', () => {
+	it('allows first settings Publish to retain seeded read-only fields and checks the actual published copy', async () => {
+		const t = setup({ prefixReadOnly: true })
+		const draft = {
+			...settings(),
+			_id: 'drafts.journal-settings',
+			_createdAt: 'created',
+			_updatedAt: 'updated',
+		}
+		const target: CollectionPrefixWriteTarget = {
+			key: 'first',
+			kind: 'publish-initial-settings',
+			publishedId: 'journal-settings',
+			draft,
+			configuration,
+		}
+		const result = await t.authorize(t.input([target]))
+		expect(result.targets).toEqual([{ key: 'first', status: 'granted' }])
+		expect(t.grant.mock.calls.map(([operation]) => operation)).toEqual([
+			'update',
+			'create',
+		])
+		expect(t.grant.mock.calls[1]?.[1]).toEqual({
+			...settings(),
+			_id: 'journal-settings',
+			_createdAt: 'created',
+			_rev: undefined,
+		})
+	})
+	it('still enforces root read-only and schema validation for the initial settings draft', async () => {
+		const target: CollectionPrefixWriteTarget = {
+			key: 'first',
+			kind: 'publish-initial-settings',
+			publishedId: 'journal-settings',
+			draft: { ...settings(), _id: 'drafts.journal-settings' },
+			configuration,
+		}
+		for (const t of [
+			setup({ documentReadOnly: true }),
+			setup({ validate: () => 'Fix the name' }),
+		]) {
+			expect((await t.authorize(t.input([target]))).targets[0]?.status).toBe(
+				'protected',
+			)
+			expect(t.grant).not.toHaveBeenCalled()
+		}
+	})
+	it.each(['collection', 'documentId', 'revision'] as const)(
+		'rejects invalid first settings %s evidence',
+		async (field) => {
+			const t = setup()
+			const draft: Row = { ...settings(), _id: 'drafts.journal-settings' }
+			if (field === 'collection') draft.collection = 'wrong'
+			if (field === 'documentId') draft._id = 'drafts.wrong'
+			if (field === 'revision') delete draft._rev
+			const target: CollectionPrefixWriteTarget = {
+				key: 'first',
+				kind: 'publish-initial-settings',
+				publishedId: 'journal-settings',
+				draft,
+				configuration,
+			}
+			expect((await t.authorize(t.input([target]))).targets[0]?.status).toBe(
+				'unverified',
+			)
+			expect(t.grant).not.toHaveBeenCalled()
+		},
+	)
+	it.each(['displayName', 'prefix'] as const)(
+		'does not publish a conflicting code-locked %s on initial settings',
+		async (field) => {
+			const t = setup()
+			const config = {
+				...configuration,
+				collections: configuration.collections!.map((entry) => ({
+					...entry,
+					displayName: { mode: 'locked' as const, value: 'Locked name' },
+					routePrefix: { mode: 'locked' as const, value: '/locked' },
+				})),
+			}
+			const draft = {
+				...settings(),
+				_id: 'drafts.journal-settings',
+				displayName: field === 'displayName' ? 'Wrong' : 'Locked name',
+				prefix: {
+					_type: 'slug',
+					current: field === 'prefix' ? '/wrong' : '/locked',
+				},
+			}
+			const target: CollectionPrefixWriteTarget = {
+				key: 'first',
+				kind: 'publish-initial-settings',
+				publishedId: 'journal-settings',
+				draft,
+				configuration: config,
+			}
+			expect((await t.authorize(t.input([target]))).targets[0]?.status).toBe(
+				'protected',
+			)
+		},
+	)
+	it('reports missing initial settings creation permission without relying on role names', async () => {
+		const t = setup()
+		t.grant.mockImplementation((operation) =>
+			of({ granted: operation !== 'create', reason: 'Custom grant' }),
+		)
+		const target: CollectionPrefixWriteTarget = {
+			key: 'first',
+			kind: 'publish-initial-settings',
+			publishedId: 'journal-settings',
+			draft: { ...settings(), _id: 'drafts.journal-settings' },
+			configuration,
+		}
+		expect((await t.authorize(t.input([target]))).targets[0]?.status).toBe(
+			'missing',
+		)
+	})
+	it('checks only the created published receipt identity for the initial strict-create transaction', async () => {
+		const t = setup()
+		const id =
+			'sanityKit.collectionSettingsPublication.aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+		const row = {
+			_id: id,
+			_type: 'sanityKitCollectionSettingsPublication',
+			operationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+			documentId: 'journal-settings',
+			collection: 'journal',
+			draftRevision: 'initial-rev',
+			publishedRevision: null,
+			prefix: '/journal',
+			activatesUrls: true,
+			evidence: '{}',
+		}
+		t.request.mockImplementation(() =>
+			Promise.resolve([{ filter: `_id == "${id}"`, permissions: ['read'] }]),
+		)
+		const result = await t.authorize({
+			...t.input([
+				{ key: 'receipt', kind: 'create-settings-receipt', published: row },
+			]),
+			receiptReadId: id,
+		})
+		expect(result).toEqual({
+			receiptRead: 'granted',
+			targets: [{ key: 'receipt', status: 'granted' }],
+		})
+		expect(t.grant.mock.calls).toEqual([['create', row]])
+	})
+	it('authorizes metadata-only settings receipts using the ordinary create/publish grant sequence', async () => {
+		const t = setup()
+		const id =
+			'sanityKit.collectionSettingsPublication.aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+		const draft = {
+			_id: `drafts.${id}`,
+			_type: 'sanityKitCollectionSettingsPublication',
+			operationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+			documentId: 'journal-settings',
+			collection: 'journal',
+			draftRevision: 'draft-rev',
+			publishedRevision: 'live-rev',
+			prefix: '/journal',
+			activatesUrls: false,
+			evidence: '{}',
+		}
+		expect(
+			await t.authorize({
+				...t.input([
+					{
+						key: 'receipt',
+						kind: 'create-and-publish',
+						publishedId: id,
+						draft,
+					},
+				]),
+				receiptReadId: id,
+			}),
+		).toEqual({
+			receiptRead: 'granted',
+			targets: [{ key: 'receipt', status: 'granted' }],
+		})
+		expect(t.grant.mock.calls.map(([operation]) => operation)).toEqual([
+			'create',
+			'update',
+			'create',
+		])
+	})
+	it.each(['extra-field', 'wrong-identity', 'invalid-prefix'] as const)(
+		'refuses a malformed internal settings receipt: %s',
+		async (issue) => {
+			const t = setup()
+			const id =
+				'sanityKit.collectionSettingsPublication.aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa'
+			const row: Row = {
+				_id: id,
+				_type: 'sanityKitCollectionSettingsPublication',
+				operationId: 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+				documentId: 'journal-settings',
+				collection: 'journal',
+				draftRevision: 'draft',
+				publishedRevision: null,
+				prefix: '/journal',
+				activatesUrls: true,
+				evidence: '{}',
+			}
+			if (issue === 'extra-field') row.extra = 'not allowed'
+			if (issue === 'wrong-identity') row._id = 'another-id'
+			if (issue === 'invalid-prefix') row.prefix = '/journal/'
+			const result = await t.authorize({
+				...t.input([
+					{ key: 'receipt', kind: 'create-settings-receipt', published: row },
+				]),
+				receiptReadId: id,
+			})
+			expect(result.targets[0]?.status).toBe('unverified')
+			expect(t.grant).not.toHaveBeenCalled()
+		},
+	)
 	it('accepts Studio clients and authorizes actual create/update permissions without role names', async () => {
 		expectTypeOf<ReturnType<typeof useClient>>().toMatchTypeOf<
 			Options['client']

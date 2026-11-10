@@ -10,6 +10,9 @@ import {
 	type useGrantsStore,
 } from 'sanity'
 import { pagePathname } from '../../url/registry.js'
+import { MAX_COLLECTION_PREFIX_LENGTH } from '../../url/settings/resolve.js'
+import { createCollectionSettingsPublicationClassifier } from './settings-publication-plan.js'
+import { initialPublishedCopy } from './prefix-initial-publish.js'
 import { checkCollectionPrefixReceiptReadAccess } from './prefix-native-access.js'
 import type {
 	CollectionPrefixWriteAccessAnswer,
@@ -136,6 +139,53 @@ function isReceipt(document: Row, id: string, requestedId: string): boolean {
 	)
 }
 
+function isSettingsReceipt(
+	document: Row,
+	id: string,
+	requestedId: string,
+	draft: boolean,
+): boolean {
+	const fields = [
+		'_id',
+		'_type',
+		'operationId',
+		'documentId',
+		'collection',
+		'draftRevision',
+		'publishedRevision',
+		'prefix',
+		'activatesUrls',
+		'evidence',
+	]
+	return (
+		id === requestedId &&
+		document._id === (draft ? `drafts.${id}` : id) &&
+		document._type === 'sanityKitCollectionSettingsPublication' &&
+		typeof document.operationId === 'string' &&
+		uuid.test(document.operationId) &&
+		id === `sanityKit.collectionSettingsPublication.${document.operationId}` &&
+		publishedId(document.documentId) &&
+		typeof document.collection === 'string' &&
+		!!document.collection.trim() &&
+		typeof document.draftRevision === 'string' &&
+		!!document.draftRevision.trim() &&
+		(document.publishedRevision === null ||
+			(typeof document.publishedRevision === 'string' &&
+				!!document.publishedRevision.trim())) &&
+		typeof document.prefix === 'string' &&
+		document.prefix.length <= MAX_COLLECTION_PREFIX_LENGTH &&
+		document.prefix !== '/' &&
+		!document.prefix.endsWith('/') &&
+		!document.prefix.includes('//') &&
+		pagePathname(document.prefix) === document.prefix &&
+		typeof document.activatesUrls === 'boolean' &&
+		(!document.activatesUrls || document.publishedRevision === null) &&
+		typeof document.evidence === 'string' &&
+		Object.keys(document).length === fields.length &&
+		fields.every((key) => Object.hasOwn(document, key))
+	)
+}
+
 export function createNativeCollectionPrefixWriteAccess(options: {
 	readonly client: CollectionPrefixWriteAccessClient
 	readonly workspace: Workspace
@@ -240,6 +290,82 @@ export function createNativeCollectionPrefixWriteAccess(options: {
 		async function targetStatus(
 			target: CollectionPrefixWriteTarget,
 		): Promise<Status> {
+			if (target.kind === 'create-settings-receipt') {
+				const receipt = target.published
+				if (
+					typeof receipt._id !== 'string' ||
+					!isSettingsReceipt(
+						receipt,
+						receipt._id,
+						request.receiptReadId,
+						false,
+					) ||
+					receipt.publishedRevision !== null ||
+					byteLength(receipt) > 1_048_576
+				)
+					return 'unverified'
+				return permission(options.grantsStore, 'create', receipt, signal)
+			}
+			if (target.kind === 'publish-initial-settings') {
+				const draft = target.draft
+				const classification = createCollectionSettingsPublicationClassifier(
+					target.configuration,
+				).classify({ collection: draft.collection, published: null, draft })
+				if (
+					!classification.ok ||
+					classification.value.kind !== 'first-publication' ||
+					classification.value.documentId !== target.publishedId ||
+					byteLength(draft) > 1_048_576
+				)
+					return 'unverified'
+				const definition = target.configuration.collections?.find(
+					(entry) => entry.name === draft.collection,
+				)
+				if (!definition) return 'unverified'
+				const lockedPrefix =
+					typeof definition.routePrefix === 'string'
+						? definition.routePrefix
+						: definition.routePrefix?.mode === 'locked'
+							? definition.routePrefix.value
+							: undefined
+				if (
+					(definition.displayName?.mode === 'locked' &&
+						draft.displayName !== undefined &&
+						draft.displayName !== definition.displayName.value) ||
+					(lockedPrefix !== undefined &&
+						draft.prefix !== undefined &&
+						(!record(draft.prefix) || draft.prefix.current !== lockedPrefix))
+				)
+					return 'protected'
+				// The saved draft already owns its initialized fields. Initial Publish
+				// does not edit those values, including seeded read-only identifiers.
+				// Root readOnly and full validation still apply, as in native Publish.
+				if (
+					prefixChangesAreProtected({
+						schema: options.workspace.schema,
+						currentUser: options.currentUser,
+						before: draft,
+						after: draft,
+					})
+				)
+					return 'protected'
+				const valid = await validate(draft)
+				if (valid !== 'granted') return valid
+				for (const [operation, document] of [
+					['update', draft],
+					['create', initialPublishedCopy(draft, target.publishedId)],
+				] as const) {
+					const result = await permission(
+						options.grantsStore,
+						operation,
+						document,
+						signal,
+					)
+					if (result !== 'granted' || signal.aborted)
+						return signal.aborted ? 'unverified' : result
+				}
+				return 'granted'
+			}
 			let before: Row | undefined
 			let draft: Row
 			let id: string
@@ -300,7 +426,8 @@ export function createNativeCollectionPrefixWriteAccess(options: {
 				initialDraft = draft
 				if (
 					draft._type !== 'sanityKitRedirect' &&
-					!isReceipt(draft, id, request.receiptReadId)
+					!isReceipt(draft, id, request.receiptReadId) &&
+					!isSettingsReceipt(draft, id, request.receiptReadId, true)
 				)
 					return 'unverified'
 				if (
@@ -310,7 +437,9 @@ export function createNativeCollectionPrefixWriteAccess(options: {
 					return 'unverified'
 			} else return 'unverified'
 			if (signal.aborted || byteLength(draft) > 1_048_576) return 'unverified'
-			const internalReceipt = isReceipt(draft, id, request.receiptReadId)
+			const internalReceipt =
+				isReceipt(draft, id, request.receiptReadId) ||
+				isSettingsReceipt(draft, id, request.receiptReadId, true)
 			if (!internalReceipt) {
 				if (
 					prefixChangesAreProtected({
@@ -352,6 +481,14 @@ export function createNativeCollectionPrefixWriteAccess(options: {
 					options.client,
 					request.receiptReadId,
 					signal,
+					!request.targets.some(
+						(target) => target.kind === 'create-settings-receipt',
+					) ||
+						request.targets.some(
+							(target) =>
+								target.kind === 'create-and-publish' &&
+								target.publishedId === request.receiptReadId,
+						),
 				)
 				const receiptRead = receipt.ok
 					? 'granted'

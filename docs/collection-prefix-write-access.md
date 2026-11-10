@@ -45,6 +45,12 @@ Publish: update the current published document, update the draft that publishing
 will remove, and create the proposed published document from that draft. Checks
 receive full document values, including metadata used by conditional grants.
 
+The first settings draft has no published version to update. Its atomic
+strict-create transaction needs permission to create the proposed published
+document and remove the draft. The adapter checks the same transformed document
+the writer will send, including native reference strengthening. Unchanged-prefix
+settings still use the ordinary Actions Publish checks above.
+
 For an existing redirect, the adapter first loads its complete published document
 through the uncached Document API. Its revision must match the review, and there
 must not already be a redirect draft. This keeps conditional rules and extra
@@ -81,6 +87,14 @@ array keys, and object type changes return unverified rather than being guessed
 at. As with Studio's conditional properties, `readOnly` callbacks must be
 synchronous. A promise or unexpected return value is not accepted.
 
+For first-time settings, publishing retains fields already present in the saved
+draft, including initialized read-only identifiers and custom fields. It does not
+treat those initialized values as edits to a previous published document.
+Document-level `readOnly` and complete schema validation still apply. The adapter
+also verifies the registered collection, singleton ID, draft revision, and stored
+locked values against configuration. A locked value may be absent from storage
+when configuration supplies it; a conflicting stored value is blocked.
+
 The kit may initialize the immutable `origin: "url-change"` value when it creates
 a generated redirect. That exception does not permit changing the origin of an
 existing redirect. Document-level protection still applies.
@@ -91,6 +105,9 @@ The writer creates a small internal receipt in the same transaction as the
 settings and redirects. The adapter checks exact published and draft receipt
 read access using the existing [read-access helper](collection-prefix-access.md).
 It also checks native creation and publishing permissions for both identities.
+First-time settings use a directly created published receipt instead. That path
+checks only the receipt identity actually created and its creation permission;
+it does not require access to a temporary receipt draft that will never exist.
 
 Receipts have no editor form schema. The only schema exception is the exact
 internal receipt type, generated identity, and allowed fields expected by this

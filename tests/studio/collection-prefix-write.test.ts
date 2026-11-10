@@ -1,4 +1,14 @@
+import * as pendingStore from '../../src/studio/collections/prefix-pending.js'
+import {
+	readPendingCollectionPrefix,
+	rememberPendingCollectionPrefix,
+	settlePendingCollectionPrefix,
+} from '../../src/studio/collections/prefix-pending.js'
 import { evaluate, parse } from 'groq-js'
+import {
+	createCollectionPublicationAttempts,
+	COLLECTION_COMPLETED_ATTEMPT_LIMIT,
+} from '../../src/studio/collections/prefix-attempts.js'
 import { describe, it, expect, vi } from 'vitest'
 import {
 	createCollectionPrefixController,
@@ -546,5 +556,140 @@ describe('collection-prefix guarded write', () => {
 		finish()
 		expect((await publishing).status).toBe('published')
 		expect(t.writes()).toHaveLength(1)
+	})
+	it('reconciles the attempted operation rather than a newer dataset pending receipt', async () => {
+		const t = setup(),
+			review = await ready(t)
+		t.setOutcome('lost-before')
+		await t.controller.publish(review, current)
+		const scope = t.source.config()
+		const first = readPendingCollectionPrefix(scope, t.storage)!
+		settlePendingCollectionPrefix(
+			scope,
+			first,
+			{ status: 'published', operationId: review.operationId },
+			t.storage,
+		)
+		const operationId = crypto.randomUUID()
+		const receipt = {
+			...first.receipt,
+			_id: `sanityKit.collectionPrefixPublication.${operationId}`,
+			operationId,
+		}
+		rememberPendingCollectionPrefix(scope, { receipt }, t.storage)
+		expect(t.controller.getPending()?.operationId).toBe(operationId)
+		expect(await t.controller.reconcile(review.operationId)).toEqual({
+			status: 'published',
+			operationId: review.operationId,
+		})
+		expect(
+			readPendingCollectionPrefix(scope, t.storage)?.receipt.operationId,
+		).toBe(operationId)
+		expect(await t.controller.reconcile('unknown-operation')).toMatchObject({
+			reason: 'no-pending-publish',
+		})
+	})
+	it('compacts settled receipt evidence, bounds history, and never evicts unresolved evidence', async () => {
+		const t = setup(),
+			review = await ready(t)
+		t.setOutcome('lost-before')
+		await t.controller.publish(review, current)
+		const pending = readPendingCollectionPrefix(t.source.config(), t.storage)!
+		const history = createCollectionPublicationAttempts()
+		history.remember(pending)
+		expect(history.get(review.operationId)).toBe(pending)
+		const firstCompleted = crypto.randomUUID()
+		for (let i = 0; i <= COLLECTION_COMPLETED_ATTEMPT_LIMIT; i++) {
+			const operationId = i === 0 ? firstCompleted : crypto.randomUUID()
+			const completed = {
+				receipt: {
+					...pending.receipt,
+					operationId,
+					evidence: 'large review'.repeat(1000),
+				},
+				result: { status: 'published' as const, operationId },
+			}
+			history.remember(completed)
+			expect(history.get(operationId)).toEqual({
+				receiptType: pending.receipt._type,
+				result: { status: 'published', operationId },
+			})
+		}
+		expect(history.get(firstCompleted)).toBeUndefined()
+		expect(history.get(review.operationId)).toBe(pending)
+		pending.result = { status: 'published', operationId: review.operationId }
+		expect(history.get(review.operationId)).toEqual({
+			receiptType: pending.receipt._type,
+			result: pending.result,
+		})
+		history.remember({ receipt: pending.receipt })
+		expect(history.get(review.operationId)).toEqual({
+			receiptType: pending.receipt._type,
+			result: pending.result,
+		})
+	})
+	it('keeps only bounded completed prefix outcomes without repeating receipt reads', async () => {
+		const t = setup(),
+			review = await ready(t)
+		t.setOutcome('lost-before')
+		await t.controller.publish(review, current)
+		const scope = t.source.config(),
+			original = readPendingCollectionPrefix(scope, t.storage)!
+		settlePendingCollectionPrefix(
+			scope,
+			original,
+			{ status: 'published', operationId: review.operationId },
+			t.storage,
+		)
+		t.controller.getPending()
+		let latest = review.operationId
+		for (let i = 0; i < COLLECTION_COMPLETED_ATTEMPT_LIMIT; i++) {
+			latest = crypto.randomUUID()
+			const next = {
+				receipt: {
+					...original.receipt,
+					_id: `sanityKit.collectionPrefixPublication.${latest}`,
+					operationId: latest,
+				},
+			}
+			rememberPendingCollectionPrefix(scope, next, t.storage)
+			t.controller.getPending()
+			settlePendingCollectionPrefix(
+				scope,
+				next,
+				{ status: 'published', operationId: latest },
+				t.storage,
+			)
+			t.controller.getPending()
+		}
+		const reads = t.request.mock.calls.length
+		expect(await t.controller.reconcile(latest)).toEqual({
+			status: 'published',
+			operationId: latest,
+		})
+		expect(await t.controller.reconcile(review.operationId)).toMatchObject({
+			reason: 'no-pending-publish',
+		})
+		expect(t.request.mock.calls).toHaveLength(reads)
+	})
+	it('keeps a failed recovery read unknown after the write was sent', async () => {
+		const t = setup()
+		const review = await ready(t)
+		const pendingRead = vi.spyOn(pendingStore, 'readPendingCollectionPrefix')
+		try {
+			t.setOutcome('lost-before')
+			t.setBeforeWrite(() => {
+				pendingRead.mockImplementationOnce(() => {
+					throw Error('Corrupt recovery')
+				})
+			})
+			expect(await t.controller.publish(review, current)).toEqual({
+				status: 'unknown',
+				operationId: review.operationId,
+			})
+			expect(t.writes()).toHaveLength(1)
+		} finally {
+			pendingRead.mockRestore()
+		}
 	})
 })

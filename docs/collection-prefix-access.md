@@ -106,17 +106,23 @@ final checks and revision-protected operation.
 
 ## Reading the operation's confirmation record
 
-The separate `checkCollectionPrefixReceiptReadAccess(client, receiptId, signal)`
-helper checks the exact published and draft identities of one generated
-`sanityKit.collectionPrefixPublication.<UUID>` record. It uses fresh ACL data and
-the same exact-ID interpreter, independent of the record's type.
+The separate
+`checkCollectionPrefixReceiptReadAccess(client, receiptId, signal, includeDraft)`
+helper checks one generated confirmation record. It accepts the
+`sanityKit.collectionPrefixPublication.<UUID>` and
+`sanityKit.collectionSettingsPublication.<UUID>` namespaces. It uses fresh ACL
+data and the same exact-ID interpreter, independent of the record's type.
 
-This record lets a future writer determine whether an uncertain publish request
-completed. The draft identity is included because the Actions API creates and
-publishes the record through a draft. Inventory visibility does not imply access
-to this confirmation record, and read access does not authorize its creation.
-The helper reports specific missing or unverified receipt requirements. It does
-not read, create, or publish the record itself.
+The writer reads this record to determine whether an uncertain request completed.
+By default, `includeDraft` is `true`: the Actions API creates and publishes the
+record through a draft, so both identities must be readable. First settings
+publication creates the published record directly in a transaction and passes
+`false`; there is no receipt draft to check for that operation.
+
+Inventory visibility does not imply access to this confirmation record, and read
+access does not authorize its creation. The helper reports specific missing or
+unverified receipt requirements. It does not read, create, or publish the record
+itself.
 
 ## What has been checked
 

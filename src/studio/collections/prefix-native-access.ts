@@ -131,19 +131,21 @@ export function createNativeCollectionPrefixReadAccess(
 /**
  * A future writer must read its exact receipt identities to recover an uncertain
  * request. This is separate from inventory visibility and grants no write access.
- * Both identities are checked because the Actions API creates and publishes the
- * receipt through its draft. The receipt's document type is deliberately unknown.
+ * Actions creates and publishes through a draft, so that path checks both IDs.
+ * Initial settings strict-create uses only the published receipt identity.
+ * The receipt's document type is deliberately unknown to the read interpreter.
  */
 export async function checkCollectionPrefixReceiptReadAccess(
 	client: CollectionPrefixAclClient,
 	receiptId: string,
 	signal?: AbortSignal,
+	includeDraft = true,
 ): Promise<{
 	readonly ok: boolean
 	readonly issues: readonly UrlAccessIssue[]
 }> {
 	if (
-		!/^sanityKit\.collectionPrefixPublication\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(
+		!/^sanityKit\.collection(?:Prefix|Settings)Publication\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/u.test(
 			receiptId,
 		)
 	)
@@ -161,7 +163,7 @@ export async function checkCollectionPrefixReceiptReadAccess(
 	})
 	signal?.throwIfAborted()
 	const result = checkRoutingSettingsReadAccess(
-		[receiptId, `drafts.${receiptId}`],
+		includeDraft ? [receiptId, `drafts.${receiptId}`] : [receiptId],
 		grants,
 	)
 	return {

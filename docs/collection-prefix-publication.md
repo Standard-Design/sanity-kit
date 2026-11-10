@@ -44,11 +44,11 @@ for missing settings.
 - An incomplete draft with no slug remains incomplete. The review does not
   invent a URL or create a redirect for it.
 
-The first publication of a collection settings document is **not supported by
-this checkpoint**. If there is no published settings document, the planner
-returns `first-publication-unsupported`. A later initial-publication workflow
-must establish the live prefix explicitly; it must not guess one from a default.
-Code-locked prefixes and same-prefix edits are also outside this planner.
+The prefix-move planner handles existing editable prefixes. If no published
+settings document exists, it returns `first-publication-unsupported`. The separate
+settings writer described below handles first publication and same-prefix edits,
+including code-locked prefixes. Neither workflow guesses a live prefix from a
+configured default.
 
 ## What the review checks
 
@@ -374,19 +374,88 @@ publish settings that were previously absent. The reader accepts only original
 review objects that it created; copying a result does not create a valid review.
 
 These checks still write nothing. Uncached GROQ queries can briefly lag committed
-document changes, and a recheck does not lock the dataset. The future publisher
-must apply final revision/creation guards and handle uncertain outcomes before
-this workflow can be enabled in Studio.
+document changes, and a recheck does not lock the dataset. The settings writer
+applies final revision/creation guards and handles uncertain outcomes. The Studio
+action still needs to connect this workflow before editors can use it.
+
+## Publishing first settings and ordinary settings edits
+
+The private `createCollectionSettingsPublicationController(options, client)` in
+`src/studio/collections/settings-publication-write.ts` handles two cases:
+
+- Publishing settings for the first time. An editable prefix makes existing
+  published items reachable, so the writer uses the activation reviewer above.
+  A code-locked prefix already supplies those URLs and needs no activation scan.
+- Publishing a draft that keeps the same effective prefix, such as a display-name
+  edit. The writer publishes the settings draft without moving item URLs.
+
+A changed existing prefix belongs to the prefix-move controller instead. Neither
+of these settings-only cases creates redirects, edits collection items, or moves
+index pages. Full settings drafts are published, including consumer-owned fields;
+this is an ordinary settings Publish operation, not a URL-field-only patch.
+
+The controller requires the routing configuration, read-access checker, native
+schema/write authorizer, and optionally consumer-supplied recovery storage. Its
+`review({collection, draftRevision}, signal)` reads both exact settings identities,
+confirms access before and after the read, classifies the change, prepares the
+request, and validates/authorizes it. First editable-prefix publication also
+checks the collection's proposed URLs against the site inventory.
+
+`publish(review, {isCurrent, signal})` accepts only reviews from that controller.
+It rereads the settings, rechecks activation evidence when needed, and repeats
+native authorization before dispatch. Changed evidence requires a fresh review.
+
+### Why prepare and recheck are shared
+
+First and later settings publishing retain the same prepare-and-recheck pattern.
+Preparation establishes what can be published. The final recheck detects changes
+made while asynchronous validation and permission checks were running. During a
+first publish, these stages can happen behind one Publish click; they do not
+require an extra editor confirmation dialog. Prefix moves will use a review dialog,
+so the interval can also include the time spent reviewing it.
+
+This keeps one consistent lifecycle rather than introducing a special one-check
+path for first publication. Schema validation checks the settings document's
+fields; the inventory review separately checks whether its resulting URLs
+conflict with other pages, collection items, or redirects.
+
+### How the write is guarded
+
+First publication uses one atomic transaction: guard the reviewed draft revision,
+strictly create the published settings, remove that draft, and create a
+confirmation record. Strict creation fails if someone else published the settings
+first. The published copy follows Sanity's reference-strengthening behavior;
+the native authorizer checks that same transformed copy.
+
+An existing settings document uses Sanity's Actions API with both the draft and
+published revision guards. The complete draft and confirmation record are
+published together. A changed revision rejects the operation instead of
+silently publishing different content. Request-size checks run before dispatch.
+
+### Recovery belongs to the exact operation
+
+Both controllers share one project/dataset pending slot. They save and read back
+recovery evidence before sending a write and do not automatically retry an
+uncertain request. The settings writer uses
+`sanityKit.collectionSettingsPublication.<UUID>` confirmation records; prefix
+moves retain their existing record namespace and format.
+
+`getPending()` exposes pending evidence. `reconcile(operationId)` checks the exact
+operation's record, so a late result from an older dialog cannot settle or clear
+a newer operation. A failure to confirm an already-sent request remains an
+unknown outcome, not permission to send it again. Unresolved operations retain
+the evidence needed for recovery; completed history retains only bounded,
+lightweight results rather than full reviewed documents.
 
 ## What remains before editors can publish prefixes
 
-The implemented native schema/write authorization adapter, a clear review dialog,
-and its pending/confirmation/recovery states must still be integrated. Initial settings
-publication and same-prefix settings publication remain explicitly unsupported.
-Native settings Publish must stay disabled until the complete guarded path is
-installed.
+The native schema/write adapter, both writers, and the editor review/recovery
+workflow still need to be connected to the settings Publish action. The current
+fixture keeps native settings Publish disabled until that integration is ready.
+These modules remain private and add no new editor UI on their own.
 
-The core has focused automated tests, including simulated atomic failures and
-cold-start receipt recovery. Live acceptance must still verify actual server
-Actions semantics, native permissions and schema validation, the Studio review,
-published and preview routing, redirect behavior, and consumer cache refresh.
+Automated tests cover atomic failures, concurrent settings changes, exact-operation
+recovery, full draft/reference handling, and shared pending records. Live
+acceptance must still verify actual server transaction/Actions behavior, native
+permissions and schema validation, the Studio workflow, published/preview routing,
+redirect behavior, and consumer cache refresh.
