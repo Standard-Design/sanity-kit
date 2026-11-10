@@ -321,6 +321,36 @@ change the frontend resolver or invent fallback routes. First publication still
 needs a separate check of the newly available URLs against the rest of the site
 before it can be enabled.
 
+## Checking a collection's first live URLs
+
+The private `createCollectionSettingsActivationPlanner(routes)` helper in
+`src/studio/collections/settings-activation-plan.ts` reviews the first publication
+of an editable collection prefix. Existing published items would become reachable
+at that prefix; draft items still remain drafts. There is no previous live prefix,
+so the plan neither creates redirects nor changes existing redirect destinations.
+It does not move an independently located index page or change stored item slugs.
+
+The helper exposes the read coverage it requires. Its `plan(choice, inventory)`
+method checks the selected settings draft revision and a complete raw inventory
+of registered pages, items, settings, and redirects. It checks URL ownership
+across current published routes, current preview routes, and the proposed live
+routes. Reserved paths, conflicting redirect sources, malformed data, unsupported
+release versions, and the shared review limits can prevent a plan from being
+accepted. Another collection's loaded draft reserves its preview URLs too.
+
+A collection with settings confirmed absent can remain inactive during this
+review. That lets editors set up collections one at a time. This is only a review
+rule: the frontend resolver still requires its complete routing context and does
+not substitute configured defaults for missing live settings.
+
+An accepted plan lists newly available live URLs, draft URLs, the revisions
+reviewed, and settings identities that were absent. A later recheck must notice
+new documents as well as edits to existing ones. The inventory's completeness
+and read-access declarations are supplied by the caller; the pure planner cannot
+prove them. A fresh reader, permission checks, and a guarded publish action still
+need to connect this plan to Studio. Calling it writes nothing and does not
+enable Publish.
+
 ## What remains before editors can publish prefixes
 
 The implemented native schema/write authorization adapter, a clear review dialog,
