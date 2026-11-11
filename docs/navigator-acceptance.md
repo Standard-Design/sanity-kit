@@ -123,5 +123,82 @@ overflow (234px row content and a separate 25px action button). Its nested rows
 and the collection count/chevron remained legible. This checks the current
 fixture labels, not arbitrarily deep nesting or extreme label lengths.
 
-A narrower sidebar, extreme labels, and browser performance measurement remain
-separate acceptance checks.
+The isolated browser checks below extend this evidence to narrower rows,
+extreme labels, and larger synthetic lists. They do not replace consumer Studio
+performance checks.
+
+## Isolated browser checks — November 11, 2026
+
+The isolated harness in `tests/fixtures/navigator-acceptance` was exercised in
+**Google Chrome for Testing 153.0.8010.12** using native browser controls. Run it
+with `node tests/fixtures/navigator-acceptance/server.mjs`, then open
+`http://localhost:3346`. It serves only on the loopback interface.
+
+This uses the actual Pages browser, rows, header picker, data store, query
+builders, and Sanity UI stylesheet. The Studio hooks, navigation, document
+status, listeners, and Content Lake connection are replaced with synthetic
+read-only fixtures. It does not connect to a Sanity dataset or change the proof
+Studio. It supplements the real Studio observations above; it does not repeat
+permission, editor-selection, live-listener, or iframe acceptance.
+
+### Narrow rows and long labels
+
+The extreme-label scene has six nested folders with long, unbroken names and
+long page titles and paths. At sidebar widths of **240px, 280px, and 320px**, the
+list's measured `scrollWidth` equaled its `clientWidth`: these labels caused no
+horizontal overflow. Folder labels and page titles shortened with an ellipsis;
+folder action buttons stayed visible. Complete names remained in the accessible
+labels.
+
+The 320px picker also contained this tree and stayed within the viewport. It
+opened with focus on the popover; Tab entered search. Searching for an absent
+page shrank it to its short empty state, and Escape returned focus to the picker
+trigger. The long URL subtitles wrapped as designed. In the six-level example,
+a single complete URL occupied much of the visible list. This is a usability
+tradeoff of displaying the whole path, not horizontal overflow; arbitrarily
+deep paths are not claimed to be comfortable to browse.
+
+### Collection rendering
+
+The collection scene contained 5,000 items. The tree displayed five recent
+items and a total of 5,000. Browse all rendered 50 rows. Reaching and activating
+Load more produced 150 rows: reaching the bottom triggered the next batch,
+and activation requested another. Search for `4999` returned the one matching
+item, which had not been loaded earlier. Search reset the list to the top.
+
+The following are single-run **development React Profiler render measurements**
+from the browser, rounded to milliseconds. They measure React rendering, not
+end-to-end response time, browser paint, or a production performance budget.
+The harness's local GROQ evaluator is also not a measure of Content Lake latency.
+
+| Operation                           | Total React render time | Largest render commit |
+| ----------------------------------- | ----------------------: | --------------------: |
+| Initial tree with five recent items |                    27ms |                   9ms |
+| Open first 50 collection items      |                    42ms |                  25ms |
+| Load through 150 collection items   |                   155ms |                  42ms |
+| Search for item 4,999               |                    16ms |                   3ms |
+
+### Ordinary-page scale limitation
+
+The separate ordinary-page scene contained 1,000 pages in one expanded folder,
+plus Home and the collection index. All 1,000 ordinary rows were rendered. The
+initial render accumulated 545ms of React rendering, with a largest commit of
+359ms. Typing `Page 999` reached the correct result without another data query,
+but accumulated 1,392ms across nine render commits, the largest taking 373ms.
+
+This identifies a real performance concern for large ordinary-page trees. It
+does not establish a supported maximum or show that a production build has the
+same timing. Collection pagination keeps its initial rendered list small;
+ordinary-page trees currently have no comparable rendering bound. Before
+recommending Pages for thousands of ordinary pages, repeat the measurement in a
+production consumer Studio and improve expensive repeated row rendering or add
+windowing as needed. This acceptance pass does not add virtualization or claim
+that this scale limitation is resolved.
+
+A second run used a minified production bundle with React's production profiling
+entry point (`HARNESS_MODE=production node tests/fixtures/navigator-acceptance/server.mjs`).
+The same 1,000-page case took 446ms of initial React rendering, with a largest
+commit of 289ms. Typing the same search took 975ms across nine render commits,
+the largest taking 241ms. Production reduced the measured work, but did not
+remove the concern. The profiling build still adds instrumentation, and these
+numbers remain React render time rather than interaction-to-paint latency.

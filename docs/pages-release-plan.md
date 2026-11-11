@@ -11,7 +11,7 @@ the approval handoff. Remove finished work from the remaining list; retain its
 commit in the progress record below. A completed implementation remains separate
 from a reviewed, committed slice and from live acceptance.
 
-Last approved slice: public HTTP and React Router redirect APIs (`b8fd7ee`, November 11, 2026), committed and pushed. Public collection routing and settings loading (`dc6902d`) and the HTTP fixture (`99f3f1a`) are also committed and pushed.
+Last approved slice: public Studio integrations (`c3df9d5`, November 11, 2026), committed and pushed. It includes automatic checked settings Publish and singular/plural settings navigation helpers. Routing (`dc6902d`) and redirect (`b8fd7ee`) API commits are also pushed with passing CI.
 The preceding collection-prefix review dialog/session is committed as `9be3dfb`.
 First and unchanged-prefix settings publishing (`96d50c7`) is also committed.
 The data reviewer (`ded9f47`), URL planner (`5ffe637`), classification (`adcd4db`),
@@ -19,14 +19,20 @@ and native write/schema authorization (`dd1b9ee`) are also approved, committed,
 and pushed. First and later publishing retain the shared prepare-and-recheck
 pattern.
 
-| Slice                                       | What remains                                                                                                                     | Status                                                                                                  |
-| ------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------- |
-| 1. Broader collection-publishing acceptance | Verify custom roles, wider validation/conflict cases, cancellation, concurrency, recovery, and frontend redirects.               | First activation, repeat moves, redirect-draft checks, and HTTP delivery passed; broader checks pending |
-| 2. Final navigator acceptance               | Finish extreme-label/narrow-layout checks and browser performance measurements with larger lists; fix observed problems.         | Browser evidence ready for separate review; ordinary-page scale follow-up underway                      |
-| 3. Public API completion                    | Export supported field, settings, folder-import, redirect, and routing integrations with clear contracts.                        | Routing and redirect APIs committed; Studio integrations staged; import sync underway                   |
-| 4. Installed-consumer integration           | Test the packed package in consumer-owned Studio/app fixtures, including standalone fields and all new integrations.             | Routing, redirect, and Studio package checks passed; folder-import coverage pending                     |
-| 5. Combined release acceptance              | Verify permissions, concurrent edits, recovery, preview/live routing, cache refresh, and supported dependency versions together. | Pending integrated acceptance                                                                           |
-| 6. Release preparation                      | Reconcile guides/examples, prepare version and release notes, verify package and CI, and present the release for approval.       | Pending preceding checks                                                                                |
+| Slice                                    | What remains                                                                                                             | Status                                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| 1. Navigator browser acceptance          | Review the isolated harness and recorded narrow-layout, keyboard, and larger-list evidence.                              | Staged; ordinary-page scale limitation documented                                  |
+| 2. Navigator rendering improvement       | Reduce repeated ordinary-page row rendering; verify native navigation/status and repeat production-profile measurements. | Targeted implementation and testing underway                                       |
+| 3. Folder-import public API              | Finish exports and installed-consumer verification for checked, additive folder synchronization.                         | Facade implemented; packaging underway                                             |
+| 4. Final documentation reconciliation    | Reconcile README, subsystem index, Pages guide, prerelease guide, and unreleased notes with completed APIs.              | Prepared separately; awaits folder-import entry verification                       |
+| 5. Combined live and consumer acceptance | Finish restricted-account, real revision-conflict, uncertain-response recovery, and packed end-to-end checks.            | Automated coverage and prior live evidence recorded; remaining live checks pending |
+| 6. Release preparation                   | Final verification, version/release notes, artifact review, CI, and explicit release approval.                           | Pending preceding checks                                                           |
+
+The public Studio, routing, and redirect API checkpoints are now complete.
+Collection-publishing and installed-consumer acceptance are consolidated in item 5;
+folder-import installation coverage stays with item 3. The observed ordinary-page
+rendering concern creates the separate, bounded item 2 rather than expanding the
+baseline acceptance commit.
 
 These are the remaining review checkpoints, not a promise that each must be one
 commit. Split a checkpoint only when implementation or review establishes a
@@ -89,22 +95,26 @@ core (`77b0fa2`) are committed. The guide-packaging fix (`afccbcc`) is committed
 too. These foundations are now connected by the approved native settings Publish
 integration. The staged public installer now includes checked publishing automatically.
 
-Public collection resolution/settings loading (`dc6902d`) and generic HTTP plus
-React Router redirect APIs (`b8fd7ee`) are committed. The next staged slice exports
-URL fields, checked workspace wrappers, singular/plural collection settings Structure helpers, and
-redirect management through `/studio`. It removes the temporary publishing gate: installing collection settings
-automatically includes checked publishing, subject to native permissions and the
-existing validation/review safeguards. There is no collection draft-only mode.
-Installed native configurations cover both Pages and standalone Structure. The sync-only folder-import API
-is the remaining public boundary under implementation.
+Public collection resolution/settings loading (`dc6902d`), generic HTTP/React
+Router redirect APIs (`b8fd7ee`), and Studio integrations (`c3df9d5`) are committed.
+The Studio installer automatically includes checked collection settings Publish,
+subject to native permissions and validation. Singular/plural settings helpers
+allow each settings document to be placed independently in Structure. Installed
+native configurations pass both with Pages and standalone Structure.
 
-Separate browser acceptance in Google Chrome for Testing passed narrow/extreme
-labels and a paginated 5,000-item collection. A 1,000-ordinary-page tree showed
-slow development rendering; production-build measurement is underway before
-closing that checkpoint. This evidence and its harness remain a separate slice.
-The combined acceptance audit found substantial existing automated coverage,
-with live restricted-account, two-session conflict, and lost-response checks
-still outstanding. No production cache backend is required by the kit.
+The next staged slice records browser acceptance in Google Chrome for Testing
+and adds its isolated read-only harness. Narrow/extreme labels and a paginated
+5,000-item collection passed. A 1,000-ordinary-page tree showed expensive renders
+in both development and production-profiling builds. This baseline does not
+claim that limitation is resolved. A separate targeted row-rendering improvement
+is underway and will require its own behavioral checks and browser measurements.
+
+The sync-only folder-import facade is implemented and undergoing public-export
+and installed-consumer verification. The broader documentation reconciliation is
+prepared separately. The combined acceptance audit found substantial existing
+automated coverage, with live restricted-account, two-session conflict, and
+lost-response checks still outstanding. No production cache backend is required
+by the kit.
 
 ## Parallel tracks
 
