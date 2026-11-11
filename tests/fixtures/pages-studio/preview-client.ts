@@ -20,7 +20,10 @@ interface PreviewDocument {
 	} | null
 }
 
-let perspective: ClientPerspective = 'drafts'
+// Server-selected document mode; browser parameters cannot enable draft reads
+// on the published listener. Published links use normal HTTP navigation.
+const published = document.documentElement.dataset.fixtureMode === 'published'
+let perspective: ClientPerspective = published ? 'published' : 'drafts'
 let pending: AbortController | undefined
 let reportNavigation: HistoryAdapterNavigate | undefined
 
@@ -74,6 +77,7 @@ async function refresh() {
 			anchor.textContent = link.title ?? 'Untitled'
 			anchor.addEventListener('click', (event) => {
 				if (
+					published ||
 					event.button !== 0 ||
 					event.metaKey ||
 					event.ctrlKey ||
@@ -130,27 +134,28 @@ async function refresh() {
 	}
 }
 
-enableVisualEditing({
-	history: {
-		subscribe: (notify) => {
-			reportNavigation = notify
-			notify({
-				type: 'replace',
-				url: `${location.pathname}${location.search}${location.hash}`,
-			})
-			return () => {
-				reportNavigation = undefined
-			}
+if (!published)
+	enableVisualEditing({
+		history: {
+			subscribe: (notify) => {
+				reportNavigation = notify
+				notify({
+					type: 'replace',
+					url: `${location.pathname}${location.search}${location.hash}`,
+				})
+				return () => {
+					reportNavigation = undefined
+				}
+			},
+			update: (update) => {
+				if (update.type === 'pop') history.back()
+				else moveTo(update.url, update.type === 'replace')
+			},
 		},
-		update: (update) => {
-			if (update.type === 'pop') history.back()
-			else moveTo(update.url, update.type === 'replace')
+		refresh,
+		onPerspectiveChange: (next) => {
+			perspective = next
+			void refresh()
 		},
-	},
-	refresh,
-	onPerspectiveChange: (next) => {
-		perspective = next
-		void refresh()
-	},
-})
+	})
 void refresh()

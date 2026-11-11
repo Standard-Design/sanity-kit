@@ -186,12 +186,18 @@ Live checks in the enabled proof Studio on November 10, 2026 verified:
   their values before these checks. Publishing settings did not publish or
   rewrite either item version.
 
-The first-ever settings publish was **not** tested live. That remains necessary,
-along with custom-role permissions, wider validation and conflict cases,
+An isolated first-ever settings publish also passed on November 11: native
+template initialization, direct Publish, a success toast, and the exact settings
+write receipt were verified. Established settings, article versions, and redirects
+were unchanged. The temporary settings and receipt were removed after the test.
+
+Custom-role permissions, wider validation and conflict cases,
 concurrent edits, cancellation, and recovery after a lost response. Automated
 tests cover those boundaries locally; they do not replace live acceptance.
 
-The fixture saves redirect records but does not serve them as HTTP redirects.
+The fixture now separates Studio preview on port 3334 from a published-only
+website on port 3335 that serves saved redirects as HTTP responses. See the
+[HTTP redirect walkthrough](../tests/fixtures/pages-studio/HTTP-REDIRECTS.md).
 The consuming app must load the rules, resolve published and draft routing
 settings correctly, and refresh any consumer-owned caches. Installing this
 Studio action does not implement those frontend responsibilities or announce

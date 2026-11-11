@@ -59,10 +59,15 @@ pnpm studio:preview
 
 Do not put the token in a `SANITY_STUDIO_*` variable: those variables are
 embedded in Studio builds. Do not commit it to a file. The preview server keeps
-the token server-side and only queries the fixture types. It binds to loopback
-port 3334, rejects other Host/Origin values, sends no CORS headers, and disables
+the token server-side and reads fixture content and kit redirect records. It starts
+two loopback listeners: Studio preview on port 3334 and a published-only website
+on port 3335. Both reject other Host/Origin values, send no CORS headers, and disable
 HTTP caching. It is a local development server, **not a deployable preview-mode
 implementation**. Do not expose it through a tunnel or public network interface.
+
+Use port 3335 to test saved redirects as actual HTTP responses; port 3334 always
+bypasses them for preview. See [the HTTP redirect walkthrough](HTTP-REDIRECTS.md)
+for commands, perspective boundaries, and failure behavior.
 
 Open `http://localhost:3000/pages-proof`. Sign in with your normal Sanity account.
 Native Sanity permissions still control the editor and create intent.
@@ -185,11 +190,12 @@ the old/new URL dialog with an optional redirect checkbox. The final Publish
 button publishes the whole reviewed draft and its optional new redirect in one
 transaction. If older redirects point to the page, the dialog lists them and
 updates their destinations directly to the new URL in that same transaction.
-Turning off the checkbox skips only the new rule, not those reviewed updates. The fixture frontend does not yet serve these rules as HTTP
-redirects. Collection settings now drive the matching Articles URLs in Pages, the URL field,
-and this website. Reviewed folder renaming, removal, and synchronization are
-available. Collection-prefix publishing is enabled for acceptance; HTTP redirect
-delivery remains separate from this local preview server. This
+Turning off the checkbox skips only the new rule, not those reviewed updates.
+The published listener on port 3335 serves saved rules as HTTP redirects; Studio
+preview on port 3334 bypasses them. Collection settings drive the matching
+Articles URLs in Pages, the URL field, and both websites. Reviewed folder renaming,
+removal, and synchronization are available. Collection-prefix publishing is
+enabled for acceptance. This
 factory is private and is not available through the package's `/studio` export.
 See [the URL-field guide](../../../docs/url-field.md) for access requirements,
 storage behavior, and concurrency limits.
@@ -353,8 +359,13 @@ Sanity's root `_system` draft metadata no longer fails the changed-field schema
 check. Nested values, schema validation, and read-only rules remain protected.
 The redirect-conflict notice now explains the reason and identifies the rule.
 
-The first-ever settings publish was **not** tested live. Custom-role permissions,
-wider validation and conflict cases, concurrent edits, cancellation, and recovery
-after a lost response remain acceptance work. The preview server does **not**
-yet serve saved rules as HTTP redirects; these checks verified saved redirect
-records, not HTTP delivery or consumer cache refresh.
+A separate first-ever settings publish passed on November 11, including native
+template initialization, a success toast, and its exact write receipt. The
+temporary settings and receipt were removed afterward; established settings,
+article versions, and redirects were unchanged. See [the acceptance record](ACCEPTANCE.md).
+
+Custom-role permissions, wider validation and conflict cases, concurrent edits,
+cancellation, and recovery after a lost response remain acceptance work. The
+November 10 checks verified saved records, not HTTP delivery or cache refresh.
+The new [published-only listener](HTTP-REDIRECTS.md) now supports HTTP delivery
+checks separately from Studio preview.

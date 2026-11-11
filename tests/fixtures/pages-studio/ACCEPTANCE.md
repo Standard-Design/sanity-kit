@@ -1118,3 +1118,61 @@ this issue; the native resolver refresh is now protected explicitly.
 The final follow-up state leaves `/stories-review` as the settings draft and
 `/stories-test` published so the editor can continue the review. Build, typecheck,
 lint, and all 2,753 tests passed after the fix.
+
+## First-ever collection settings Publish — November 11, 2026
+
+A temporary, fresh settings singleton exercised the native first-publish path
+in the authorized `ha9kep4l` / `development` dataset. The test temporarily changed
+only the Articles registration's settings document ID; it did not replace or
+edit the established Stories settings.
+
+- Structure's native settings entry initialized the correct template, including
+  the stable `articles` identifier.
+- Saved the name **First publish proof** and the unique prefix
+  `/first-settings-proof-20261111`, then clicked native Publish once.
+- Checks completed without a routine review dialog. The draft became published
+  and Studio showed the **Collection settings published** success toast.
+- The published settings and exact operation receipt shared a transaction
+  revision. The receipt recorded first activation (`publishedRevision: null`,
+  `activatesUrls: true`), and no settings draft remained.
+- Established settings, every tested article version, and redirect records
+  matched their complete before-test snapshots. No redirect was created.
+- Restored the original registration and removed only the temporary settings
+  and receipt, with revision checks. Confirmed both test records were gone.
+
+This verifies Studio/backend first activation. The website bundle was not
+restarted against the temporary registration, so this test makes no claim about
+website routing for that temporary prefix. Custom-role permissions, concurrency,
+and lost-response recovery still need broader live acceptance.
+
+## Published website HTTP redirects — November 11, 2026
+
+Restarted the fixture against its restored, normal collection registration. Port
+3334 remains Studio preview; port 3335 is a separate published-only listener.
+These checks read the existing dataset and did not publish or change any records.
+
+- GET and HEAD requests to port 3335 at `/articles/routing-proof` returned
+  **301**, `Location: /stories-tester/routing-proof`, and `Cache-Control: no-store`.
+  This is the current saved destination; the fixture was edited after the
+  earlier `/stories-test` acceptance run. HEAD returned no body.
+- Adding preview flags and query parameters still returned that same published
+  redirect, without copying the incoming query to its destination.
+- The browser followed the old URL to the published destination and rendered
+  **Collection routing live proof**, with no edit overlays.
+- The published data endpoint returned the current published article and prefix
+  even when asked for a draft perspective. Automated tests use deliberately
+  different draft/published fixtures to verify this boundary independently.
+- Port 3334 returned its preview page shell at the old URL, without a redirect.
+  Published and draft reads of the current destination still worked, and Studio
+  remained connected to the preview listener.
+
+The HTTP tests also cover refreshed/retired rules, unavailable or invalid
+inventories, endpoint exclusions, and ordinary published navigation using mocked
+Sanity reads. Those are automated checks, not live edits to the shared dataset.
+This slice adds no consumer cache backend or production preview authentication.
+See [HTTP-REDIRECTS.md](HTTP-REDIRECTS.md) for the testing walkthrough and limits.
+
+Verification for this slice: all 2,765 tests across 98 files passed, including
+10 focused fixture HTTP/client tests. Typecheck and scoped lint passed. A
+separate read-only review found no blocking issues. CI for the preceding approved
+native Publish commit `98d5c08` also passed.
