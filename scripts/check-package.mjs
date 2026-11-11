@@ -601,6 +601,11 @@ await copyFile(
 	join(root, 'tests/package/studio.tsx'),
 	join(studioConsumer, 'consumer.tsx'),
 )
+for (const file of [
+	'studio-installations.ts',
+	'studio-installations-runtime.mjs',
+])
+	await copyFile(join(root, 'tests/package', file), join(studioConsumer, file))
 await writeFile(
 	join(studioConsumer, 'tsconfig.json'),
 	JSON.stringify({
@@ -614,7 +619,7 @@ await writeFile(
 			jsx: 'react-jsx',
 			skipLibCheck: true,
 		},
-		include: ['consumer.tsx'],
+		include: ['consumer.tsx', 'studio-installations.ts'],
 	}),
 )
 run(
@@ -622,9 +627,18 @@ run(
 	[join(root, 'node_modules/typescript/bin/tsc'), '-p', 'tsconfig.json'],
 	studioConsumer,
 )
+await build({
+	absWorkingDir: studioConsumer,
+	entryPoints: ['studio-installations.ts'],
+	outfile: 'studio-installations.js',
+	platform: 'node',
+	format: 'esm',
+	bundle: false,
+})
+run(process.execPath, ['studio-installations-runtime.mjs'], studioConsumer)
 const studioBundle = await build({
 	absWorkingDir: studioConsumer,
-	entryPoints: ['consumer.tsx'],
+	entryPoints: ['consumer.tsx', 'studio-installations.ts'],
 	// Native Studio imports CSS. Give the in-memory build an output directory
 	// so styles are compiled rather than ignored or replaced by a test stub.
 	outdir: 'bundle',

@@ -18,7 +18,8 @@ The read APIs are public in this checkout: `createCollectionRouting` from
 `@standard-design/sanity-kit/url` resolves supplied documents, and
 `createCollectionRoutingLoader` from `/url/settings` reads them with the
 application's client. See the [consumer API guide](collection-routing-api.md).
-The Studio settings editor and publishing integration remain private. The loader
+The Studio settings installer is exported from `/studio` and automatically
+installs checked Publish for settings drafts, subject to native permissions. The loader
 and resolver do not cache settings, write documents, or publish changes.
 `CollectionRoutingConfig` describes settings-backed prefixes; the existing
 `PagesRouteConfig` continues to require resolved string prefixes.
@@ -352,14 +353,14 @@ application routes. It must use the resolved prefix consistently in routing,
 links, sitemaps, and preview. The kit does not rewrite route modules or move
 index pages when a setting changes.
 
-## Editing settings in Studio (private integration)
+## Editing settings in Studio
 
-The private `withCollectionRoutingSettings(workspace, {routes})` wrapper adds
+The `withCollectionRoutingSettings(workspace, {routes})` wrapper adds
 one `sanityKitCollectionRoute` schema. `collectionRoutingSettingsItems(S, routes)`
 creates a native Structure entry for each collection with a document binding.
 Settings entries depend on `settingsDocumentId`, independently of the prefix
 mode. A collection without that property has no settings entry.
-These helpers are not exported from the package yet.
+Import the installer and both Structure helpers from `@standard-design/sanity-kit/studio`.
 
 The consuming Studio chooses where to put the entries. For example, its Structure
 resolver can use the same `routes` registration:
@@ -384,7 +385,57 @@ structure: (S) =>
 		])
 ```
 
-The filter keeps these singletons out of generic content lists. The integration
+### Place settings within each collection's section
+
+Use `collectionRoutingSettingsItem(S, routes, collectionName)` when each settings
+document belongs in a different part of Structure. The third argument is the
+stable collection `name`, such as `journal`; it is not a display label or
+`settingsDocumentId`. For example, with registered `journal` and `people`
+collections that each have a settings document:
+
+```ts
+import { collectionRoutingSettingsItem } from '@standard-design/sanity-kit/studio'
+
+const sections = [
+	S.listItem()
+		.id('journal-section')
+		.title('Journal')
+		.child(
+			S.list()
+				.title('Journal')
+				.items([
+					S.documentTypeListItem('post').title('Posts'),
+					collectionRoutingSettingsItem(S, routes, 'journal').title('Settings'),
+				]),
+		),
+	S.listItem()
+		.id('people-section')
+		.title('People')
+		.child(
+			S.list()
+				.title('People')
+				.items([
+					S.documentTypeListItem('person').title('People'),
+					collectionRoutingSettingsItem(S, routes, 'people').title('Settings'),
+				]),
+		),
+]
+// Pass these sections to your root list's .items(...).
+```
+
+The result is an ordinary Sanity list-item builder, so you can customize its
+navigation title or icon. Both helpers bind the same configured singleton ID and
+initial-value template; placing or relabeling an entry does not create a different
+settings document. The singular helper throws a configuration error if the
+collection is unknown or lacks `settingsDocumentId`. The plural helper keeps its
+existing behavior: it returns all configured settings entries in registration
+order and skips collections without a settings document.
+
+Neither helper installs schemas or document actions. Continue to apply
+`withCollectionRoutingSettings` to the workspace, whether you group the entries
+or place them separately.
+
+The filter in the grouped example keeps these singletons out of generic content lists. The integration
 also removes their templates from ordinary creation menus. Opening a settings
 entry uses the configured document ID and initializes its immutable `collection`
 name. There is no `site` field and no separate index-page requirement for prefix
@@ -418,37 +469,31 @@ page URLs, and redirects, and belongs to the reviewed publish workflow. Sanity's
 ordinary slug uniqueness check is disabled here because its schema/field scope
 does not represent that full routing inventory.
 
-### Default draft-only behavior and private publishing integration
+### Checked settings publishing
 
-By default, a visible notice explains that draft changes can be saved, but collection URL
-publishing is not available yet. Existing published settings remain unchanged.
-The only retained document action is Sanity's native **Discard changes**, with its
-normal permission checks. Publish, scheduling, deletion, unpublishing, duplication,
-release actions, and custom document actions are unavailable for this settings
-type until they have an explicit safe integration. Other document types keep
+`withCollectionRoutingSettings(workspace, { routes })` installs the
+[settings Publish integration](collection-settings-publication.md) automatically.
+It handles first saves, unchanged prefixes, and reviewed prefix moves. Native
+permissions, validation, and action availability still apply. The wrapper keeps
+only checked Publish and native **Discard changes** for ordinary settings drafts;
+release contexts do not receive Publish. Settings deletion, unpublishing,
+duplication, and scheduling remain unsupported. Other document types retain
 their existing actions.
 
-The private [settings Publish integration](collection-settings-publication.md)
-adds guarded publishing behind an explicit development gate. It supports first
-saves, unchanged prefixes, and reviewed prefix moves. The proof Studio explicitly
-enables the gate with its shared live collection registration. Live checks on
-November 10, 2026 verified a display-name save and repeated prefix moves, including
-redirect creation and retargeting. Other installations remain draft-only unless
-they enable the private gate. The first-ever settings publish remains untested
-live; see the [acceptance record](collection-settings-publication.md#current-acceptance-boundary).
+The proof Studio uses this installation. See the
+[acceptance record](collection-settings-publication.md#current-acceptance-boundary)
+for live results and remaining checks.
 
 Use the workspace wrapper, not the plugin by itself: its final action reducer runs
 after built-in tools and app reducers. A layout check refuses an unsafe later
 replacement that would restore publishing. This is a Studio workflow guard, not
 a Content Lake access rule; external writers can still bypass Studio validation.
 
-The private live integration now connects saved prefixes to Pages and URL fields
-when they receive `collectionRouting`. The proof website loads the same settings
-in its requested perspective. Reviewed prefix publishing and its redirect updates
-are connected through the private development gate. Their basic live save flows
-are verified, but broader acceptance remains. The fixture does not yet serve saved
-rules as HTTP redirects. Consumer cache activation is a separate application responsibility. Changing a
-settings draft alone does not activate a new live route or rewrite item slugs.
+The live integration connects saved prefixes to Pages and URL fields when they
+receive `collectionRouting`. The proof website loads the same settings in its
+requested perspective. Its published-only server now follows saved HTTP redirects;
+consumer cache activation remains the application's responsibility. Changing a
+settings draft alone does not activate a live route or rewrite item slugs.
 
 ## Collection actions in Pages
 
@@ -681,7 +726,7 @@ concurrent or external writers.
 
 ## Connecting live routing to Studio and the website
 
-The private Studio APIs accept an optional `collectionRouting` configuration.
+The public Studio installers accept an optional `collectionRouting` configuration.
 Pass the same object to `pagesTool`, `defineSanityUrlField`, and
 `withUrlPublication`. Their ordinary route registration still identifies the
 same document types and stored fields. With live routing enabled, its fixed
@@ -698,7 +743,7 @@ defineSanityUrlField({
 withUrlPublication(workspace, { routes, collectionRouting })
 ```
 
-These are private source integrations pending public API review. The consuming
+Import these installers from `@standard-design/sanity-kit/studio`. The consuming
 app owns its Studio and website; SanityKit does not provide a hosted Studio.
 
 Pages uses the selected published or draft perspective for navigation and native

@@ -1,12 +1,12 @@
 /**
- * Private editor for the settings loaded by url/settings. Each collection
+ * Studio editor for the settings loaded by url/settings. Each collection
  * owns one configured document; collection items continue to store only slugs.
- * Publishing stays disabled by default. An internal integration gate installs
- * the reviewed publisher while its native action is undergoing acceptance.
+ * The workspace wrapper always installs checked Publish for settings drafts.
+ * Native availability, validation, and permissions still decide whether it can run.
  * @see docs/collection-routing.md
  */
 import { CogIcon } from '@sanity/icons/Cog'
-import { Card, Stack, Text, TextInput } from '@sanity/ui'
+import { TextInput } from '@sanity/ui'
 import {
 	defineField,
 	definePlugin,
@@ -15,7 +15,6 @@ import {
 	useFormValue,
 	type DocumentActionComponent,
 	type LayoutProps,
-	type ObjectInputProps,
 	type SingleWorkspace,
 	type StringInputProps,
 	type SlugInputProps,
@@ -39,8 +38,6 @@ import {
 
 export interface CollectionRoutingSettingsOptions {
 	readonly routes: CollectionRoutingConfig
-	/** @internal Unreleased integration gate; never enabled implicitly. */
-	readonly _enablePublication?: true
 }
 
 /** Snapshot and validate registration before creating schema closures or menus. */
@@ -114,20 +111,6 @@ export function validateCollectionPrefix(
 	return true
 }
 
-function DraftSettingsInput(props: ObjectInputProps) {
-	return (
-		<Stack gap={4}>
-			<Card padding={3} radius={2} tone="caution">
-				<Text size={1}>
-					You can save draft changes here. Publishing collection URL changes is
-					not available yet. Changes here do not change live URLs.
-				</Text>
-			</Card>
-			{props.renderDefault(props)}
-		</Stack>
-	)
-}
-
 /** Organizational identity is visible for reference, never an editable control. */
 export function CollectionIdentifierInput({
 	value,
@@ -136,19 +119,18 @@ export function CollectionIdentifierInput({
 	return <TextInput {...elementProps} value={value ?? ''} readOnly disabled />
 }
 
-/** Preserve native draft discard when reviewed publishing is not enabled. */
+/** Release/version contexts retain draft discard but cannot publish routing changes. */
 function draftActions(actions: DocumentActionComponent[]) {
 	return actions.filter((action) => action.action === 'discardChanges')
 }
 
 /** Only our guarded Publish may survive the final workspace reducer. */
-function settingsActions(routes: CollectionRoutingConfig, enabled: boolean) {
+function settingsActions(routes: CollectionRoutingConfig) {
 	const wrapped = new WeakMap<
 		DocumentActionComponent,
 		DocumentActionComponent
 	>()
 	return (actions: DocumentActionComponent[]) => {
-		if (!enabled) return draftActions(actions)
 		let published = false
 		return actions.flatMap((action) => {
 			if (action.action === 'discardChanges') return [action]
@@ -168,10 +150,7 @@ function settingsActions(routes: CollectionRoutingConfig, enabled: boolean) {
 export const collectionRoutingSettings =
 	definePlugin<CollectionRoutingSettingsOptions>((options) => {
 		const { config, entries } = registration(options.routes)
-		const reduceActions = settingsActions(
-			config,
-			options._enablePublication === true,
-		)
+		const reduceActions = settingsActions(config)
 		const entryFor = (
 			document: { _id?: string; collection?: unknown } | undefined,
 		) => {
@@ -220,10 +199,7 @@ export const collectionRoutingSettings =
 				actions.some(
 					(action) =>
 						action.action !== 'discardChanges' &&
-						!(
-							options._enablePublication &&
-							isCollectionSettingsPublishAction(action, config)
-						),
+						!isCollectionSettingsPublishAction(action, config),
 				)
 			)
 				throw new Error(
@@ -264,9 +240,6 @@ export const collectionRoutingSettings =
 						title: 'Collection settings',
 						type: 'document',
 						icon: CogIcon,
-						...(!options._enablePublication
-							? { components: { input: DraftSettingsInput } }
-							: {}),
 						// A stray creation intent or release version must not become a second
 						// editable settings document for the same collection.
 						readOnly: ({ document }) =>
@@ -387,35 +360,69 @@ export const collectionRoutingSettings =
 		}
 	})
 
+/** Both helpers bind the same singleton and creation template, wherever it is placed. */
+function settingsItem(
+	S: StructureBuilder,
+	entry: ReturnType<typeof registration>['entries'][number],
+) {
+	return S.listItem()
+		.id(entry.documentId)
+		.title(`${entry.title} collection settings`)
+		.icon(CogIcon)
+		.child(
+			S.document()
+				.id(entry.documentId)
+				.documentId(entry.documentId)
+				.schemaType(COLLECTION_ROUTE_TYPE)
+				.title(`${entry.title} collection settings`)
+				.initialValueTemplate(entry.templateId),
+		)
+}
+
 /**
- * Place these items under the app's chosen settings list. The explicit document
- * ID and initial template bind new drafts to their collection. Collections with
- * settingsDocumentId have an entry, regardless of which settings are locked.
+ * Return one collection's settings entry for placement in any native Structure
+ * list. Select by the stable collection name, not its display name or document ID.
+ * Misconfigured navigation throws during Structure setup rather than opening an
+ * unbound document. This helper does not install schemas or publishing actions.
+ */
+export function collectionRoutingSettingsItem(
+	S: StructureBuilder,
+	routes: CollectionRoutingConfig,
+	collectionName: string,
+) {
+	const { config, entries } = registration(routes)
+	if (
+		!config.collections?.some(
+			(collection) => collection.name === collectionName,
+		)
+	)
+		throw new Error(
+			`Unknown collection "${collectionName}" in routing settings.`,
+		)
+	const entry = entries.find((entry) => entry.name === collectionName)
+	if (!entry)
+		throw new Error(
+			`Collection "${collectionName}" needs settingsDocumentId to create a settings navigation item.`,
+		)
+	return settingsItem(S, entry)
+}
+
+/**
+ * Return every settings entry in registration order. Consumers choose whether to
+ * group them or place individual items in separate lists. Collections without
+ * settingsDocumentId are omitted, regardless of which settings are locked.
  */
 export function collectionRoutingSettingsItems(
 	S: StructureBuilder,
 	routes: CollectionRoutingConfig,
 ) {
-	return registration(routes).entries.map((entry) =>
-		S.listItem()
-			.id(entry.documentId)
-			.title(`${entry.title} collection settings`)
-			.icon(CogIcon)
-			.child(
-				S.document()
-					.id(entry.documentId)
-					.documentId(entry.documentId)
-					.schemaType(COLLECTION_ROUTE_TYPE)
-					.title(`${entry.title} collection settings`)
-					.initialValueTemplate(entry.templateId),
-			),
-	)
+	return registration(routes).entries.map((entry) => settingsItem(S, entry))
 }
 
 /**
  * Finalize actions after built-in tools and application reducers. A plugin-only
  * reducer runs too early: a later Structure plugin can restore native Publish.
- * Keep only draft discard and, with the internal gate, our guarded Publish.
+ * Keep only draft discard and our guarded Publish for ordinary settings drafts.
  * All other document types retain their application-configured actions.
  */
 export function withCollectionRoutingSettings(
@@ -424,10 +431,7 @@ export function withCollectionRoutingSettings(
 ): SingleWorkspace {
 	const plugin = collectionRoutingSettings(options)
 	const { config: routes } = registration(options.routes)
-	const reduceActions = settingsActions(
-		routes,
-		options._enablePublication === true,
-	)
+	const reduceActions = settingsActions(routes)
 	const previous = config.document?.actions
 	return {
 		...config,

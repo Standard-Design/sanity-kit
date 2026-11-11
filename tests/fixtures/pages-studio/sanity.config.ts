@@ -128,6 +128,6 @@ export default defineConfig(
 				redirectManagement: 'publish',
 			},
 		),
-		{ routes: proofLiveCollectionRouting, _enablePublication: true },
+		{ routes: proofLiveCollectionRouting },
 	),
 )

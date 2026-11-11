@@ -8,8 +8,8 @@ installed automatically.
 
 The snapshot compiler and Sanity loader described below remain internal stages,
 not separate public imports. Studio redirect management and
-[page URL publishing](url-field.md#editing-published-pages) remain private
-integrations. Those writers save rules; the consuming application's request
+[page URL publishing](url-field.md#editing-published-pages) are installed through
+the public `/studio` helpers. Their writers and action components remain private. Those writers save rules; the consuming application's request
 handler makes visitors follow them. See the [redirect design](redirects-design.md)
 for deferred work.
 
@@ -444,7 +444,7 @@ No live frontend or cache-backend acceptance is claimed by these offline checks.
 
 ## Preparing redirect drafts in Studio
 
-The private management checkpoint uses Sanity's ordinary document list and form.
+Redirect management uses Sanity's ordinary document list and form.
 Editors can search redirects, inspect their old and destination URLs, create a
 manual redirect draft, and prepare changes to an existing rule. Sanity supplies
 document IDs, native permissions, autosave, validation indicators, and draft
@@ -453,6 +453,11 @@ status. There is no separate custom list or replacement form control.
 The opt-in belongs to the existing `withUrlPublication()` integration:
 
 ```ts
+import {
+	withUrlPublication,
+	redirectManagementItem,
+} from '@standard-design/sanity-kit/studio'
+
 withUrlPublication(studioConfig, {
 	routes,
 	redirectManagement: 'drafts',
@@ -460,8 +465,9 @@ withUrlPublication(studioConfig, {
 ```
 
 Add `redirectManagementItem(S)` to the consumer's Structure items where the
-Redirects list belongs. These helpers are still private source integrations,
-not new package exports. Without the option, generated redirects remain
+Redirects list belongs. Import it and `withUrlPublication` from
+`@standard-design/sanity-kit/studio`. The workspace wrapper registers the schema
+and guarded actions; the Structure item only adds navigation. Without the option, generated redirects remain
 read-only and there is no creation template. With it, one native manual template
 starts with status 301, enabled true, and origin `manual`. It does not choose an
 ID or create a published document. The list can sort by old URL or last edited,

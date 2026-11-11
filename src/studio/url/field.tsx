@@ -49,8 +49,7 @@ export interface SanityUrlFieldDefinition extends Omit<
 }
 
 /**
- * Internal until the complete editing workflow is ready for consumers. One
- * factory handles both pathname pages and slug-only collection items. The
+ * One factory handles both pathname pages and slug-only collection items. The
  * document's registered type determines storage and its fixed route prefix.
  */
 export function defineSanityUrlField(definition: SanityUrlFieldDefinition) {

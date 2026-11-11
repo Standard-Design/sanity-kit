@@ -17,6 +17,7 @@ import { createStructureBuilder, structureTool } from 'sanity/structure'
 import { describe, expect, it, vi } from 'vitest'
 import {
 	collectionRoutingSettings,
+	collectionRoutingSettingsItem,
 	collectionRoutingSettingsItems,
 	validateCollectionPrefix,
 	withCollectionRoutingSettings,
@@ -107,7 +108,7 @@ function workspace(): SingleWorkspace {
 	}
 }
 
-describe('collection routing settings draft editor', () => {
+describe('collection routing settings editor', () => {
 	it.each(['/journal', '/news/articles', '/accounting'])(
 		'accepts a canonical prefix %s',
 		(value) => expect(validateCollectionPrefix(value, routes)).toBe(true),
@@ -220,6 +221,77 @@ describe('collection routing settings draft editor', () => {
 				schemaType: COLLECTION_ROUTE_TYPE,
 			}),
 		).toEqual([])
+	})
+	it('places specific settings in separate lists with the same singleton and template bindings', async () => {
+		const configured: CollectionRoutingConfig = {
+			...routes,
+			collections: routes.collections!.map((collection) =>
+				collection.name === 'people'
+					? { ...collection, settingsDocumentId: 'people-routing' }
+					: collection,
+			),
+		}
+		const resolved = await source(
+			withCollectionRoutingSettings(workspace(), { routes: configured }),
+		)
+		const S = createStructureBuilder({
+			source: resolved,
+			perspectiveStack: ['drafts'],
+		})
+		const all = collectionRoutingSettingsItems(S, configured)
+		for (const [index, name] of ['journal', 'people'].entries()) {
+			const single = collectionRoutingSettingsItem(S, configured, name)
+			const binding = {
+				id: `${name}-routing`,
+				title: `${name === 'journal' ? 'Journal' : 'People'} collection settings`,
+				child: {
+					options: {
+						id: `${name}-routing`,
+						type: COLLECTION_ROUTE_TYPE,
+						template: `${COLLECTION_ROUTE_TYPE}-${name}`,
+					},
+				},
+			}
+			expect(single.serialize()).toMatchObject(binding)
+			expect(all[index]!.serialize()).toMatchObject(binding)
+			const section = S.list()
+				.title(name)
+				.items([single.title('Settings')])
+				.serialize()
+			expect(section.items[0]).toMatchObject({
+				id: `${name}-routing`,
+				title: 'Settings',
+				child: {
+					options: {
+						id: `${name}-routing`,
+						type: COLLECTION_ROUTE_TYPE,
+						template: `${COLLECTION_ROUTE_TYPE}-${name}`,
+					},
+				},
+			})
+		}
+		expect(all.map((item) => item.getId())).toEqual([
+			'journal-routing',
+			'people-routing',
+		])
+	})
+	it('reports unknown collections and collections without settings bindings', async () => {
+		const resolved = await source(
+			withCollectionRoutingSettings(workspace(), { routes }),
+		)
+		const S = createStructureBuilder({
+			source: resolved,
+			perspectiveStack: ['drafts'],
+		})
+		expect(() => collectionRoutingSettingsItem(S, routes, 'Journal')).toThrow(
+			'Unknown collection "Journal"',
+		)
+		expect(() => collectionRoutingSettingsItem(S, routes, 'people')).toThrow(
+			'Collection "people" needs settingsDocumentId',
+		)
+		expect(
+			collectionRoutingSettingsItems(S, routes).map((item) => item.getId()),
+		).toEqual(['journal-routing'])
 	})
 	it.each([
 		['default', 'default'],
@@ -509,7 +581,7 @@ describe('collection routing settings draft editor', () => {
 					releaseId: undefined,
 				})
 				.map((a) => a.action),
-		).toEqual(['discardChanges'])
+		).toEqual(['publish', 'discardChanges'])
 		expect(
 			resolved.document
 				.actions({
@@ -528,6 +600,29 @@ describe('collection routing settings draft editor', () => {
 				})
 				.every((a) => a.action === 'discardChanges'),
 		).toBe(true)
+	})
+	it('does not invent Publish when the application removes it', async () => {
+		const resolved = await source(
+			withCollectionRoutingSettings(
+				{
+					...workspace(),
+					document: {
+						actions: (previous) =>
+							previous.filter((item) => item.action !== 'publish'),
+					},
+				},
+				{ routes },
+			),
+		)
+		expect(
+			resolved.document
+				.actions({
+					schemaType: COLLECTION_ROUTE_TYPE,
+					versionType: 'draft',
+					releaseId: undefined,
+				})
+				.map((item) => item.action),
+		).toEqual(['discardChanges'])
 	})
 	it('fails closed when a later workspace override restores Publish', async () => {
 		const plugin = collectionRoutingSettings({ routes })
@@ -552,9 +647,9 @@ describe('collection routing settings draft editor', () => {
 		}
 	})
 	it.each(['settings-last', 'url-last'] as const)(
-		'only enables the guarded Publish with private opt-in (%s)',
+		'automatically keeps only guarded Publish in either wrapper order (%s)',
 		async (order) => {
-			const settingsOptions = { routes, _enablePublication: true as const }
+			const settingsOptions = { routes }
 			const urlOptions = { routes: { pages: routes.pages } }
 			const base = {
 				...workspace(),
@@ -612,14 +707,11 @@ describe('collection routing settings draft editor', () => {
 			).toBe(true)
 		},
 	)
-	it('keeps the warning and Publish disabled unless private opt-in is explicit', () => {
-		const disabled = collectionRoutingSettings({ routes }),
-			enabled = collectionRoutingSettings({ routes, _enablePublication: true })
-		const schema = (plugin: typeof disabled) =>
-			(plugin.schema!.types as unknown as ObjectSchemaType[]).find(
-				(type) => type.name === COLLECTION_ROUTE_TYPE,
-			)!
-		expect(schema(disabled).components?.input).toBeDefined()
-		expect(schema(enabled).components?.input).toBeUndefined()
+	it('uses the native settings form without a draft-only warning', () => {
+		const plugin = collectionRoutingSettings({ routes })
+		const schema = (plugin.schema!.types as unknown as ObjectSchemaType[]).find(
+			(type) => type.name === COLLECTION_ROUTE_TYPE,
+		)!
+		expect(schema.components?.input).toBeUndefined()
 	})
 })

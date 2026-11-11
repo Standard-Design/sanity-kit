@@ -14,21 +14,20 @@ check the outcome if the connection is lost.
 
 The private [review dialog and session](collection-prefix-dialog.md) now render
 these changes and manage waiting/recovery. The settings document's native Publish
-action is connected by the private
-[settings publishing integration](collection-settings-publication.md), disabled
-by default and explicitly enabled in the proof Studio. The core requires an
+action is connected by the public
+[settings publishing integration](collection-settings-publication.md), installed
+automatically by the settings workspace wrapper. The core requires an
 explicit schema and write-permission adapter before it can send a request. The
 [native adapter](collection-prefix-write-access.md) is connected by that integration.
 Live checks on November 10, 2026 verified same-prefix settings publishing and
-repeated prefix moves with redirect creation and retargeting. The first-ever
-settings publish and broader acceptance remain ahead.
-These are private building blocks, not a consumer-ready
-publishing integration.
+repeated prefix moves with redirect creation and retargeting. First-ever settings
+publishing also passed on November 11; broader acceptance remains. These core
+modules stay private behind the supported Studio installer.
 
 The work builds on [collection routing](collection-routing.md), the shared
 [redirect rules](redirects.md), and the reviewed bulk redirect planner used by
 [folder renames](folders.md). Its source modules are private; consumers cannot
-import them from the published package yet.
+import them through public package entries.
 
 ## What moves and what stays put
 
@@ -359,7 +358,7 @@ reviewed, and settings identities that were absent. A later recheck must notice
 new documents as well as edits to existing ones. The inventory's completeness
 and read-access declarations are supplied by the caller; the pure planner cannot
 prove them. The reader below supplies checked data to the planner. A guarded
-publish action connects this plan to Studio through the private development gate.
+publish action connects this plan to Studio through the settings workspace wrapper.
 Calling the planner writes nothing and does not enable Publish.
 
 ## Loading and rechecking first-publication evidence
@@ -387,8 +386,9 @@ review objects that it created; copying a result does not create a valid review.
 These checks still write nothing. Uncached GROQ queries can briefly lag committed
 document changes, and a recheck does not lock the dataset. The settings writer
 applies final revision/creation guards and handles uncertain outcomes. The Studio
-action connects this workflow behind the explicit development gate; live
-acceptance must verify it before consumer use.
+action connects this workflow when the settings workspace wrapper is installed. See the
+[acceptance record](collection-settings-publication.md#current-acceptance-boundary)
+for tested flows and remaining checks.
 
 ## Publishing first settings and ordinary settings edits
 
@@ -459,20 +459,20 @@ unknown outcome, not permission to send it again. Unresolved operations retain
 the evidence needed for recovery; completed history retains only bounded,
 lightweight results rather than full reviewed documents.
 
-## What remains before editors can publish prefixes
+## Installation and remaining acceptance
 
-The private [native Publish integration](collection-settings-publication.md) now
+The public [native Publish integration](collection-settings-publication.md) now
 connects the schema/write adapter, both writers, and review/recovery UI. It is
-disabled by default. The proof fixture enables it, and the
+installed by the settings workspace wrapper. The proof fixture uses it, and the
 [dated live acceptance record](collection-settings-publication.md#current-acceptance-boundary)
 confirms same-prefix publishing, repeated moves, redirect opt-out, existing-alias
 updates, and a blocking redirect draft. The tested article's draft and published
-JSON stayed unchanged. These modules remain private, and enabling the
-development gate is not a release.
+JSON stayed unchanged. These core modules remain private; the public installer
+installs them automatically while preserving native availability and permissions.
+Installing the wrapper is not a release.
 
 Automated tests cover atomic failures, concurrent settings changes, exact-operation
-recovery, full draft/reference handling, and shared pending records. The first-ever
-settings publish still needs live verification. Broader acceptance must cover
-custom roles, additional schema and conflict cases, concurrency, recovery,
-published/preview routing, HTTP redirect delivery, and consumer cache refresh.
-The proof website does not yet serve saved rules as HTTP redirects.
+recovery, full draft/reference handling, and shared pending records. First-ever
+settings publishing and fixture HTTP redirects have passed live checks. Broader
+acceptance still needs custom roles, additional schema and conflict cases,
+concurrency, recovery, and consumer cache refresh.

@@ -1,12 +1,12 @@
 # Reviewing a collection URL change
 
 This private dialog and session owner prepare the editor review for changing an
-existing collection prefix, such as `/journal` to `/blog`. The private
+existing collection prefix, such as `/journal` to `/blog`. The
 [settings Publish integration](collection-settings-publication.md) connects them
-to the native action behind an explicit development gate. The proof Studio
-enables that gate. Live checks on November 10, 2026 verified reviewed prefix moves
-and an actionable redirect-draft block. Public exports and broader Studio
-acceptance remain separate checkpoints.
+to the native action automatically when the public settings wrapper is installed.
+Native permissions and action availability remain required. Live checks on November 10, 2026 verified reviewed prefix moves
+and an actionable redirect-draft block. The dialog and session themselves remain private; broader Studio acceptance
+remains separate.
 
 The dialog explains which item URLs change, whether new redirects will be created,
 and which existing redirects will point to a new destination. Publishing includes

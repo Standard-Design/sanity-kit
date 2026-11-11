@@ -288,11 +288,15 @@ describe('native redirect draft editor', () => {
 					versionType: 'draft',
 					releaseId: undefined,
 				})
-			for (const schemaType of ['sanityKitRedirect', COLLECTION_ROUTE_TYPE]) {
-				expect(actionsFor(schemaType).map((item) => item.action)).toEqual([
-					'discardChanges',
-				])
-			}
+			expect(
+				actionsFor('sanityKitRedirect').map((item) => item.action),
+			).toEqual(['discardChanges'])
+			const settingsActions = actionsFor(COLLECTION_ROUTE_TYPE)
+			expect(settingsActions.map((item) => item.action)).toEqual([
+				'publish',
+				'discardChanges',
+			])
+			expect(settingsActions).not.toContain(consumerPublish)
 			for (const schemaType of ['page', 'post']) {
 				const actions = actionsFor(schemaType)
 				const publishers = actions.filter((item) => item.action === 'publish')

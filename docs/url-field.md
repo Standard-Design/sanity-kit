@@ -5,20 +5,20 @@ see the complete path as it saves. It connects the kit's existing URL
 preparation, generation, uniqueness checks, and folder writer to a native Sanity
 slug field.
 
-This first implementation is private and under review. The proof Studio imports
-it directly from source; there is no public package export or release yet.
-It supports fixed collection prefixes, opt-in settings-backed prefixes, and draft URL editing. With the private
-publication plugin installed, editors can also edit drafts of published pages.
+Import `defineSanityUrlField` and `withUrlPublication` from
+`@standard-design/sanity-kit/studio`. These exports are available in this checkout;
+an earlier published alpha may not contain them. They support fixed collection
+prefixes, settings-backed prefixes, and draft URL editing. The publication wrapper
+allows draft URL edits on published pages and checks redirects when publishing.
 Documents with release versions and `liveEdit` schemas remain protected. Without
-that plugin, the field still limits editing to unpublished documents.
+the wrapper, the field limits editing to unpublished documents.
 
 ## Using the field without Pages
 
 The URL field does not require the Pages tool. It can appear in an ordinary
 Structure document editor, or in native Presentation, without installing
 `pagesTool`. The field and its publishing integration are separate from the
-Pages navigator. They remain private source integrations until their public
-package exports are finalized.
+Pages navigator. The consumer owns and configures its Studio.
 
 Standalone use still needs the shared route registration. It tells the field
 which document types own URLs, where those values are stored, which collection
@@ -35,6 +35,66 @@ Folder rename and removal remain navigator actions. Location hints from a
 Pages **Create page** action are optional; an ordinary Structure-created document
 does not need one.
 
+### Install in a consumer-owned Studio
+
+This complete basic setup uses Structure without Pages:
+
+```ts
+import { defineConfig, defineType } from 'sanity'
+import { structureTool } from 'sanity/structure'
+import {
+	defineSanityUrlField,
+	withUrlPublication,
+} from '@standard-design/sanity-kit/studio'
+import type { PagesRouteConfig } from '@standard-design/sanity-kit/url'
+
+const routes: PagesRouteConfig = {
+	pages: [{ schemaType: 'page', pathnameField: 'pathname.current' }],
+}
+
+export default defineConfig(
+	withUrlPublication(
+		{
+			projectId: 'your-project',
+			dataset: 'production',
+			plugins: [structureTool()],
+			schema: {
+				types: [
+					defineType({
+						name: 'page',
+						type: 'document',
+						fields: [
+							{ name: 'title', type: 'string' },
+							defineSanityUrlField({
+								name: 'pathname',
+								title: 'URL',
+								routes,
+								options: { source: 'title' },
+							}),
+						],
+					}),
+				],
+			},
+		},
+		{ routes },
+	),
+)
+```
+
+To add Pages, include `pagesTool({ ...routes, previewUrl })` in the workspace's
+plugins. The same fields and wrapper work in both tools. Configure all tools and
+application document actions before applying the workspace wrappers; do not
+replace `document.actions` afterward. The wrappers preserve application actions
+and apply the final checks that prevent an unguarded native Publish action from
+bypassing URL review. Raw internal plugins are not public installation APIs.
+
+For settings-backed collections, use
+`withCollectionRoutingSettings(withUrlPublication(workspace, urlOptions), settingsOptions)`.
+See [settings installation](collection-settings-publication.md#installing-the-integration)
+for matching registrations and native permission requirements. Installed-tarball tests
+resolve this composition with native Sanity, both with Pages and in standalone
+Structure. They check compiled field controls, protected Publish actions and Structure entries; they do not perform live writes.
+
 ### Settings-backed collection prefixes
 
 Pass the same optional `collectionRouting` to the field and
@@ -46,7 +106,7 @@ using a guessed prefix. Standalone Structure fields support this too.
 An article can still store `first-post` while the field displays
 `/stories/first-post` from its collection's settings draft. Publishing the article
 does not publish that settings draft. URL-changing publication requires matching
-live/draft routing until the separate prefix-publish workflow is ready;
+live/draft routing; publish a changed collection prefix through its settings first;
 content-only updates use fresh checks without activating a draft prefix.
 See [live collection routing](collection-routing.md#connecting-live-routing-to-studio-and-the-website).
 
@@ -157,10 +217,9 @@ the resumed check reports **Publication not completed** and allows a fresh
 review. Only that explicit rejection clears the uncertainty; a missing receipt
 does not.
 
-This private integration creates redirect records; consumers still need the
-forthcoming routing integration to serve them as HTTP redirects. Saving a rule
-alone does not change how an application's router behaves. See
-[the redirect design](./redirects-design.md#how-pages-creates-redirects).
+This integration creates redirect records. The consuming application must install
+the [HTTP helpers or React Router middleware](redirects.md) to serve them as
+redirects. Saving a rule alone does not change how an application's router behaves.
 
 ### Pages with planned release versions
 
@@ -229,16 +288,16 @@ that credentials can read every document.
   Clicking a page or redirect row in Pages or Presentation opens that document
   in the same editor panel and keeps the website preview in place. In Structure,
   these links open through its normal document navigation. Generated redirects are
-  still read-only in this slice; redirect management is separate work.
+  read-only unless the consumer opts into [redirect management](redirects.md#preparing-redirect-drafts-in-studio).
 - Existing release versions, live editing, and invalid old published URLs remain
-  unsupported. Scheduling is removed for registered types in this private plugin.
+  unsupported. Scheduling is removed for registered types in this integration.
 - The wrapper covers the document-pane Publish action and its shortcut. API
   writers, custom actions, bulk publication, and Content Releases can bypass it;
   installing a Studio plugin is not a dataset-wide publication rule.
 - Revision guards protect the documents being published. URL/redirect inventory
   checks do not reserve every possible path against concurrent external writers.
 
-The integration is private while these boundaries receive acceptance testing.
+These safeguards do not replace acceptance checks in the consuming Studio.
 
 ## Trying different URLs without accumulating redirects
 
@@ -376,9 +435,9 @@ slug-object metadata is preserved: it sets `current` rather than replacing the
 whole object. The frontend still uses the shared [URL resolver](url.md), and the
 consumer still owns its React Router routes.
 
-## Configure the private fixture field
+## Configure the field
 
-The internal factory takes the shared routes plus normal slug-field information:
+The factory takes the shared routes plus normal slug-field information:
 
 ```ts
 defineSanityUrlField({
@@ -390,9 +449,9 @@ defineSanityUrlField({
 })
 ```
 
-Do not copy a deep package import from this example into a consuming application.
-The public import and broader editing lifecycle are not finalized. The proof
-Studio's schema shows the current source import.
+Use the public `/studio` import rather than a deep source path. Its exported
+`SanityUrlFieldDefinition` type describes the field; `UrlPublicationPluginOptions`
+describes the matching workspace wrapper.
 
 The factory installs native format validation and `options.isUnique`, then adds
 any consumer validation. Missing values remain optional unless the consumer

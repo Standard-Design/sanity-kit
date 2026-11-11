@@ -14,3 +14,19 @@ export type {
 	PageCollectionDefinition,
 	PageCollectionItemDefinition,
 } from './pages/registry.js'
+
+export {
+	defineSanityUrlField,
+	type SanityUrlFieldDefinition,
+} from './url/field.js'
+export {
+	withUrlPublication,
+	type UrlPublicationPluginOptions,
+} from './url/publication-plugin.js'
+export {
+	withCollectionRoutingSettings,
+	collectionRoutingSettingsItem,
+	collectionRoutingSettingsItems,
+	type CollectionRoutingSettingsOptions,
+} from './collections/settings.js'
+export { redirectManagementItem } from './redirects/schema.js'

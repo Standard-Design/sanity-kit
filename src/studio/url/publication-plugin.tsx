@@ -1,5 +1,5 @@
 /**
- * Private opt-in integration shared by Structure and Presentation. Installing
+ * Opt-in integration shared by Structure and Presentation. Installing
  * it enables normal draft URL editing and replaces only registered types'
  * Publish actions. Scheduling bypasses this review and is omitted for those
  * types until its own integration exists. See docs/url-field.md.

@@ -1,15 +1,15 @@
 # Publishing collection settings in Studio
 
-This private integration connects the collection settings form to the guarded
+This integration connects the collection settings form to the guarded
 writers. It chooses the right workflow when an editor clicks **Publish**: publish
 ordinary settings directly, or review a change that moves existing item URLs.
 
-Publishing is still disabled by default. The internal `_enablePublication` gate
-must be enabled explicitly. The proof Studio enables it, and live checks on
-November 10, 2026 verified same-prefix saves and repeated prefix changes, as
-recorded below. Ordinary installation keeps it off. These helpers are not public
-package exports, and broader Studio acceptance remains ahead. The gate is not
-a release-ready consumer option.
+Import `withCollectionRoutingSettings` from `@standard-design/sanity-kit/studio`.
+Installing the wrapper automatically installs checked Publish for ordinary
+settings drafts. Native action availability, permissions, validation, and current
+document state still decide whether an editor can publish. There is no separate
+publishing mode. The installer is available in this checkout; it does not
+announce a package release or replace broader consumer acceptance.
 
 ## What an editor does
 
@@ -22,7 +22,7 @@ The collection identifier stays read-only, and settings locked by configuration
 stay read-only. See [collection routing](collection-routing.md) for defaults,
 locked values, and the relationship between a prefix and an item's stored slug.
 
-When publishing is enabled, the action distinguishes three cases:
+The action distinguishes three cases:
 
 | Change                           | What happens after Publish                                                                                                                                               |
 | -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -45,26 +45,49 @@ check can help, the notice offers Retry. That starts a fresh check; it does not
 bypass validation or repeat an uncertain write. The prefix-change dialog is
 described in [reviewing a collection URL change](collection-prefix-dialog.md).
 
-## Installing the private integration
+## Installing the integration
 
-The source-only workspace wrapper is
-`withCollectionRoutingSettings` in `src/studio/collections/settings.tsx`.
-The proof Studio passes its shared live collection registration to the wrapper
-and enables the gate explicitly. The same registration drives its Pages tool,
-URL fields, and preview website:
+The workspace wrapper registers the settings schema, templates, subscriptions,
+and guarded document actions. The same collection registration must describe the
+settings used by the fields, Pages (if installed), and website:
 
 ```ts
-const studio = withCollectionRoutingSettings(workspace, {
-	routes: proofLiveCollectionRouting,
-	_enablePublication: true,
-})
+import {
+	withUrlPublication,
+	withCollectionRoutingSettings,
+} from '@standard-design/sanity-kit/studio'
+
+const studio = withCollectionRoutingSettings(
+	withUrlPublication(workspace, { routes, collectionRouting }),
+	{ routes: collectionRouting },
+)
 ```
 
-Omitting `_enablePublication` keeps the existing draft-only behavior: the settings
-form explains that publishing is unavailable, and its action list retains only
-native draft discard. Enabling the gate removes that draft-only notice and
-installs the guarded Publish action. It does not make settings deletion,
-unpublishing, duplication, or release publishing available.
+Here, `routes` is the ordinary `PagesRouteConfig` with resolved string prefixes;
+`collectionRouting` is the `CollectionRoutingConfig` with settings document IDs
+and default/locked values. They identify the same document types and stored URL
+fields. Pass `collectionRouting` to those URL fields too. See the
+[standalone field setup](url-field.md#install-in-a-consumer-owned-studio).
+
+`CollectionRoutingSettingsOptions` contains the shared `routes` registration.
+The wrapper always installs the guarded Publish action when a Publish action is
+available in the completed workspace. It does not invent an action removed by
+the application or bypass a disabled native Publish action. Settings deletion,
+unpublishing, duplication, scheduling, and release publishing remain unavailable.
+The former development `_enablePublication` gate and proposed `publication` mode
+are not supported. Redirect management has its own independent draft/publish
+configuration; this change does not affect it.
+
+Use `collectionRoutingSettingsItem(S, collectionRouting, 'journal')` to place one
+collection's settings in its own Structure section, or
+`collectionRoutingSettingsItems(S, collectionRouting)` to get all settings entries.
+The singular helper selects by stable collection name and reports a configuration
+error for an unknown collection or missing settings document binding. Both return
+native list-item builders and preserve the configured singleton and creation
+template. See [separate collection sections](collection-routing.md#place-settings-within-each-collections-section).
+Neither helper installs schemas or actions; the workspace wrapper does that.
+Pages can expose the same settings through its collection menu. Neither setup
+requires the other tool.
 
 Apply the wrapper to the completed workspace configuration, after its tools,
 plugins, and application action customizations are defined. It preserves the
@@ -191,8 +214,8 @@ template initialization, direct Publish, a success toast, and the exact settings
 write receipt were verified. Established settings, article versions, and redirects
 were unchanged. The temporary settings and receipt were removed after the test.
 
-Custom-role permissions, wider validation and conflict cases,
-concurrent edits, cancellation, and recovery after a lost response. Automated
+Live acceptance still needs custom-role permissions, wider validation and conflict
+cases, concurrent edits, cancellation, and recovery after a lost response. Automated
 tests cover those boundaries locally; they do not replace live acceptance.
 
 The fixture now separates Studio preview on port 3334 from a published-only

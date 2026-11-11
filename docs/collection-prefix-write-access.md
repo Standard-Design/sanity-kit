@@ -3,10 +3,11 @@
 This is a private integration guide. The adapter supplies authorization for the
 [collection-prefix writer](collection-prefix-publication.md) and the guarded
 [settings Publish integration](collection-settings-publication.md). That
-integration is disabled by default. The proof Studio enables it, and live
+integration is installed by the settings workspace wrapper. The proof Studio uses it, and live
 same-prefix and prefix-move publishing checks passed on November 10, 2026.
-First-ever settings publishing and broader permission and validation acceptance
-remain ahead. These helpers are not exported for consumers yet.
+First-ever settings publishing also passed on November 11. Broader permission
+and validation acceptance remains ahead. This adapter stays private behind the
+public settings installer; it is not a separate consumer export.
 
 ## What it checks
 
