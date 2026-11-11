@@ -16,3 +16,15 @@ export type {
 	PageCollectionItemDefinition,
 	PageCollectionDefinition,
 } from './registry.js'
+
+/** Resolve settings already loaded by the app; this entry never fetches them. */
+export { createCollectionRouting } from './settings/resolve.js'
+export type {
+	CollectionRoutingConfig,
+	SettingsCollectionDefinition,
+	CollectionSettingValue,
+	RoutingSettingsSnapshot,
+	RoutingPerspective,
+	ResolvedCollectionSetting,
+	CollectionRoutingResult,
+} from './settings/resolve.js'

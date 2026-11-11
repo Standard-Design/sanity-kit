@@ -14,13 +14,14 @@ This version supports one website per configured Sanity project and dataset.
 There is no separate website discriminator in the configuration or documents.
 Supporting several websites in the same dataset is deferred.
 
-The implementation is a **private foundation**. A pure resolver validates supplied
-documents and builds the ordinary route configuration used by the existing URL
-helpers. A separate loader can now read those documents from Sanity. Neither is
-exported from a package entry point yet. A private Studio integration now adds
-settings documents and native draft editing. The loader and resolver still do
-not cache settings, write documents, or publish changes. The existing public
-`PagesRouteConfig` continues to require string prefixes.
+The read APIs are public in this checkout: `createCollectionRouting` from
+`@standard-design/sanity-kit/url` resolves supplied documents, and
+`createCollectionRoutingLoader` from `/url/settings` reads them with the
+application's client. See the [consumer API guide](collection-routing-api.md).
+The Studio settings editor and publishing integration remain private. The loader
+and resolver do not cache settings, write documents, or publish changes.
+`CollectionRoutingConfig` describes settings-backed prefixes; the existing
+`PagesRouteConfig` continues to require resolved string prefixes.
 
 See [URL handling](url.md) for the existing storage and resolution rules, and
 [Pages design decisions](pages-design-proposals.md) for the broader editor plan.
@@ -105,7 +106,7 @@ The binding identifies the document explicitly. The kit never guesses it from a
 document title, index page, or matching prefix. Each bound collection needs its
 own settings document.
 
-For example, the private configuration can contain:
+For example, the configuration can contain:
 
 ```ts
 const routing = createCollectionRouting({
@@ -157,7 +158,7 @@ readable by the public site's data client when the dataset and access policy
 allow it. They are not private folder metadata, and they must not contain
 secrets. A private dataset still requires an appropriately authorized client.
 
-Settings-backed collections require slug-only items. The private factory rejects
+Settings-backed collections require slug-only items. The factory rejects
 a binding on a collection whose items store full paths: changing the prefix
 would otherwise disagree with those stored paths. Existing code-fixed collections
 can continue using the supported legacy full-path registration.
@@ -212,7 +213,7 @@ settings snapshot at all.
 
 ## Loading settings from Sanity
 
-The private `createCollectionRoutingLoader(config, client)` combines the pure
+The public `createCollectionRoutingLoader(config, client)` combines the pure
 resolver with a small, read-only Sanity query:
 
 ```ts
@@ -318,7 +319,7 @@ to have valid settings contents.
 
 ## Limits and decisions to review
 
-The private implementation proposes these initial bounds:
+The implementation applies these bounds:
 
 - Settings document IDs contain 1–121 letters, digits, underscores, or hyphens;
   they cannot begin with a hyphen. The reserved identities `drafts` and
@@ -327,14 +328,13 @@ The private implementation proposes these initial bounds:
 - A supplied snapshot can contain up to 1,000 records.
 - Collection prefixes can contain up to 2,048 characters.
 
-These limits, the document type and fields, and the private API names are concrete
-implementation proposals for review before exposing a public API. Prefix length
+These are kit implementation bounds, not Sanity service limits. Prefix length
 is checked without truncation. Callers should supply only the relevant records,
 not an entire dataset.
 
 ## What comes later
 
-The private loader now reads the configured settings IDs and supplies the correct
+The public loader reads the configured settings IDs and supplies the correct
 snapshot for the requested mode. Future consumer integration must use its result
 before calling the existing URL helpers. Any cache must distinguish project, dataset,
 bindings, and perspective. Draft reads must never reuse public-only coverage.

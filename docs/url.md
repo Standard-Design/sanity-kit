@@ -17,11 +17,14 @@ reads the appropriate field and returns the same three URL parts for either:
 The frontend and [Pages tool](pages.md) share one registration and its ownership
 checks. There are no Studio, React, or React Router runtime imports. The helper
 does not fetch documents, load settings, mutate content, or choose an app route.
-This public resolver accepts fixed collection prefixes. A private
-[collection-settings layer](collection-routing.md), now approved, resolves
-loaded settings into that same configuration. Its private read-only loader is
-now approved. The new private [URL field](url-field.md) uses fixed routes for
-draft editing; settings-backed field controls remain later work.
+`createSanityUrlResolver` accepts fixed collection prefixes. The public
+`createCollectionRouting` export resolves supplied settings into that same
+configuration; `createCollectionRoutingLoader` from `/url/settings` can read
+those settings with the application's client. See the
+[collection routing API guide](collection-routing-api.md) for installation,
+published/draft reads, and failure handling. The private [URL field](url-field.md)
+also supports settings-backed controls; its Studio installer remains separate
+from these public read APIs.
 
 ## Register once, reuse in the app and Studio
 

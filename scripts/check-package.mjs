@@ -164,7 +164,7 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|url-field|pages|pages-release-plan|collection-prefix-publication|collection-prefix-access|collection-prefix-write-access|collection-prefix-dialog|collection-settings-publication|navigator-acceptance|folders|collection-routing|redirects|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
+			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|url-field|pages|pages-release-plan|collection-prefix-publication|collection-prefix-access|collection-prefix-write-access|collection-prefix-dialog|collection-settings-publication|navigator-acceptance|folders|collection-routing|collection-routing-api|redirects|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
@@ -206,6 +206,7 @@ for (const required of [
 	'docs/navigator-acceptance.md',
 	'docs/folders.md',
 	'docs/collection-routing.md',
+	'docs/collection-routing-api.md',
 	'docs/redirects.md',
 	'docs/pages-design-proposals.md',
 	'docs/redirects-design.md',
@@ -320,6 +321,16 @@ const matrices = [
 			'@types/node': types['@types/node'],
 		},
 		full: false,
+	},
+	{
+		name: 'settings-only',
+		peers: {
+			'@sanity/client': current['@sanity/client'],
+			groq: current.groq,
+			'@types/node': types['@types/node'],
+		},
+		full: false,
+		settings: true,
 	},
 	{ name: 'current', peers: { ...current, ...types }, full: true },
 	{ name: 'minimum', peers: { ...minimum, ...types }, full: true },
@@ -450,6 +461,20 @@ for (const matrix of matrices) {
 		['runtime.mjs', ...(matrix.full ? ['--full'] : [])],
 		cwd,
 	)
+	// Exercise only public tarball imports; minimal resolution needs no GROQ,
+	// while the settings-only profile proves reads need no Studio/React peers.
+	const settings = matrix.full || matrix.settings === true
+	for (const file of [
+		'collection-routing-runtime.mjs',
+		'collection-routing.ts',
+		...(settings ? ['collection-settings.ts'] : []),
+	])
+		await copyFile(join(root, 'tests/package', file), join(cwd, file))
+	run(
+		process.execPath,
+		['collection-routing-runtime.mjs', ...(settings ? ['--settings'] : [])],
+		cwd,
+	)
 	await copyFile(
 		join(root, `tests/package/${matrix.full ? 'full.tsx' : 'minimal.ts'}`),
 		join(cwd, 'consumer.tsx'),
@@ -469,7 +494,11 @@ for (const matrix of matrices) {
 				types: matrix.full ? ['node', 'react', 'react-dom'] : ['node'],
 				skipLibCheck: false,
 			},
-			include: ['consumer.tsx'],
+			include: [
+				'consumer.tsx',
+				'collection-routing.ts',
+				...(settings ? ['collection-settings.ts'] : []),
+			],
 		}),
 	)
 	run(
@@ -682,6 +711,19 @@ async function checkBrowserBundles(cwd, full) {
 		metafile: true,
 		logLevel: 'silent',
 	}
+	// Keep pure resolution separately inspectable even in full profiles that
+	// legitimately import GROQ through other APIs.
+	await writeFile(
+		join(cwd, 'url-only.js'),
+		"import * as api from '@standard-design/sanity-kit/url'; console.log(api)",
+	)
+	const urlOnly = await build({ ...options, entryPoints: ['url-only.js'] })
+	for (const input of Object.keys(urlOnly.metafile.inputs))
+		assert.doesNotMatch(
+			input,
+			/node_modules\/(groq|sanity|react|react-dom|react-router|@sanity\/ui)\/|sanity-kit\/(studio|url\/settings\/load)/u,
+			'Pure URL resolution loaded a network reader or UI/framework dependency.',
+		)
 	const normal = await build({ ...options, entryPoints: ['browser.js'] })
 	for (const path of Object.keys(normal.metafile.inputs)) {
 		assert.doesNotMatch(

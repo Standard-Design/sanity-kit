@@ -1,5 +1,5 @@
 /**
- * Private bridge from separately loaded routing settings to the existing URL
+ * Pure bridge from separately loaded routing settings to the existing URL
  * registry. Content keeps its slug; only the routing context changes. No fetch,
  * cache, Studio schema, publication, or document mutation happens here.
  * @see docs/collection-routing.md

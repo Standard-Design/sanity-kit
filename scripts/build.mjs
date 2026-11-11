@@ -85,6 +85,7 @@ for (const file of [
 	'docs/navigator-acceptance.md',
 	'docs/folders.md',
 	'docs/collection-routing.md',
+	'docs/collection-routing-api.md',
 	'docs/redirects.md',
 	'docs/pages-design-proposals.md',
 	'docs/redirects-design.md',
