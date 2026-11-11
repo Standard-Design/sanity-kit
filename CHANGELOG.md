@@ -1,172 +1,82 @@
 # Changelog
 
-## Unreleased — Pages plugin foundation
+## Unreleased — Pages and routing release-note candidate
 
-- Add **Create page** and **Create index page** to ordinary folder menus, reusing
-  explicitly registered templates and native permission checks. Carry the folder
-  suggestion in native Studio intent parameters without adding document metadata.
-  Leave child-page URLs unset until a final segment is supplied; send index URL
-  proposals through the existing guarded URL autosave. Preserve unrelated template
-  values and reject conflicting URL defaults. Global creation remains unchanged.
+These changes describe the current checkout and remain subject to final review,
+acceptance, and release preparation. They are not included in npm alpha.5. No
+version bump, tag, or publication is recorded by this entry.
 
-- Allow `create` to register one or several explicit page type/template choices,
-  with optional display labels. Check actual Studio templates and native create
-  permissions, open a single allowed choice directly, or show a chooser for
-  several. Match Studio’s compact creator popover with search and native icons.
-  Keep missing-template and failed-access feedback local to creation.
-  Native Sanity owns document IDs and initialization; the header action does not
-  supply URL defaults or publish the new draft.
+### Studio editing
 
-- Add **New subfolder** to the Pages options menu and ordinary folder menus.
-  Reuse the URL field's folder-creation modal, with root as the starting parent
-  from the Pages menu and the selected folder from a folder menu. Save missing
-  ancestors together, refresh saved-folder display, and keep the current page
-  and preview selected. Creation and background synchronization share the tool's
-  write coordination and uncertain-result recovery. No page is created or published.
+- Add the `/studio` entry with `pagesTool()` for a consumer-owned Sanity Studio.
+  Keep native Presentation, document editing, permissions, and preview. Browse
+  ordinary pages, nested folders, collection indexes, and paginated collections;
+  preserve independent preview/document selection and picker state.
+- Create pages and collection items from explicitly registered types/templates.
+  Use native create permissions, open a single choice directly, and offer a
+  chooser or contextual submenu for several. Folder actions propose child or
+  index URLs through the normal URL-field workflow without publishing drafts.
+- Export `defineSanityUrlField` and `withUrlPublication`. Support folder and
+  full-path text controls, native slug storage/generation options, checked draft
+  autosave, shared URL uniqueness, read-only fields, and published-page draft
+  editing. Both Pages and standalone Structure installations are covered.
+- Review page URL changes when publishing. Optionally create a permanent
+  redirect, update existing incoming redirects directly to the new destination,
+  preserve unrelated redirect drafts, and reconcile uncertain results before
+  retrying. Reserved paths and prefixes apply to page URLs and redirect sources.
+- Persist folder records, including empty folders. Add background synchronization
+  and manual recovery, new-subfolder controls, empty-only removal, and reviewed
+  renames. Rename updates affected URL fields and redirects together while
+  preserving unrelated draft content; release conflicts remain blocked.
+- Export `withCollectionRoutingSettings`, `collectionRoutingSettingsItem`, and
+  `collectionRoutingSettingsItems` for shared or per-collection Structure sections.
+  Separate stable collection identifiers from editable display names and URL
+  prefixes. Allow configured defaults or locked values. Installing settings
+  automatically installs checked Publish, preserving native availability,
+  permissions, and validation. Remove the development-only publishing gate.
+- Publish first collection settings and same-prefix edits without a routine
+  confirmation dialog. Review existing prefix moves and redirect changes while
+  keeping item slugs/content unchanged. Show actionable conflict/access notices,
+  pending recovery, and confirmed success feedback.
+- Export `redirectManagementItem` for native Structure navigation. The URL
+  publication wrapper owns redirect schema/action installation and explicit
+  draft-only or publishing modes. Support normal checked Publish, retirement,
+  and deletion with an explanatory confirmation for active redirects.
 
-- Add a background folder-sync fallback and **Sync folders** recovery action in
-  the Pages options menu. Share one throttled coordinator across the navigator,
-  picker, and perspectives. Check current scoped read access and complete raw
-  inventory, preserve uncertain write evidence, and pause automatic checks after
-  failures. Sync only adds missing organizational records; it never changes page
-  URLs or publishes content.
+### Application APIs
 
-- Add private published-page draft URL editing with a paired Publish action.
-  Review old/new URLs at publication and optionally create a permanent redirect
-  in the same transaction. Wait for local URL checks, native saving, and validation;
-  recheck routing evidence and document revisions. Reconcile uncertain responses
-  through a private operation receipt. Let editors dismiss an unconfirmed result,
-  resume its check after navigation or same-tab reload, and see a success
-  notification when publication is confirmed. Show existing incoming redirects in the
-  dialog and update them directly to the new URL in the same transaction, without
-  publishing unrelated redirect drafts. Release/live-edit and external
-  publication paths remain unsupported.
-  Redirect HTTP delivery and caching are still separate work.
-  Share scoped read-access checks with URL editing, accept provable custom-role
-  grants, and identify missing or unverified requirements in the editor notices.
+- Export `/url` helpers for pure fixed-prefix and settings-backed URL resolution,
+  returning pathname, prefix, and slug with explicit failures. Full-path pages
+  and reusable slug-only collection content retain their separate storage.
+- Export `createCollectionRoutingLoader` through `/url/settings` for exact-ID
+  settings reads with explicit perspectives, bounded responses, cancellation,
+  and no hidden fallback to unpublished defaults.
+- Export `/redirect` request lookup, HTTP response, and cache invalidation helpers.
+  Validate published rules; distinguish misses from failures; bypass trusted
+  previews; support optional consumer-owned caching without choosing a backend.
+- Export `createSanityRedirectMiddleware` through `/react-router/server`. Preserve
+  React Router document/data redirect transport and signed preview bypass. The
+  consumer still owns route placement, frontend rendering, and cache refresh.
+- Add `/folders/server` with `createFolderSynchronizer` for import jobs. Each
+  explicit call checks current access and page paths, then adds missing folder
+  records with strict creation/revision guards. Report confirmed writes separately
+  from already-present folders; an uncertain earlier write remains uncertain.
+  No automatic retry, Studio installation, removal, rename, or page writes.
 
-- Add a private draft URL field using shared route registration. Show folder and
-  final-segment controls, inline Generate, checked draft
-  autosave after a typing pause or folder selection, and an indented folder picker
-  with a New subfolder modal. Keep invalid or failed edits visibly unsaved and
-  provide a retry action; require explicit homepage selection instead of treating
-  cleared text as `/`. Preserve native
-  slug storage and validation. Check document access, versions, URL conflicts,
-  and required folder records before offering a native form patch. Published-page
-  draft editing requires the paired publication integration; release and live-edit
-  URL changes remain blocked. Fixed prefixes only; no public field export or release yet.
+### Verification and limits
 
-- Display saved folders alongside folders inferred from page URLs. Keep empty
-  folders visible, share registry refreshes across the navigator and picker, and
-  let page browsing continue when folder metadata cannot be loaded. The separate
-  synchronization fallback above can now save missing records when the tool opens.
-
-- Add private folder creation and explicit synchronization writes. Preserve
-  existing metadata, guard against registry changes, and distinguish uncertain
-  write outcomes from confirmed saves. That writer alone adds no folder removal or page URL changes; the draft field
-  above now calls it from explicit editor actions.
-
-- Add private folder reads for registry metadata and raw document inventories.
-  Require explicit visibility, detect overflow, and preserve malformed URL evidence
-  for later planner checks. Reads do not adopt folders or authorize writes.
-  Remove folder `site` configuration and use the fixed `sanityKit.folders` registry
-  in the configured Sanity project/dataset.
-- Add private published redirect loading with bounded queries and validated snapshots.
-  Include disabled history, handle cancellation, and override inherited caching.
-  Remove redirect `site` configuration; the configured project/dataset defines
-  the website's redirect rules.
-  HTTP responses, cache adapters, and Studio integration remain later work.
-
-- Add a private collection-settings loader with exact-ID reads, explicit draft
-  visibility, bounded responses, and cancellation. Bypass CDN and inherited fetch
-  caching; preserve client configuration. Keep fixed-only routes independent of
-  network access. No public export, cache adapter, or editor integration yet.
-  Remove the separate `site` identifier from collection configuration and settings;
-  the configured Sanity project/dataset now selects the website.
-
-- Add a private Studio generation bridge using native source and slugify context.
-  Preserve the selected prefix, mark replacements for confirmation, honor evaluated
-  read-only state, and discard cancelled or invalidated async results. Return
-  candidates only; field controls, conflict reads, and saving remain separate work.
-
-- Add private collection-settings resolution into the existing route configuration.
-  Distinguish published reads from draft coverage; preserve item slugs and independent
-  overview URLs. Loading, caching, Studio fields, and publication remain later work.
-- Add private redirect snapshot validation and exact-path lookup. Reject ambiguous
-  rules, chains, cycles, and occupied sources within supplied bounds. No redirect
-  fetching, caching, HTTP responses, editor controls, or public exports yet.
-
-- Add private folder-registry validation and plans for creation, explicit adoption,
-  and empty-only removal. Preserve stable keys and return revision/absence guards.
-  Bound supplied inventories and registry data; refuse incomplete evidence.
-  Schema registration, persistence, concurrency coordination, and UI remain later work.
-
-- Add private, read-only URL conflict checks across registered full-path and
-  slug-only types. Use raw document versions and Sanity's native self-exclusion,
-  with a typed `options.isUnique` adapter for the future field. Bound conflict
-  responses, distinguish failures from duplicates, and preserve cancellation.
-  No field wiring, public exports, dataset writes, or uniqueness reservation yet.
-
-- Add private URL-authoring preparation for the future Studio field: return
-  storage-aware candidates, clean literal internal/trailing separators, and
-  preserve collection boundaries without writing data. Match Sanity's default
-  `speakingurl` generation and truncation; support async custom generators that
-  bypass `maxLength`, followed by separate URL-safety validation. Do not add
-  collision suffixes. Keep these helpers outside public exports;
-  the input UI and persistence remain subsequent work. The separate internal
-  conflict checker above adds read-time checks only.
-
-- Add the framework-independent `/url` entry with `createSanityUrlResolver()`.
-  Reuse Pages registration to derive `{pathname, prefix, slug}` from full paths
-  or fixed-prefix collection slugs, with explicit failure results and no fetching
-  or mutations. Keep legacy Studio navigation unchanged; the new resolver rejects
-  noncanonical separators instead of silently repairing them. Document the API and
-  add browser-boundary and package-consumer coverage. Settings-backed prefixes and
-  URL editing remain future work.
-
-- Add the opt-in `/studio` entry with `pagesTool()` for an app-owned Sanity
-  Studio. Reuse native Presentation, the editor, and document actions; do not
-  supply a standalone Studio application or generate schemas/frontend routes.
-- Share page/collection routing configuration across the browser and
-  native resolvers. Preserve picker focus, search/scroll state, and independent
-  preview/document selection when moving the integration out of its fixture.
-- Add optional Studio peers and packed-consumer checks that keep Studio out of
-  ordinary frontend installs and bundles. Test Sanity 6.17.0 and React 19.3.1;
-  document the remaining development-only TypeScript peer warning.
-- Add private navigator data helpers: inferred folders, named index children,
-  separate collection overviews, complete ordinary-page batch reads, five-item
-  collection previews, and cursor-based collection search, with offline tests.
-- Share requests and listeners between the sidebar and picker. Add
-  perspective-isolated sessions, cancellation, reconnect/retry handling, periodic
-  reconciliation, and lazy tree/collection resources. Preserve last-good rows
-  during refresh and reread loaded collection depth after changes.
-- Keep reviewed live URL changes, navigator folder actions, and broader release
-  acceptance as later work. No version bump or publication is included here.
-- Connect the first navigator UI: inferred folders, actual-title index children,
-  native version indicators, five recent collection items, and debounced
-  collection search with incremental loading. Preserve browser mode, expansion,
-  search, and scroll across sidebar/picker mounts. Add the explicit Studio icons
-  peer. Folder writes, sort/status filters, and virtualization remain later work.
-- Match native Structure row/header styling and Studio tooltips. Add a compact,
-  content-height picker with dialog-first keyboard focus and a page-title trigger.
-  Support explicit plural collection labels with `itemsTitle`, distinguish recent
-  items from the total in the browse row, and separate missing preview URLs from
-  valid ungrouped paths. Document the planned URL-field cleanup separately from
-  the read-only navigator; no dataset cleanup is included.
-- Replace the header's latest-50 lookup with separate targeted reads for the
-  previewed page and edited document. Share the generated resolver's path policy,
-  detect ambiguous URLs, and clear obsolete identity results on navigation.
-  Older pages and pathless documents no longer depend on a recent-document window.
-- Add opt-in `slugField` registration for collection items. Derive full URLs from
-  the collection prefix and one stored segment across browsing, search, header
-  identity, and native Presentation resolvers. Preserve existing `pathnameField`
-  behavior and detect collisions across both storage modes. The custom URL input,
-  authoring validation, and content migration are not included in this slice.
-- Record the approved URL-field, folder-storage, and bulk-change contracts and
-  the proposed redirect subsystem, including consumer-owned caching. Keep pending
-  API details and redirect defaults explicitly marked as proposals. Include both
-  design guides in the package and verify packed guides match their source text;
-  this documentation does not implement those features or change runtime behavior.
+- Check installed tarballs across supported client/application profiles, native
+  Studio configuration with and without Pages, browser/server boundaries,
+  document/data transport, and TypeGen. Keep Studio peers optional for consumers
+  that do not import `/studio`.
+- Record live proof checks for first-settings publication, same-prefix edits,
+  repeated prefix moves, redirect opt-out/retargeting, and a separate published
+  HTTP server. These fixtures do not establish every custom-role, concurrency,
+  recovery, or deployed-cache outcome.
+- Keep planners, writers, native action factories, session owners, and receipts
+  private. Release-aware URL moves, populated-folder removal, document-free
+  indexes, multisite routing, arbitrary template parameters, and wildcard
+  redirects remain deferred. See the Pages release checklist before publishing.
 
 ## 0.1.0-alpha.5
 

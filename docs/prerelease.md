@@ -7,7 +7,7 @@ README and guides. Original code uses the [MIT license](../LICENSE);
 Standard Design's MIT interpretation of conflicting Tinloof license declarations.
 Upstream confirmation remains a follow-up, not a release prerequisite.
 
-The API is unchanged from alpha.3, which introduced breaking changes to request
+Alpha.5's API is unchanged from alpha.3, which introduced breaking changes to request
 context naming and loader validation/types, as well as static link fragments and
 expanded documentation. Follow the [upgrade checklist](#upgrading-from-alpha2)
 when replacing alpha.2. Use the approved artifact for the intended revision;
@@ -43,6 +43,35 @@ These repository docs also correct alpha.5's preparation-time publication wordin
 Published tarballs, their bundled documentation, and their checksums are unchanged.
 The registry and GitHub release records establish publication; a source version
 bump or successful dry-run alone does not.
+
+## Unreleased checkout APIs
+
+This checkout now exports Pages and Studio installers through `/studio`, pure
+URL/collection resolution through `/url`, settings reads through `/url/settings`,
+HTTP redirects through `/redirect`, and additive import synchronization through
+`/folders/server`. `/react-router/server` additionally
+exports redirect middleware. These additions are **not in npm alpha.5** and are
+not activated by installing that historical version.
+
+Use a reviewed build from the intended commit when testing these additions.
+Consumers own the Studio configuration, schemas, application routes, credentials,
+and cache backend. Start with [Pages](pages.md), [standalone URL fields](url-field.md),
+[collection settings installation](collection-settings-publication.md), and
+[HTTP redirect integration](redirects.md). Internal compiled paths are not public
+imports. Installing collection settings also installs checked publishing; native
+permissions, validation, and action availability still apply.
+
+Native first-settings publication, unchanged-prefix saves, repeated prefix moves,
+redirect opt-out/retargeting, and the proof website's published HTTP redirects
+have live acceptance records. Installed-package tests cover both Pages and
+standalone Structure composition, as well as real React Router document and data
+responses. Broader custom-role, concurrency, lost-response recovery, and deployed
+cache behavior remain acceptance work. The [Pages release checklist](pages-release-plan.md)
+is the source of current remaining gates.
+
+A successful local build or package check does not publish these APIs. The next
+version, tag, release notes, and artifact still require the normal review and
+release workflow. No historical alpha artifact is replaced.
 
 ## Upgrading from alpha.4
 
@@ -95,8 +124,9 @@ Update working pins deliberately using the migration checklist above.
 root. Its exports reference compiled JavaScript and declarations directly.
 The current build includes README, LICENSE, THIRD_PARTY_NOTICES, CHANGELOG, the
 [documentation index](README.md), all subsystem guides, this prerelease guide,
-and extraction provenance. These expanded guides have shipped since alpha.3;
-previously released tarballs are unchanged.
+and extraction provenance. The original subsystem guides shipped with alpha.3;
+newer Pages/routing guides accompany local builds and do not change previously
+released tarballs.
 Source files, source maps, tests, development dependencies, and lifecycle scripts
 are excluded. Source-level debugging uses the matching repository commit.
 
@@ -139,6 +169,17 @@ checked separately with `skipLibCheck: true`: its upstream `@sanity/types` and
 does not disable strict checking of application code. It may download dependencies.
 Temporary consumers are retained
 under the system temporary directory and their location is printed for inspection.
+
+For the checkout-only APIs, package checks also install `/url/settings` and
+`/redirect` without Studio or React Router. Folder-import checks install
+`/folders/server` with supported client 7 and 8 versions, exercise access checks
+and explicit reruns after an uncertain result, and execute a server bundle
+without Studio or React. Generic HTTP/cache contracts and the
+React Router adapter run from the installed tarball. A separate Studio consumer
+resolves native field/schema/action configurations both with Pages and with
+standalone Structure, checking automatic guarded publishing and respecting application-removed
+actions. It also browser-bundles those installations. These configuration
+checks perform no dataset writes and do not replace live UI acceptance.
 
 The current package check also installs a temporary pnpm Studio/frontend
 workspace and verifies that Sanity codegen 8.1.0 can extract queries containing
@@ -287,6 +328,20 @@ Node 24+ is required. This prerelease targets ESM, React 19.2.7+ and React Route
 | `/react-router/server`             | React, React DOM, React Router, `groq`, `@sanity/preview-url-secret`   |
 | `/react-router/visual-editing`     | React, React DOM, React Router, `@sanity/visual-editing` and its peers |
 | `/validation/zod`                  | Zod                                                                    |
+
+Additional checkout-only entries require:
+
+| Import                                          | Required peers in addition to `@sanity/client`                                                                                  |
+| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
+| `/url`                                          | None                                                                                                                            |
+| `/url/settings`, `/redirect`, `/folders/server` | `groq`                                                                                                                          |
+| `/studio`                                       | Sanity, Sanity UI, Sanity icons, React/React DOM, `groq`, styled-components, react-focus-lock, i18next, react-i18next, and RxJS |
+
+The Studio baseline is Sanity `6.17.0` exactly. See the
+[Studio dependency details](pages.md#dependencies-and-package-isolation) and
+package manifest for all optional peer ranges. These are required only in the
+consumer package that imports `/studio`; the kit does not supply a Studio app.
+The new redirect middleware uses the existing `/react-router/server` peers.
 
 The manifest is the authority for supported ranges. Alpha.5
 requires `@sanity/client ^7.27.0 || ^8.6.1`, excluding `8.6.0`, which upstream

@@ -4,18 +4,19 @@ Pages is a page-browser plugin for an application's existing Sanity Studio. It h
 page, preview it, and open its document without leaving Sanity's native
 Presentation tool.
 
-**This is not part of the released package.** The repository currently contains
-a reusable `pagesTool()` foundation under `@standard-design/sanity-kit/studio`.
-Local builds include that entry point; the existing npm release does not. Its
-browser includes saved folders and collection browsing. A private
-[URL field](url-field.md) now connects draft editing and folder creation in the
-fixture. A private publication integration now pairs published-page draft URL
-edits with an optional redirect at publication. Editors can create folders from
-the navigator and choose among explicitly registered page templates. Folder
-menus also start ordinary pages and index pages with the appropriate URL proposal.
-Folder removal and rename, bulk URL changes, advanced filtering,
-and broader release acceptance are still pending; this is not the finished Pages
-feature set.
+**Pages is implemented in this checkout, not npm alpha.5.** Local builds export
+`pagesTool()` and the companion Studio installers from
+`@standard-design/sanity-kit/studio`. Editors can browse pages and collections,
+create pages from registered templates, manage saved folders, and review folder
+renames. The [URL field](url-field.md) supports draft editing and checked
+publishing with optional redirects. [Collection settings](collection-settings-publication.md)
+control editable names/prefixes, and [redirect management](redirects.md) uses native
+Studio forms and actions.
+
+These are supported import boundaries for the checkout, not a release announcement.
+Consumer installation tests and basic live workflows have passed; broader roles,
+concurrency, recovery, navigation/performance, and release acceptance remain in
+the [release checklist](pages-release-plan.md).
 
 ## Add the plugin to your Studio
 
@@ -24,7 +25,7 @@ Sanity, owns `sanity.config.ts`, defines schemas and templates, and deploys the
 Studio. The kit adds a plugin to that installation. The Studio in this repository
 is only a development fixture, not an application to copy into a consumer.
 
-This example targets a local build of the unreleased foundation:
+This example targets a local build of the unreleased checkout:
 
 ```ts
 import { defineConfig } from 'sanity'
@@ -277,8 +278,9 @@ must be one nonempty URL segment: `first-post`, not `/first-post`, `first-post/`
 or `archive/first-post`. Unsafe URL characters, dot segments, and encoded slashes
 are rejected for navigation. The reader does not lowercase, trim, decode, or
 repair stored content. Missing or invalid items remain available for editing.
-The forthcoming custom input will provide the locked prefix and authoring feedback;
-this storage contract does not yet supply that UI or content-value validation rules.
+The [URL field](url-field.md) provides the locked prefix, generation, authoring
+feedback, and shared uniqueness checks. Registering a storage field alone does
+not install that control; add `defineSanityUrlField` to the consumer schema.
 
 For `pathnameField`, the stored value remains the full path and `routePrefix`
 only checks its boundary. Nothing is prepended. Existing full-path collection
@@ -458,11 +460,10 @@ uses Sanity's own preview/version subscriptions in addition to the kit's shared
 navigation listener. Native schema preview customization is not yet used for row
 titles: those still follow the registered `titleField` mapping.
 
-This is not the full release gate. Sort choices, query-side status filters,
-virtualization of long lists, empty-folder removal,
-and reviewed folder rename are still pending. Available actions are connected to
-their actual workflows; the navigator does not show placeholder actions for these
-future features. The private [URL field](url-field.md) also has its own explicit
+This is not the full release gate. Sorting/filtering and larger-list performance
+remain part of navigator acceptance; add virtualization only if measurements
+justify it. Empty-folder removal and reviewed rename are implemented. Available
+actions connect to their actual workflows rather than placeholders. The [URL field](url-field.md) also has its own explicit
 folder-creation flow.
 
 ## Shared live-data loading
@@ -621,8 +622,10 @@ Collections use separate queries:
   indexed strategy for very large collections.
 
 This follows Sanity's [cursor pagination guidance](https://www.sanity.io/docs/developer-guides/paginating-with-groq).
-The helpers currently provide recent-first ordering only. Sorting controls,
-status filters, debouncing, and scroll-triggered requests are later integration work.
+Collections use recent-first ordering. The browser debounces search by 200 ms
+and requests another bounded batch near the end of the scroll area; a **Load more
+items** button provides the same action for keyboard users. Custom sorting and
+status filters are not implemented.
 
 ### Keep one content perspective throughout a read
 
@@ -738,31 +741,23 @@ listing code. See the [full distinction](../tests/fixtures/pages-studio/ROUTING.
 ## Design decisions and remaining work
 
 The interface choices were approved on October 28, 2026, with further field and
-folder decisions on October 30 and 31. Earlier sketches are preserved, but the
-following decisions describe the selected direction. Explicitly marked proposals still
-need agreement before implementation. This section records design intent, not
-additional public APIs. The navigator and saved-folder display are implemented.
-The new private [URL field](url-field.md) connects draft editing and folder
-creation in the fixture. Reviewed single-page URL publishing is implemented;
-collection-prefix controls and bulk folder moves remain future work. The [shared frontend URL helper](url.md), for fixed-prefix
-registration, is implemented locally and approved. The separate
-[internal authoring preparation](url.md#authoring-preparation-internal) is now
-implemented and approved; it proposes values without saving them. The approved
-[internal conflict-checking layer](url.md#url-conflict-checks-and-native-validation-internal)
-and native `options.isUnique` adapter are now called by the private field.
+folder decisions on October 30 and 31. Earlier sketches are preserved. The
+following sections explain the selected behavior and identify deferred features.
+The public installation surface is the set of exports documented above; internal
+helpers mentioned here are not additional imports for consumers.
 
-Private [folder plans](folders.md), [collection-settings resolution](collection-routing.md),
-and [redirect validation](redirects.md) are also approved. Folder creation is now
-connected to the private field; settings and redirect editor integration remain
-pending. The [Studio generation bridge](url.md#studio-generation-context-internal)
-is also approved as a private foundation.
-The [collection-settings loader](collection-routing.md#loading-settings-from-sanity)
-is approved and reads and validates settings; it is not connected to Studio controls.
-A private [folder writer](folders.md) for creation and explicit synchronization
-is approved. It adds folder records without changing page URLs. Read-only saved
-folder display is also approved. The field's draft-editing workflow is implemented. Pages now supplies automatic
-folder synchronization, manual recovery, folder creation, and contextual page/index
-creation from the navigator. Removal and rename remain future work.
+The [URL field](url-field.md), [folder lifecycle](folders.md),
+[collection settings and routing](collection-routing.md), and
+[redirect management/request handling](redirects.md) are implemented. Pages
+provides background folder synchronization, manual recovery, creation,
+empty-only removal, reviewed renames, and contextual page/index creation.
+The field also works in standalone Structure without Pages.
+
+Private authoring, generation, ownership, permission, planning, and writing
+helpers support those workflows. Their names and source files explain how the
+kit works; use the public factories and workspace wrappers to install it.
+The [release checklist](pages-release-plan.md) tracks outstanding acceptance and
+packaging work instead of treating implemented controls as future features.
 
 ### Storage and shared URL results — agreed October 30
 
@@ -790,7 +785,8 @@ homepage result was agreed as `{pathname: '/', prefix: '/', slug: ''}`; empty
 collection-item slugs remain invalid. Resolution must distinguish missing data,
 invalid data, and unavailable routing settings. The first fixed-prefix helper's
 name, result wrapper, and reason codes are documented in [the URL guide](url.md)
-with the approved API. Settings-unavailable behavior remains future work.
+with the approved API. [Collection routing](collection-routing-api.md) adds
+explicit settings-unavailable failures without substituting guessed prefixes.
 
 Also approved: pure URL resolution against already loaded routing settings. The
 caller loads the appropriate published/preview context separately, allowing reuse
@@ -811,15 +807,15 @@ Support two explicit sources: a fixed prefix configured in code, or a centrally
 editor-controlled prefix read from Sanity. In both cases, individual collection
 items show the prefix as read-only and expose only their slug for editing. The
 whole-field read-only option can disable slug editing as well. Fixed prefixes
-and opt-in settings-backed routing are implemented in the private integration.
+and opt-in settings-backed routing are implemented.
 
-**Approved and implemented privately:** use one routing-settings document per
+**Implemented:** use one routing-settings document per
 collection for editor-controlled prefixes, rather than deriving the prefix from
 an index page. Keep the collection's stable identity separate from its mutable
 URL prefix. Fixed-prefix consumers should not need an editable settings document
 just to supply the prefix.
 
-Under that proposal, a collection could have zero, one, or many pages displaying
+The content model can have zero, one, or many pages displaying
 its items. A page at `/insights` could list posts whose URLs begin with `/journal`.
 Changing that page's pathname would not move the posts; changing the item prefix
 would not move that page. A prefix does not itself create an index page. Whether
@@ -831,9 +827,9 @@ synthetic page to select when no page document exists. Document-free index page
 entries remain deferred. Approved October 31: preview a draft settings prefix,
 then explicitly publish the reviewed routing change. Published traffic keeps the
 published prefix until that change. No item slugs or independently located listing
-pages are rewritten. The private settings schema, registration binding, and
-perspective-aware reads are implemented. Reviewed prefix activation and optional
-index association remain separate work.
+pages are rewritten. The settings schema, registration binding, perspective-aware
+reads, and reviewed prefix activation are implemented. The current Pages navigator
+still requires an index registration; making that association optional is deferred.
 
 Although the item storage does not change, activation must still check the
 resulting URLs for conflicts/reserved routes, plan redirects for old published
@@ -853,8 +849,9 @@ their app can handle, including reserved application routes.
 The consumer still owns route matching, content loading, and rendering. Shared
 helpers should prevent repeated URL-resolution logic, not choose that application
 architecture. Build-time route generation is not part of the planned examples.
-Runtime cache invalidation and publication behavior for changing prefixes remain
-to be specified.
+Reviewed prefix publication changes settings and redirects together. Applications
+remain responsible for refreshing their own routing and redirect caches; a cache
+adapter is not an instantaneous website-wide cutover guarantee.
 
 ### Pages navigator
 
@@ -939,13 +936,33 @@ The `…` menu also offers **Settings** when the workspace has a matching
 settings document in the current native editor pane and keeps the website
 preview in place. If the settings document is new, its native template supplies
 the collection identity. A matching name alone is not enough: the registered
-item types and slug fields must also agree. Code-configured prefixes have no
-editable settings document and show no Settings action.
+item types and slug fields must also agree. Collections without a configured
+`settingsDocumentId` have no Settings action. A collection with a locked prefix
+can still have settings for an editable display name.
 
-Settings navigation does not yet connect settings drafts to Pages routing or
-preview. The current Pages registration still supplies string prefixes; loading
-settings throughout those consumers and publishing prefix changes are later
-checkpoints in the [parallel release plan](pages-release-plan.md).
+Settings access and settings-backed routing are separate. Supply the same
+`collectionRouting` registration to Pages, URL fields, and `withUrlPublication`
+to resolve the stored prefix in the selected perspective. A draft preview can
+use a draft prefix while published requests keep the published prefix. Missing
+settings block resolution; the kit does not silently use the configured fixed
+prefix instead. The consuming website must load and resolve the matching
+settings too. See [collection routing](collection-routing.md).
+
+Install settings on the completed workspace:
+
+```ts
+const studio = withCollectionRoutingSettings(
+	withUrlPublication(workspace, { routes, collectionRouting }),
+	{ routes: collectionRouting },
+)
+```
+
+This installs checked Publish automatically,
+subject to native permissions, validation, and action availability. For Structure,
+use `collectionRoutingSettingsItem(S, collectionRouting, 'journal')` to place one
+collection's settings in its own section, or `collectionRoutingSettingsItems(S, collectionRouting)` for all settings entries. These navigation helpers do not
+install schemas or actions. The [settings installation guide](collection-settings-publication.md#installing-the-integration)
+explains the wrapper order and standalone setup.
 
 ### URL field and folder picker
 
@@ -959,7 +976,7 @@ example, creating `company/team` inside `/about` selects
 `/about/company/team`; a final segment of `leadership` produces
 `/about/company/team/leadership`.
 
-The new private [URL field](url-field.md) implements this picker for eligible
+The [URL field](url-field.md) implements this picker for eligible
 draft documents. It does not rename folders. Slug-only collection fields show
 their resolved prefix as read-only, with a single editable slug segment.
 The same factory also supports full-path page storage. Existing fixture
@@ -988,7 +1005,7 @@ Generate button that replaces the final segment directly. Editing saves automati
 a 500 ms typing pause; choosing a folder or generating a slug also
 starts a save. Checks and folder persistence finish before the input emits a
 native form patch. It does not publish the document. Invalid values, conflicts,
-and failed reads stay local with an unsaved notice; network failures offer
+and failed reads stay local with validation feedback beside the field label; network failures offer
 **Retry saving URL** instead of silent retry loops. Navigating away before the
 pause or checks finish drops the local edit.
 
@@ -996,33 +1013,37 @@ The field supports a read-only setting for the entire field, in addition to lock
 the prefix. Whole-field read-only disables slug editing, generation, folder
 selection, and folder creation from this field. The resolved URL remains visible
 and copyable. This is an editor-interface restriction, not dataset-level write
-protection. This first input also blocks published, release, and live-edit URL
-changes until the reviewed routing and redirect workflow is available. Its
-factory remains private and is installed only in the proof fixture.
+protection. With `withUrlPublication` installed, published pages allow draft URL
+edits and reviewed publishing. Release conflicts and live-edit URL changes remain
+unsupported. Import the field and wrapper from `/studio`.
 
-### Persistent folders — saved display approved, draft editing under review
+### Persistent folders
 
 Explicitly created folders should persist even when no pages use them. Removing
 or moving the last page must not remove an explicitly created folder from the
 navigator. The approved navigator combines saved folder records with folders
 inferred from page URLs, without showing duplicates. An empty folder is
 organizational metadata; it does not create a website page or occupy its index
-URL. The private creation/synchronization writer and read-only saved-folder
-display are approved. The new private URL field adds explicit folder creation.
-Schema registration and removal/rename operations remain future work.
+URL. Creation, synchronization, saved-folder display, empty-only removal, and
+reviewed rename are implemented. The URL field also offers folder creation.
 
 Approved October 31: use one internal, authenticated-only folder-registry document
 per project/dataset, with stable record identifiers and paths. Its fixed ID is
 `sanityKit.folders`; no separate `site` configuration is required. Hide it from normal content
 lists and creation menus. Organizational changes take effect immediately without
-a publishing step; frontend rendering does not depend on this metadata. Define
-size limits and concurrent-write safeguards before shipping.
+a publishing step; frontend rendering does not depend on this metadata. The [folder guide](folders.md) describes the implemented size bounds, revision
+guards, and limits when external writers change content concurrently.
 
-Editors see one folder system, without inferred/persisted labels. Initial
-synchronization is a developer setup task;
-imports and external writers should invoke it as maintenance. Kit-managed folder
+Editors see one folder system, without inferred/persisted labels. Import scripts
+and external writers should synchronize folders after writing page URLs. If that
+step is omitted, Pages can save the missing folders through its background
+synchronization fallback, subject to access and inventory checks. The
+[`/folders/server` helper](folder-import.md) explicitly adds folders implied by
+current page URLs without installing Studio. It rereads and replans on each call;
+a later successful call does not establish the outcome of an earlier uncertain
+write. Kit-managed folder
 creation and URL changes must save the required records as part of normal editing,
-including existing and destination ancestors. The private draft URL field now
+including existing and destination ancestors. The URL field now
 preserves those records before applying an ordinary page URL. Once adopted,
 inferred and explicitly created folders share the same lifecycle.
 
@@ -1064,7 +1085,7 @@ empty-folder removal workflow.
 
 ### URL cleanup — explicit draft editing
 
-The private URL field uses the preparation layer to propose separator cleanup:
+The URL field uses the preparation layer to propose separator cleanup:
 collapse repeated slashes and remove trailing slashes while preserving the site
 root `/`. For example, `/about//team/` becomes `/about/team`. Show the resulting
 value and check for a conflicting URL before automatic draft saving. Clearing
@@ -1083,13 +1104,10 @@ corrected during that implementation without redirect work, but URL collisions
 still need checking. This is not permission to silently migrate future consumer
 datasets. No dataset cleanup has been performed as part of this documentation.
 
-“Ungrouped pages” is a transitional fallback, not an intended destination for
-normal authoring. Keep it until the field, validation, and test-content audit
-are complete. Once malformed separator paths are classified as invalid by the
-shared URL rules, route them to an actionable invalid/missing-URL section instead
-of retaining a separate group for otherwise valid URLs. Update the section label
-and tests in that slice; do not hide malformed documents. Empty sections already
-disappear automatically.
+Documents with a missing or unusable URL remain accessible under **Pages without
+valid URLs**. The navigator does not repair those values or hide the documents.
+Use the field or a controlled import repair to correct them. Empty sections
+are hidden automatically.
 
 ### Rename a folder
 
@@ -1097,55 +1115,39 @@ Open **Rename folder** from the navigator's folder actions, then review the
 affected URLs in a modal before applying. Changing a single page's URL in its
 field is different from renaming the folder and moving all nested paths.
 
-The sketches only change local demo state. Approved October 31: show old/new URLs
-and live impact; require explicit **Apply URL changes** confirmation; keep
-draft-only documents unpublished; and patch only URL fields on published pages
-and matching existing drafts, without publishing unrelated draft content. Stop
-for conflicting planned draft URLs or affected release versions. Use a bounded
-transaction with revision guards; changes during review require a refreshed
-review. Too-large operations must not silently become partially applied batches.
+The implemented workflow shows old/new URLs and live impact, then requires
+**Apply URL changes** confirmation. Draft-only documents stay unpublished.
+Published pages receive only URL-field updates; matching existing drafts receive
+the same URL changes without publishing unrelated draft content. Conflicting
+planned draft URLs or affected release versions block the move.
 
-Permissions, concurrent new documents/versions, collision checks, and redirects
-remain implementation gates. Revision guards do not create a database-wide URL
-uniqueness constraint. Storing complete paths does not create parent references
-or make descendant paths update automatically. Code-owned collection prefixes
-must not become editor-renamable through this workflow.
+The bounded writer checks permissions, complete routing evidence, collisions,
+redirects, and current revisions before applying the reviewed operation. Existing
+redirects follow the new destination directly; new redirects are an explicit
+choice. Oversized moves do not become silently partial batches. Recovery checks
+an uncertain operation before retrying. See [Rename folder](folders.md#using-rename-folder-in-pages)
+for exact behavior and limits.
 
-### Details still to harden — updated November 5
+Revision guards do not create a database-wide URL uniqueness constraint or stop
+all external writers. Complete stored paths do not establish parent references.
+Code-owned collection prefixes do not become editor-renamable through a folder
+operation; collection settings have their own checked publishing workflow.
 
-- **Collection settings:** the per-collection document, private registration,
-  and native draft editor are implemented. Settings now connect to Pages, URL
-  fields, and the proof preview. Controlled prefix publication remains next. Collection menus, item
-  creation, and distinct icons are approved as described above.
-- **Folder implementation:** complete schema registration and coordination for
-  removal and bulk moves. The bounded private registry, guarded additive writes,
-  URL-field and navigator folder creation, and background synchronization are
-  implemented, including empty-only removal with fresh access and occupancy
-  checks. Bulk rename and move coordination remain outstanding.
-- **Bulk-change implementation:** prove permissions, revision guards, new-document
-  race handling, size bounds, recovery, and cache/redirect coordination. The
-  URL-only write policy and initial release-version refusal are agreed.
-- **Detailed APIs:** settle function/configuration names, result wrappers and
-  error codes and consumer-defined template parameters. The private folder/index
-  creation context is implemented. Sanity-compatible generation is now agreed. The root
-  value, pure resolution, configurable title source and slug generation, explicit
-  failure categories, and one-versus-many chooser behavior are agreed.
-- **Redirect defaults:** review the defaults and integration gates in the separate
-  subsystem design. The design exists; its presence does not mean every proposed
-  status code, query-string policy, or cache-failure behavior has been approved.
+### Remaining scope and release checks
 
-These are subsequent implementation decisions, not reasons to change the current
-fixed-prefix/slug-only routing contract. No settings documents, folder records,
-or page URLs have been written by this documentation update.
+The current implementation includes collection settings publication, folder
+rename/removal, redirect management, and public application/Studio imports.
+The [release plan](pages-release-plan.md) owns the remaining readiness checklist:
+combined consumer installation, broader live permission and validation cases,
+concurrent edits, uncertain-response recovery, navigation/performance acceptance,
+and final artifact preparation.
 
-Concrete recommendations for these open contracts are in
-[Pages contracts and proposals](pages-design-proposals.md), with October 31
-approvals distinguished from remaining suggestions. None of these future APIs
-or workflows should be treated as implemented behavior unless explicitly linked
-to the working [fixed-prefix URL helper](url.md).
-The separate [redirect subsystem design](redirects-design.md) covers proposed
-redirect records, publication integration, request handling, and cache adapters
-without deciding the remaining Pages contracts.
+Deferred features include release-aware URL moves, deleting populated folders,
+document-free collection index entries, multisite routing, arbitrary creation
+template parameters, and wildcard redirects. These are not implied by the
+current APIs. [Pages proposals](pages-design-proposals.md) and the
+[redirect design](redirects-design.md) preserve the decisions and possible later
+work; subsystem guides describe implemented behavior.
 
 ## Where to read the implementation and evidence
 

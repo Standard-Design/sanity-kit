@@ -1,20 +1,19 @@
 # Documentation
 
-These guides explain `@standard-design/sanity-kit` version `0.1.0-alpha.5`,
-published on npm and GitHub. Alpha.5 raises the client 8 minimum to `8.6.1`
-and bundles the documentation improvements without changing runtime APIs or behavior.
-For a short introduction, start with the [README quick start](../README.md#quick-start)
-and [entry-point map](../README.md#package-entry-points-and-subsystem-guides). Read the
-[scope migration](prerelease.md#upgrading-from-alpha3) and
-[changelog](../CHANGELOG.md) before adopting alpha.5. Consumers already on alpha.4
-should follow the [client compatibility checklist](prerelease.md#upgrading-from-alpha4).
-Consumers still on alpha.2 must also follow the
-[API upgrade checklist](prerelease.md#upgrading-from-alpha2).
+These repository guides cover the implemented checkout and the published
+`@standard-design/sanity-kit@0.1.0-alpha.5`. Each newer subsystem identifies its
+checkout-only APIs. Alpha.5 does not include Pages, URL fields, collection routing,
+or redirect APIs; the package version in this repository is not proof that those
+features have been released.
 
-Alpha.5 includes the navigation and status corrections made after alpha.4.
-The repository also corrects alpha.5's preparation-time publication wording;
-published tarballs and their bundled documentation remain unchanged. See
-[release status](prerelease.md#release-status) for the npm tag caveat.
+Start with the [README quick start](../README.md#quick-start) and
+[entry-point map](../README.md#package-entry-points-and-subsystem-guides).
+For published releases, read the [release status](prerelease.md#release-status),
+[scope migration](prerelease.md#upgrading-from-alpha3), and
+[changelog](../CHANGELOG.md). Alpha.4 consumers should follow the
+[client compatibility checklist](prerelease.md#upgrading-from-alpha4);
+alpha.2 consumers also need the [API upgrade checklist](prerelease.md#upgrading-from-alpha2).
+Historical tarballs, bundled guides, and checksums are unchanged.
 
 ## Choose a starting point
 
@@ -35,68 +34,44 @@ can use the framework-independent helpers without adopting the router adapter.
 | [Zod validation](validation-zod.md)      | Connect schemas to the common decoder contract                        |
 | [Sitemaps](sitemaps.md)                  | Produce validated, published-only XML responses                       |
 
-## In-development Studio integration
+## Checkout-only Pages and routing integrations
 
-[Pages](pages.md) explains the plugin foundation, how it works with
-native Presentation, and the approved navigator and URL-field designs. It is
-separate from the released subsystems above: local builds now include `/studio`,
-but the current npm release does not. Consumers keep their own Studio installation.
-The guide distinguishes the working navigator, routing foundation, and private
-draft URL field from remaining folder actions and publication work.
+These APIs have public package entry points in local builds, but are not in
+npm alpha.5. Consumers keep their own Studio, website routes, and infrastructure.
 
-[Shared URL resolution](url.md) describes the local-build `/url` entry point:
-derive `{pathname, prefix, slug}` from the same registration without loading
-Studio. Fixed-prefix resolution is implemented. This entry is not in the current
-npm release.
-Its guide also covers approved private candidate cleanup and slug generation,
-plus the approved internal conflict-checking/native `isUnique` adapter.
-These helpers remain separate from the input that calls them.
-The [Studio generation bridge](url.md#studio-generation-context-internal) is now
-approved: native source/context options, explicit candidate preparation, and
-discarding stale asynchronous results.
+| Guide                                                     | What it explains                                                                                                       |
+| --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| [Pages](pages.md)                                         | Native Presentation navigation, page/template creation, collection actions, saved folders, and reviewed folder changes |
+| [Shared URL resolution](url.md)                           | Resolve `{pathname, prefix, slug}` without loading Studio                                                              |
+| [Collection routing API](collection-routing-api.md)       | Resolve supplied settings with `/url`, or read them using `/url/settings`                                              |
+| [URL field](url-field.md)                                 | Install folder or text controls, generation, uniqueness, draft autosave, and checked publishing with or without Pages  |
+| [Folders](folders.md)                                     | Persistent folder records, synchronization, creation, empty-only removal, rename, and recovery                         |
+| [Folder imports](folder-import.md)                        | Explicitly synchronize folders after external imports without installing Studio                                        |
+| [Collection routing settings](collection-routing.md)      | Stored settings, default/locked values, perspective-aware routes, and collection display names                         |
+| [Settings publishing](collection-settings-publication.md) | Automatic checked publishing, first saves, unchanged prefixes, reviewed moves, and native action checks                |
+| [Collection URL review](collection-prefix-dialog.md)      | Changes and redirect choices in the review dialog, waiting, stale reviews, and uncertain results                       |
+| [Redirects](redirects.md)                                 | Studio management, ordinary HTTP handling, React Router middleware, and consumer-owned caching                         |
 
-[URL field](url-field.md) explains the new private Studio input: choose a folder,
-edit or generate a slug, and let the field check and autosave the draft URL. It also
-explains the New subfolder modal, read-only behavior, access checks, and why live
-URL changes are blocked until the reviewed redirect workflow exists. The fixture
-uses the internal factory; there is no public field export or release yet.
+Install the Studio field and checked workspace wrappers from `/studio`; their
+internal planners, writers, actions, and dialogs remain private. The settings
+wrapper installs checked Publish automatically; native permissions and action
+availability still decide whether an editor can publish.
+The [guarded writer](collection-prefix-publication.md) and
+[native permission adapter](collection-prefix-write-access.md) guides explain the
+implementation behind that installer, not additional public APIs.
 
-[Folders](folders.md) explains the approved private registry planner: saved
-folder records, explicit adoption from existing URLs, and empty-only removal.
-The planner returns proposed changes. Its approved read layer loads registry
-records and raw document versions for planning. The approved private writer for
-creation and explicit synchronization saves only new folder records and preserves
-existing metadata. Navigator support for displaying saved folders is approved.
-The private draft URL field now adds folder creation controls. Removal and rename
-remain separate work.
-
-[Collection routing settings](collection-routing.md) covers the approved private
-prefix resolver. It selects published or draft settings and produces the
-same route configuration the existing URL helpers already use. The approved private
-loader reads the configured settings IDs and checks the response
-before resolving routes. The guide also covers private Studio settings controls.
-
-[Collection URL review](collection-prefix-dialog.md) explains the private review
-dialog and session: URL changes, redirect choices, waiting, stale reviews, and
-checking uncertain save results. It builds on the
-[guarded collection writers](collection-prefix-publication.md). Native settings
-Publish is connected through the private, default-off
-[settings publishing integration](collection-settings-publication.md). That guide
-explains workflow selection, native checks, success toasts, and recovery. Live
-acceptance remains a separate checkpoint.
-
-[Redirects](redirects.md) covers approved private snapshot validation and lookup,
-plus the approved published-rule loader. The loader validates the fetched
-snapshot before returning lookup results. The broader [redirect design](redirects-design.md)
-still describes future caching, HTTP handling, editor controls, and publication
-coordination.
+Installed-tarball checks cover public imports, native Studio configuration with
+Pages and standalone Structure, ordinary HTTP responses, and React Router
+transport. The proof Studio has separate live acceptance records. Neither proves
+a deployed application's credentials, custom roles, cache backend, or recovery
+behavior. See the [remaining release checklist](pages-release-plan.md).
 
 ## Design decisions and remaining proposals
 
 - [Pages contracts and proposals](pages-design-proposals.md): approved folder,
   bulk-change, and field/helper behavior, alongside the remaining implementation
   proposals. Approval status is explicit; the guides distinguish the initial URL
-  helper from future editing and persistence workflows.
+  helpers from deferred workflows.
 - [Redirect subsystem](redirects-design.md): proposed Sanity-managed rules,
   Studio workflows, URL-change integration, frontend resolution, and optional
   consumer-owned caching. Includes safety policies and implementation gates;
@@ -147,4 +122,5 @@ package's own exports, not arbitrary application import graphs.
 
 Source and test paths mentioned in these guides refer to the matching repository
 revision. They are not shipped in the compiled tarball. Public declarations and
-all these guides are shipped with the package.
+the documented subsystem guides are included by the current package build.
+An older published artifact contains the guides from its own revision.

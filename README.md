@@ -1,7 +1,8 @@
 # `@standard-design/sanity-kit`
 
 Reusable Sanity tools for public configuration, data validation, images, links,
-React Router pages and preview, and sitemaps.
+React Router pages and preview, and sitemaps. The unreleased checkout also includes
+Studio Pages navigation, URL editing, collection settings, and redirects.
 
 Use individual helpers or combine them into a React Router integration. The kit
 does not require your application to use a particular content model, CSS system,
@@ -12,10 +13,12 @@ Start with the [quick start](#quick-start) for the setup sequence. Use the
 and detailed subsystem guides. The [extraction record](docs/extraction-provenance.md)
 explains where the package came from and what changed during extraction.
 
-For the unreleased Studio work, see [Pages architecture and design](docs/pages.md).
-That guide covers the reusable plugin foundation and approved UI direction, not
-features available in the current npm release. Consumers own their Studio;
-the kit supplies a plugin, not a Studio application.
+For the unreleased Studio and routing APIs, see [Pages](docs/pages.md), the
+[URL field](docs/url-field.md), [collection routing](docs/collection-routing-api.md),
+and [redirect handling](docs/redirects.md). These are implemented in this checkout
+and checked from compiled tarballs; they are not in npm alpha.5. Consumers own
+their Studio and application routes. The kit supplies installers and helpers,
+not a Studio application or hosting service.
 
 ## Table of contents
 
@@ -40,7 +43,8 @@ the kit supplies a plugin, not a Studio application.
 is published on npm, with matching assets in the
 [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.5).
 Alpha.5 excludes deprecated client `8.6.0`, preserves client 7 support,
-and bundles the improved documentation. Runtime APIs and behavior are unchanged.
+and bundles the improved documentation. Its runtime APIs and behavior are unchanged
+from alpha.4. The newer APIs described below require a build of this checkout.
 See the [alpha.4 upgrade checklist](docs/prerelease.md#upgrading-from-alpha4).
 
 Pin the exact version when integrating:
@@ -241,9 +245,23 @@ internal compiled paths are not public APIs.
 The [documentation index](docs/README.md) explains shared terms and application
 ownership. Each subsystem guide covers its options, failure behavior, and tests.
 
-Local development builds also include the unreleased `/studio` Pages plugin and
-the framework-independent [`/url` resolver](docs/url.md). The latter derives URL
-parts using the same registration; neither entry is in npm version alpha.5.
+The following additions are available in this checkout, **not npm alpha.5**:
+
+| Entry point            | Added capabilities                                                                                                                                                                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `/studio`              | [Pages navigation](docs/pages.md), the [URL field and checked publishing wrapper](docs/url-field.md), [collection settings](docs/collection-settings-publication.md), and [redirect management](docs/redirects.md#preparing-redirect-drafts-in-studio) |
+| `/url`                 | [Pure URL resolution](docs/url.md), including supplied collection settings                                                                                                                                                                             |
+| `/url/settings`        | [Read collection settings](docs/collection-routing-api.md) with an application-owned client                                                                                                                                                            |
+| `/redirect`            | [HTTP redirect lookup, responses, and optional cache invalidation](docs/redirects.md#handling-a-website-request)                                                                                                                                       |
+| `/folders/server`      | [Save folders after an import](docs/folder-import.md), without loading Studio                                                                                                                                                                          |
+| `/react-router/server` | [Redirect middleware](docs/redirects.md#react-router-request-integration) alongside the existing server APIs                                                                                                                                           |
+
+The Studio installers work in a consumer-owned Studio; the URL field also works
+without Pages. Installing collection settings also installs checked publishing,
+subject to native permissions, validation, and action availability. Request helpers need the
+consumer's routing and optional cache integration. See the
+[release checklist](docs/pages-release-plan.md) for remaining acceptance work.
+No version bump, tag, or package publication is implied by these exports.
 
 ## Development and verification
 

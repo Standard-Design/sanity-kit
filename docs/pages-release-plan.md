@@ -11,7 +11,7 @@ the approval handoff. Remove finished work from the remaining list; retain its
 commit in the progress record below. A completed implementation remains separate
 from a reviewed, committed slice and from live acceptance.
 
-Last approved slice: navigator browser acceptance (`b11a35f`, November 11, 2026), committed and pushed. Public Studio integrations (`c3df9d5`) include automatic checked settings Publish and singular/plural settings navigation helpers. Routing (`dc6902d`) and redirect (`b8fd7ee`) API commits are also pushed with passing CI.
+Last approved slice: folder-import public API (`dfcaf4a`, November 11, 2026), committed and pushed. Navigator browser acceptance (`b11a35f`) is also committed and pushed. Public Studio integrations (`c3df9d5`) include automatic checked settings Publish and singular/plural settings navigation helpers. Routing (`dc6902d`) and redirect (`b8fd7ee`) API commits are also pushed with passing CI.
 The preceding collection-prefix review dialog/session is committed as `9be3dfb`.
 First and unchanged-prefix settings publishing (`96d50c7`) is also committed.
 The data reviewer (`ded9f47`), URL planner (`5ffe637`), classification (`adcd4db`),
@@ -19,19 +19,19 @@ and native write/schema authorization (`dd1b9ee`) are also approved, committed,
 and pushed. First and later publishing retain the shared prepare-and-recheck
 pattern.
 
-| Slice | What remains | Status |
-| --- | --- | --- |
-| 1. Navigator rendering improvement | Reduce repeated ordinary-page row rendering; verify native navigation/status and repeat production-profile measurements. | Targeted tests pass; browser measurements underway |
-| 2. Folder-import public API | Review the server helper for saving folders implied by imported URLs. | Staged; installed client 7/8 and framework-free bundle checks pass |
-| 3. Final documentation reconciliation | Reconcile README, subsystem index, Pages guide, prerelease guide, and unreleased notes with completed APIs. | Prepared separately; final cross-check underway |
-| 4. Combined live and consumer acceptance | Finish restricted-account, real revision-conflict, uncertain-response recovery, and packed end-to-end checks. | Automated coverage and prior live evidence recorded; remaining live checks pending |
-| 5. Release preparation | Final verification, version/release notes, artifact review, CI, and explicit release approval. | Pending preceding checks |
+| Slice                                    | What remains                                                                                                             | Status                                                                             |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------- |
+| 1. Navigator rendering improvement       | Reduce repeated ordinary-page row rendering; verify native navigation/status and repeat production-profile measurements. | Targeted tests pass; trustworthy browser comparison still needed                   |
+| 2. Final documentation reconciliation    | Reconcile README, subsystem index, Pages guide, prerelease guide, and unreleased notes with completed APIs.              | Staged for review; formatting and links checked                                    |
+| 3. Combined live and consumer acceptance | Finish restricted-account, real revision-conflict, uncertain-response recovery, and packed end-to-end checks.            | Automated coverage and prior live evidence recorded; remaining live checks pending |
+| 4. Release preparation                   | Final verification, version/release notes, artifact review, CI, and explicit release approval.                           | Pending preceding checks                                                           |
 
-The public Studio, routing, and redirect API checkpoints are complete. The
-navigator baseline acceptance is committed; its measured ordinary-page rendering
-concern remains a separate improvement. Collection-publishing and installed-consumer
-acceptance are consolidated in item 4; folder-import installation coverage stays
-with item 2.
+The public Studio, routing, redirect, and folder-import API checkpoints are
+complete. The navigator baseline acceptance is committed; its measured
+ordinary-page rendering concern remains a separate improvement. The first
+follow-up browser measurements were unstable, so they do not establish a
+performance improvement. Collection-publishing and installed-consumer acceptance
+are consolidated in item 3.
 
 These are the remaining review checkpoints, not a promise that each must be one
 commit. Split a checkpoint only when implementation or review establishes a
@@ -108,11 +108,11 @@ in both development and production-profiling builds. This baseline does not
 claim that limitation is resolved. A separate targeted row-rendering improvement
 is underway and will require its own behavioral checks and browser measurements.
 
-The sync-only folder-import facade is staged with its public export and guide.
+The sync-only folder-import facade is committed as `dfcaf4a`, with its public export and guide.
 Its 13 focused tests and full installed-package checks pass, including Sanity
 client 7/8 types, uncertain-result handling, and execution without Studio or React.
 A live import with the intended consumer credentials remains part of acceptance. The broader documentation reconciliation is
-prepared separately. The combined acceptance audit found substantial existing
+now staged separately for review. The combined acceptance audit found substantial existing
 automated coverage, with live restricted-account, two-session conflict, and
 lost-response checks still outstanding. No production cache backend is required
 by the kit.
