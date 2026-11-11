@@ -28,11 +28,24 @@ vi.mock('../../src/studio/url/publication-action.js', async (original) => ({
 		conflict,
 		onOpen,
 	}: {
-		conflict: { documentId?: string; title?: string; pathname: string }
+		conflict: {
+			kind: string
+			documentId?: string
+			schemaType?: string
+			title?: string
+			pathname: string
+			destination?: string
+		}
 		onOpen: () => void
 	}) => (
-		<button onClick={onOpen}>
-			{conflict.title} {conflict.pathname}
+		<button
+			onClick={onOpen}
+			data-document-id={conflict.documentId}
+			data-schema-type={conflict.schemaType}
+		>
+			{conflict.kind === 'redirect'
+				? `${conflict.pathname} → ${conflict.destination || 'Destination unavailable'}`
+				: `${conflict.title} ${conflict.pathname}`}
 		</button>
 	),
 }))
@@ -436,6 +449,78 @@ describe('collection-prefix presentation-only review', () => {
 		expect(document.body.textContent).toContain('Documents using this URL')
 		await flush(() => button('Blog introduction /blog/first')!.click())
 		expect(p.onClose).toHaveBeenCalledOnce()
+	})
+	it.each([
+		[
+			'pending-redirect-change',
+			'drafts.alias',
+			'Unpublished redirect changes conflict with these URLs',
+			'review its changes',
+		],
+		[
+			'target-is-redirect',
+			'alias',
+			'A proposed URL is already used by a redirect',
+			'Retire or change',
+		],
+	] as const)(
+		'identifies and opens the affected redirect for %s',
+		async (reason, documentId, title, nextStep) => {
+			const p = await render(
+				props({
+					phase: 'blocked',
+					result: {
+						status: 'blocked',
+						reason: 'redirect-conflict',
+						planFailure: {
+							ok: false,
+							reason: 'redirect-conflict',
+							redirect: { ok: false, reason, recordId: documentId },
+							redirects: [
+								{
+									documentId,
+									schemaType: 'sanityKitRedirect',
+									pathname: '/blog/first',
+									destination: '/elsewhere',
+								},
+							],
+						},
+					},
+				}),
+			)
+			const alert = document.querySelector('[role="alert"]')!
+			expect(alert.textContent).toContain(title)
+			expect(alert.textContent).toContain(nextStep)
+			expect(alert.textContent).toContain('Affected redirects')
+			const row = button('/blog/first → /elsewhere')!
+			// Preserve the exact version so the shared native row opens the draft
+			// when unpublished edits are the blocker and reads actual version dots.
+			expect(row.dataset.documentId).toBe(documentId)
+			expect(row.dataset.schemaType).toBe('sanityKitRedirect')
+			expect(button('Publish')?.disabled).toBe(true)
+			await flush(() => row.click())
+			expect(p.onClose).toHaveBeenCalledOnce()
+			expect(p.onPublish).not.toHaveBeenCalled()
+		},
+	)
+	it('does not invent a redirect link when the failed check has no identifiable record', async () => {
+		await render(
+			props({
+				phase: 'blocked',
+				result: {
+					status: 'blocked',
+					reason: 'redirect-conflict',
+					planFailure: {
+						ok: false,
+						reason: 'redirect-conflict',
+						redirect: { ok: false, reason: 'incomplete-inventory' },
+					},
+				},
+			}),
+		)
+		expect(document.body.textContent).not.toContain('Affected redirects')
+		expect(document.querySelector('[data-document-id]')).toBeNull()
+		expect(button('Publish')?.disabled).toBe(true)
 	})
 	it('names the release and affected document', async () => {
 		releaseDetails.release = { metadata: { title: 'Winter launch' } }

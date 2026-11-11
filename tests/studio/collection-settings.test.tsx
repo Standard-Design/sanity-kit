@@ -21,6 +21,8 @@ import {
 	validateCollectionPrefix,
 	withCollectionRoutingSettings,
 } from '../../src/studio/collections/settings.js'
+import { isCollectionSettingsPublishAction } from '../../src/studio/collections/settings-publication-action.js'
+import { withUrlPublication } from '../../src/studio/url/publication-plugin.js'
 import {
 	COLLECTION_ROUTE_TYPE,
 	type CollectionRoutingConfig,
@@ -548,5 +550,76 @@ describe('collection routing settings draft editor', () => {
 				await Promise.resolve()
 			})
 		}
+	})
+	it.each(['settings-last', 'url-last'] as const)(
+		'only enables the guarded Publish with private opt-in (%s)',
+		async (order) => {
+			const settingsOptions = { routes, _enablePublication: true as const }
+			const urlOptions = { routes: { pages: routes.pages } }
+			const base = {
+				...workspace(),
+				document: {
+					actions: (previous: DocumentActionComponent[]) => [
+						...previous,
+						action('publish'),
+						action('unpublish'),
+						action('schedule'),
+						action('delete'),
+					],
+				},
+			}
+			const config =
+				order === 'settings-last'
+					? withCollectionRoutingSettings(
+							withUrlPublication(base, urlOptions),
+							settingsOptions,
+						)
+					: withUrlPublication(
+							withCollectionRoutingSettings(base, settingsOptions),
+							urlOptions,
+						)
+			const resolved = await source(config)
+			const actions = resolved.document.actions({
+				schemaType: COLLECTION_ROUTE_TYPE,
+				versionType: 'draft',
+				releaseId: undefined,
+			})
+			expect(actions.filter((a) => a.action === 'publish')).toHaveLength(1)
+			expect(
+				actions.every(
+					(a) =>
+						a.action === 'discardChanges' ||
+						isCollectionSettingsPublishAction(a, routes),
+				),
+			).toBe(true)
+			expect(
+				resolved.document
+					.actions({
+						schemaType: 'page',
+						versionType: 'draft',
+						releaseId: undefined,
+					})
+					.some((a) => a.action === 'publish'),
+			).toBe(true)
+			expect(
+				resolved.document
+					.actions({
+						schemaType: COLLECTION_ROUTE_TYPE,
+						versionType: 'version',
+						releaseId: 'release',
+					})
+					.every((a) => a.action === 'discardChanges'),
+			).toBe(true)
+		},
+	)
+	it('keeps the warning and Publish disabled unless private opt-in is explicit', () => {
+		const disabled = collectionRoutingSettings({ routes }),
+			enabled = collectionRoutingSettings({ routes, _enablePublication: true })
+		const schema = (plugin: typeof disabled) =>
+			(plugin.schema!.types as unknown as ObjectSchemaType[]).find(
+				(type) => type.name === COLLECTION_ROUTE_TYPE,
+			)!
+		expect(schema(disabled).components?.input).toBeDefined()
+		expect(schema(enabled).components?.input).toBeUndefined()
 	})
 })

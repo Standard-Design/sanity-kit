@@ -331,6 +331,14 @@ describe('collection-prefix planning', () => {
 				ok: false,
 				reason: 'redirect-conflict',
 				redirect: { reason: 'pending-redirect-change', recordId: id },
+				redirects: [
+					{
+						documentId: id,
+						schemaType: 'sanityKitRedirect',
+						pathname: '/old-alpha',
+						destination: '/journal/alpha',
+					},
+				],
 				...(id.startsWith('versions.')
 					? {
 							release: {
@@ -358,6 +366,94 @@ describe('collection-prefix planning', () => {
 			ok: false,
 			reason: 'redirect-conflict',
 			redirect: { reason: 'target-is-redirect', recordId: 'conflict' },
+			redirects: [
+				{
+					documentId: 'conflict',
+					schemaType: 'sanityKitRedirect',
+					pathname: '/blog/draft-title',
+					destination: '/elsewhere',
+				},
+			],
+		})
+	})
+	it('does not invent redirect source or destination details for malformed data', () => {
+		const missingSource = plan({ redirects: [{ ...redirect(), source: null }] })
+		expect(missingSource).toMatchObject({
+			ok: false,
+			reason: 'redirect-conflict',
+		})
+		expect(missingSource).not.toHaveProperty('redirects')
+		const missingDestination = plan({
+			redirects: [{ ...redirect(), destination: null }],
+		})
+		expect(missingDestination).toMatchObject({
+			ok: false,
+			reason: 'redirect-conflict',
+			redirects: [
+				{
+					documentId: 'alias',
+					schemaType: 'sanityKitRedirect',
+					pathname: '/old-alpha',
+				},
+			],
+		})
+		if (!missingDestination.ok)
+			expect(missingDestination.redirects![0]).not.toHaveProperty('destination')
+	})
+	it('allows unrelated redirect drafts pointing at unchanged pages', () => {
+		const result = plan({
+			redirects: [
+				redirect(),
+				redirect('drafts.unrelated', '/redirect-editor-proof', '/insights'),
+			],
+		})
+		expect(result).toMatchObject({ ok: true })
+		if (!result.ok) throw new Error(JSON.stringify(result))
+		expect(result.value.redirects.updates.map((update) => update.id)).toEqual([
+			'alias',
+		])
+		expect(result.value.reviewVersions).toContainEqual({
+			id: 'drafts.unrelated',
+			revision: 'revision-drafts.unrelated',
+		})
+	})
+	it.each([
+		['/blog/alpha', '/elsewhere'],
+		['/blog/draft-title', '/elsewhere'],
+		['/another-alias', '/journal/alpha'],
+		['/another-alias', '/blog/draft-title'],
+	])(
+		'still blocks pending redirects touching affected URLs (%s → %s)',
+		(source, destination) => {
+			expect(
+				plan({
+					redirects: [
+						redirect(),
+						redirect('drafts.conflict', source, destination),
+					],
+				}),
+			).toMatchObject({
+				ok: false,
+				reason: 'redirect-conflict',
+				redirect: {
+					reason: 'pending-redirect-change',
+					recordId: 'drafts.conflict',
+				},
+			})
+		},
+	)
+	it('still reserves unrelated page drafts that collide with proposed item URLs', () => {
+		expect(
+			plan({
+				documents: [
+					...inventory().documents,
+					page('drafts.other-page', '/blog/alpha'),
+				],
+			}),
+		).toMatchObject({
+			ok: false,
+			reason: 'url-collision',
+			pathname: '/blog/alpha',
 		})
 	})
 	it('rejects invalid redirect graphs instead of silently omitting them', () => {

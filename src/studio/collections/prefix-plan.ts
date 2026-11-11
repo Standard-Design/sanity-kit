@@ -115,6 +115,13 @@ export type CollectionPrefixPlanResult =
 				readonly currentPublishedPathname?: string
 			}
 			readonly redirect?: Extract<BulkRedirectResult, { ok: false }>
+			/** Exact failing inventory record; raw identity retains its draft/release context. */
+			readonly redirects?: readonly {
+				readonly documentId: string
+				readonly schemaType: string
+				readonly pathname: string
+				readonly destination?: string
+			}[]
 	  }
 const record = (value: unknown): value is Record<string, unknown> =>
 	value !== null && typeof value === 'object' && !Array.isArray(value)
@@ -463,9 +470,12 @@ export function createCollectionPrefixPlanner(
 				}))
 			const redirect = planBulkRedirects({
 				moves: liveChanges,
+				// Only this collection's proposed URLs affect pending redirects.
+				// Unchanged pages remain in the global collision checks and snapshots,
+				// but a redirect draft pointing to one need not block this move.
 				draftDestinations: [
 					...new Set(
-						rows.flatMap((row) =>
+						affected.flatMap((row) =>
 							row.paths
 								.slice(1)
 								.filter((path): path is string => path !== null),
@@ -509,6 +519,23 @@ export function createCollectionPrefixPlanner(
 					ok: false,
 					reason: 'redirect-conflict',
 					redirect,
+					...(affectedRedirect &&
+					prefixVersionIdentity(affectedRedirect._id) &&
+					typeof affectedRedirect._type === 'string' &&
+					typeof affectedRedirect.source === 'string'
+						? {
+								redirects: [
+									{
+										documentId: affectedRedirect._id as string,
+										schemaType: affectedRedirect._type,
+										pathname: affectedRedirect.source,
+										...(typeof affectedRedirect.destination === 'string'
+											? { destination: affectedRedirect.destination }
+											: {}),
+									},
+								],
+							}
+						: {}),
 					...(release ? { release } : {}),
 				}
 			}

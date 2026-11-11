@@ -8,6 +8,7 @@ import {
 	createContext,
 	useContext,
 	useMemo,
+	useState,
 	type ComponentType,
 	type ComponentProps,
 } from 'react'
@@ -37,6 +38,7 @@ type ToolProps = ComponentProps<Tool['component']>
 
 type RoutingState = NonNullable<ReturnType<typeof useCollectionRouting>>
 const RoutingViewContext = createContext<RoutingState | undefined>(undefined)
+const NO_MAIN_DOCUMENTS: [] = []
 
 function RoutingNotice() {
 	const state = useContext(RoutingViewContext)!
@@ -123,6 +125,40 @@ export function CollectionPagesTool({
 	const router = useRouter()
 	const schema = useSchema()
 	const search = Object.fromEntries(router.state._searchParams ?? [])
+	// Settings are an explicitly chosen editor document, not the page in the
+	// iframe. Rebuilding main-document resolvers during autosave makes native
+	// Presentation look up that page again and can replace the settings editor.
+	// Suspend that automatic lookup until the editor chooses another document or
+	// actually navigates the preview to another path. Query-only perspective and
+	// refresh updates must not dismiss the form either.
+	const settingsId =
+		router.state.type === COLLECTION_ROUTE_TYPE &&
+		configuration.collections?.some(
+			(collection) => collection.settingsDocumentId === router.state.id,
+		)
+			? (router.state.id as string)
+			: undefined
+	const previewPath = search.preview?.split(/[?#]/u)[0]
+	const [settingsEntry, setSettingsEntry] = useState({
+		id: settingsId,
+		previewPath,
+		released: false,
+	})
+	const enteringSettings = settingsEntry.id !== settingsId
+	const previewChanged =
+		settingsEntry.previewPath !== undefined &&
+		previewPath !== undefined &&
+		settingsEntry.previewPath !== previewPath
+	if (enteringSettings)
+		setSettingsEntry({ id: settingsId, previewPath, released: false })
+	else if (settingsEntry.previewPath === undefined && previewPath !== undefined)
+		// Native Presentation can supply its initial preview URL after mount.
+		setSettingsEntry({ ...settingsEntry, previewPath })
+	else if (previewChanged && !settingsEntry.released)
+		setSettingsEntry({ ...settingsEntry, released: true })
+	const keepSettingsOpen =
+		!!settingsId &&
+		(enteringSettings || (!settingsEntry.released && !previewChanged))
 	const stack = search.scheduledDraft
 		? ['unsupported-scheduled-draft']
 		: perspective.perspectiveStack
@@ -140,9 +176,11 @@ export function CollectionPagesTool({
 	const resolve = useMemo(
 		() =>
 			ready
-				? view.resolve
+				? keepSettingsOpen
+					? { ...view.resolve, mainDocuments: NO_MAIN_DOCUMENTS }
+					: view.resolve
 				: {
-						mainDocuments: [],
+						mainDocuments: NO_MAIN_DOCUMENTS,
 						locations: Object.fromEntries(
 							registration.registry.types.map((type) => [
 								type.schemaType,
@@ -158,7 +196,7 @@ export function CollectionPagesTool({
 							]),
 						),
 					},
-		[ready, view, registration],
+		[ready, view, registration, keepSettingsOpen],
 	)
 	const tool = useMemo(
 		() => ({

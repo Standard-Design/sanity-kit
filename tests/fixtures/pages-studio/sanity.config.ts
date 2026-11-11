@@ -8,11 +8,7 @@ import {
 	withCollectionRoutingSettings,
 	collectionRoutingSettingsItems,
 } from '../../../src/studio/collections/settings.js'
-import {
-	proofCollectionSettingsRoutes,
-	proofSlugPost,
-	proofCollectionArticle,
-} from './collection-settings.js'
+import { proofSlugPost, proofCollectionArticle } from './collection-settings.js'
 import { redirectManagementItem } from '../../../src/studio/redirects/schema.js'
 import { withUrlPublication } from '../../../src/studio/url/publication-plugin.js'
 
@@ -69,7 +65,7 @@ export default defineConfig(
 									redirectManagementItem(S),
 									...collectionRoutingSettingsItems(
 										S,
-										proofCollectionSettingsRoutes,
+										proofLiveCollectionRouting,
 									),
 								]),
 					}),
@@ -132,6 +128,6 @@ export default defineConfig(
 				redirectManagement: 'publish',
 			},
 		),
-		{ routes: proofCollectionSettingsRoutes },
+		{ routes: proofLiveCollectionRouting, _enablePublication: true },
 	),
 )

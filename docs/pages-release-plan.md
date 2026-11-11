@@ -11,22 +11,22 @@ the approval handoff. Remove finished work from the remaining list; retain its
 commit in the progress record below. A completed implementation remains separate
 from a reviewed, committed slice and from live acceptance.
 
-Last approved slice: first and unchanged-prefix settings publishing, `96d50c7`.
+Last approved slice: native collection settings Publish integration (November 11, 2026).
+The preceding collection-prefix review dialog/session is committed as `9be3dfb`.
+First and unchanged-prefix settings publishing (`96d50c7`) is also committed.
 The data reviewer (`ded9f47`), URL planner (`5ffe637`), classification (`adcd4db`),
 and native write/schema authorization (`dd1b9ee`) are also approved, committed,
 and pushed. First and later publishing retain the shared prepare-and-recheck
 pattern.
 
-| Slice                                    | What remains                                                                                                                         | Status                                           |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------ |
-| 1. Collection-prefix dialog and session  | Show reviewed changes and handle editor choices, pending saves, failures, and uncertain outcomes.                                    | Staged for review                                |
-| 2. Native settings Publish integration   | Connect all three paths to the Studio action, validation, permissions, and recovery UI.                                              | Implemented and independently reviewed; unstaged |
-| 3. Live collection-publishing acceptance | Exercise first publish, name-only edits, repeated moves, redirects, conflicts, cancellation, and recovery in Studio and the website. | Pending integration                              |
-| 4. Final navigator acceptance            | Finish extreme-label/narrow-layout checks and browser performance measurements with larger lists; fix observed problems.             | Pending                                          |
-| 5. Public API completion                 | Export supported field, settings, folder-import, redirect, and routing integrations with clear contracts.                            | Audit complete; exports pending final contracts  |
-| 6. Installed-consumer integration        | Test the packed package in consumer-owned Studio/app fixtures, including standalone fields and all new integrations.                 | Existing checks pass; new coverage still needed  |
-| 7. Combined release acceptance           | Verify permissions, concurrent edits, recovery, preview/live routing, cache refresh, and supported dependency versions together.     | Pending integrated acceptance                    |
-| 8. Release preparation                   | Reconcile guides/examples, prepare version and release notes, verify package and CI, and present the release for approval.           | Pending preceding checks                         |
+| Slice                                       | What remains                                                                                                                                        | Status                                                                     |
+| ------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------- |
+| 1. Broader collection-publishing acceptance | Verify the first-ever settings publish, custom roles, wider validation/conflict cases, cancellation, concurrency, recovery, and frontend redirects. | Basic repeat-move and redirect-draft checks passed; broader checks pending |
+| 2. Final navigator acceptance               | Finish extreme-label/narrow-layout checks and browser performance measurements with larger lists; fix observed problems.                            | Pending                                                                    |
+| 3. Public API completion                    | Export supported field, settings, folder-import, redirect, and routing integrations with clear contracts.                                           | Audit continues; exports pending final contracts                           |
+| 4. Installed-consumer integration           | Test the packed package in consumer-owned Studio/app fixtures, including standalone fields and all new integrations.                                | Existing checks pass; new coverage still needed                            |
+| 5. Combined release acceptance              | Verify permissions, concurrent edits, recovery, preview/live routing, cache refresh, and supported dependency versions together.                    | Pending integrated acceptance                                              |
+| 6. Release preparation                      | Reconcile guides/examples, prepare version and release notes, verify package and CI, and present the release for approval.                          | Pending preceding checks                                                   |
 
 These are the remaining review checkpoints, not a promise that each must be one
 commit. Split a checkpoint only when implementation or review establishes a
@@ -38,8 +38,28 @@ own approval after these checks are complete.
 First settings publication and unchanged-prefix edits now have an approved guarded
 writer (`96d50c7`), following the activation planner (`5ffe637`) and reader/recheck
 (`ded9f47`). Both settings writers share exact-operation recovery and bounded
-completed history. The dialog/session is the next review checkpoint; native
-settings Publish integration remains separate work before live acceptance.
+completed history. The reviewed dialog/session is now committed and pushed
+(`9be3dfb`), including clear conflict rows and confirmed-save completion. Its
+temporary Studio simulation has been removed. Native settings Publish integration
+is approved and included in this commit. The proof Studio explicitly enables the
+default-off gate with its shared live collection registration.
+
+Live checks on November 10, 2026 verified a display-name-only save without a
+routine dialog, `/articles` → `/stories` with a new redirect, and a repeat move to
+`/stories-test` with new redirects turned off. The repeat move updated the
+existing alias directly; it did not add an alias for the intermediate URL.
+A temporary redirect draft blocked the move with a clickable exact-rule notice;
+only that test draft was discarded through Studio. The tested article's complete
+draft and published JSON remained unchanged. Settings and redirect changes
+shared their transaction revision.
+
+The checks also corrected a false block from unrelated draft redirect
+destinations, allowed Sanity's root `_system` metadata while retaining nested
+schema protections, and verified the new redirect details in the notice.
+The first-ever settings publish was not tested live. It remains in broader
+acceptance with custom roles, concurrency, and recovery. The proof website still
+does not serve saved redirects as HTTP redirects. Full evidence is in the
+[settings publishing guide](collection-settings-publication.md#current-acceptance-boundary).
 
 The first parallel round is committed and pushed: empty-folder removal
 (`d8a1ccf`), collection settings draft editing (`e13643f`), and redirect request
@@ -61,16 +81,16 @@ React Router redirect middleware (`783dfe9`) and navigator focus/label fixes
 (`3cb9acb`) are now committed and pushed. The collection-prefix planning
 checkpoint (`a922c54`), native read-access checks (`b3e2831`), and writer/recovery
 core (`77b0fa2`) are committed. The guide-packaging fix (`afccbcc`) is committed
-too. These foundations do not yet enable collection settings Publish: native
-write/schema checks and the editor workflow still need integration.
+too. These foundations are now connected by the approved native settings Publish
+integration; publishing remains disabled by default outside the proof Studio.
 
 ## Parallel tracks
 
-| Track                           | Current work                                                                                            | Review boundary                                                                  |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
-| Collection-prefix publishing    | Connect native write/schema checks, handle first and unchanged-prefix saves, and add the publish review | Keep native settings publishing blocked until the full workflow is safe          |
-| Frontend redirects and caching  | Verify actual request handling, authenticated preview bypass, cache refresh, and failure behavior       | The consumer owns storage and infrastructure; the kit supplies reusable behavior |
-| Navigator acceptance and polish | Check keyboard use, narrow layouts, loading/error states, and larger collections                        | Fix observed problems without changing the approved visual design                |
+| Track                           | Current work                                                                                       | Review boundary                                                                  |
+| ------------------------------- | -------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |
+| Collection-prefix publishing    | Verify first activation, permissions, concurrency, recovery, and the connected native Publish flow | Proof Studio publishing is enabled; consumer release awaits acceptance           |
+| Frontend redirects and caching  | Verify actual request handling, authenticated preview bypass, cache refresh, and failure behavior  | The consumer owns storage and infrastructure; the kit supplies reusable behavior |
+| Navigator acceptance and polish | Check keyboard use, narrow layouts, loading/error states, and larger collections                   | Fix observed problems without changing the approved visual design                |
 
 Implementation tracks use isolated checkouts or explicitly assigned files.
 Completed work receives integration checks and a plain-language review in the
@@ -89,7 +109,9 @@ reviews changes, checks read access, and can publish reviewed settings and
 redirects together through its required authorization callback. It saves
 recovery information before sending the request and checks an exact receipt if
 the outcome is uncertain. The native write/schema adapter is implemented; the
-editor workflow still needs to connect it to publishing.
+native integration is staged with the live save and redirect checks recorded
+above. First-ever settings publication and broader live acceptance remain
+separate.
 
 The November 10 round works on three separate areas:
 

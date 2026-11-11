@@ -395,6 +395,7 @@ export function createCollectionPrefixPublicationSession(options: {
 						// Keep a dismissed dialog closed. The next open can safely make
 						// a new review instead of recovering a write that never happened.
 						if (view.open) emit({ phase: 'blocked', result })
+						else emit(null)
 					} else if (
 						result.status !== 'blocked' &&
 						result.operationId === reviewed.operationId &&
@@ -485,6 +486,9 @@ export function createCollectionPrefixPublicationSession(options: {
 	}
 	return Object.freeze({
 		getView: () => view,
+		/** Local recovery survives closing; confirmed or unsent attempts clear it. */
+		needsRecovery: () =>
+			!disposed && !!(pending || unknownOperationId || closedSettlement),
 		subscribe(listener: () => void) {
 			listeners.add(listener)
 			return () => {

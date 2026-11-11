@@ -74,13 +74,16 @@ remain separate work.
 prefix resolver. It selects published or draft settings and produces the
 same route configuration the existing URL helpers already use. The approved private
 loader reads the configured settings IDs and checks the response
-before resolving routes. Studio controls remain later work.
+before resolving routes. The guide also covers private Studio settings controls.
 
 [Collection URL review](collection-prefix-dialog.md) explains the private review
 dialog and session: URL changes, redirect choices, waiting, stale reviews, and
 checking uncertain save results. It builds on the
 [guarded collection writers](collection-prefix-publication.md). Native settings
-Publish wiring and live acceptance remain separate work.
+Publish is connected through the private, default-off
+[settings publishing integration](collection-settings-publication.md). That guide
+explains workflow selection, native checks, success toasts, and recovery. Live
+acceptance remains a separate checkpoint.
 
 [Redirects](redirects.md) covers approved private snapshot validation and lookup,
 plus the approved published-rule loader. The loader validates the fetched

@@ -1,9 +1,12 @@
 # Checking access before publishing collection settings
 
-This is a private integration guide. The adapter described here is not wired into
-Studio's Publish button and is not exported for consumers yet. It completes the
-authorization part of the [collection-prefix writer](collection-prefix-publication.md).
-The review dialog and publishing workflow still need integration and live testing.
+This is a private integration guide. The adapter supplies authorization for the
+[collection-prefix writer](collection-prefix-publication.md) and the guarded
+[settings Publish integration](collection-settings-publication.md). That
+integration is disabled by default. The proof Studio enables it, and live
+same-prefix and prefix-move publishing checks passed on November 10, 2026.
+First-ever settings publishing and broader permission and validation acceptance
+remain ahead. These helpers are not exported for consumers yet.
 
 ## What it checks
 
@@ -80,6 +83,12 @@ Conditional rules run with both old and proposed document contexts, including th
 current user, parent, value, and field path. A draft cannot turn off its own lock
 and then use that changed context to authorize itself.
 
+Sanity's document-root `_system` metadata is not a consumer field. Its draft
+ancestry changes do not fail the changed-field schema check. This exception is
+limited to the document root: nested `_system` values still need their normal
+schema and read-only checks. Document-level rules and complete validation remain
+in force.
+
 The comparison supports named object fields, primitive arrays, keyed object
 arrays, and native reference controls. Moving a read-only array member is also
 protected. Unknown changed field schemas, ambiguous array members, duplicate
@@ -141,5 +150,11 @@ race the final inventory read. See the writer guide for that distinction.
 Automated checks cover native validation, scoped permission results, read-only
 fields and nested values, exact receipt access, stale redirects, cancellation,
 and time limits. The installed Sanity implementation is the reference for the
-native Publish permission sequence. This still needs live acceptance with
-custom roles and the complete Studio publishing workflow before release.
+native Publish permission sequence. Live checks on November 10, 2026 exercised
+the adapter through same-prefix publishing and repeated prefix moves. They also
+exposed and verified the fix for Sanity's root `_system` metadata.
+
+The first-ever settings publish, custom roles, denied grants, wider validation
+cases, and failure/recovery behavior still need live acceptance before release.
+See the [recorded flows](collection-settings-publication.md#current-acceptance-boundary)
+for the scope of the completed checks.

@@ -164,7 +164,7 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|url-field|pages|pages-release-plan|collection-prefix-publication|collection-prefix-access|collection-prefix-write-access|collection-prefix-dialog|navigator-acceptance|folders|collection-routing|redirects|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
+			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|url-field|pages|pages-release-plan|collection-prefix-publication|collection-prefix-access|collection-prefix-write-access|collection-prefix-dialog|collection-settings-publication|navigator-acceptance|folders|collection-routing|redirects|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
@@ -202,6 +202,7 @@ for (const required of [
 	'docs/collection-prefix-access.md',
 	'docs/collection-prefix-write-access.md',
 	'docs/collection-prefix-dialog.md',
+	'docs/collection-settings-publication.md',
 	'docs/navigator-acceptance.md',
 	'docs/folders.md',
 	'docs/collection-routing.md',

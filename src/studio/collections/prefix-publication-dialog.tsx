@@ -77,7 +77,10 @@ export interface CollectionPrefixPublicationDialogProps {
 	readonly onClose: () => void
 }
 
-function notice(reason: string): {
+function notice(
+	reason: string,
+	failure?: Blocked['planFailure'],
+): {
 	title: string
 	text: string
 	warning?: boolean
@@ -129,11 +132,25 @@ function notice(reason: string): {
 			title: 'Another page is using a proposed URL',
 			text: 'Changing this collection prefix would give an item a URL that is already in use. Choose a different prefix, or update the page using that URL before reviewing again.',
 		}
-	if (reason === 'redirect-conflict')
+	if (reason === 'redirect-conflict') {
+		if (failure?.release) return notice('release-version')
+		if (failure?.redirect?.reason === 'pending-redirect-change')
+			return {
+				title: 'Unpublished redirect changes conflict with these URLs',
+				text: 'A redirect connected to this collection URL change has unpublished edits. Publishing the new prefix could conflict with those edits. Open the redirect below and review its changes before trying again.',
+			}
+		if (failure?.redirect?.reason === 'target-is-redirect')
+			return {
+				title: 'A proposed URL is already used by a redirect',
+				text: 'One of the collection’s new URLs already sends visitors to another address. Retire or change the conflicting redirect below, or choose a different collection prefix.',
+			}
 		return {
 			title: 'A redirect conflicts with this URL change',
-			text: 'An existing redirect or its unpublished changes prevents these URLs from moving safely. Review the conflicting redirect, or choose a different prefix.',
+			text: failure?.redirects?.length
+				? 'The redirect checks could not confirm that these URLs can move safely. Open the affected redirect below and check its source, destination, and validation messages before trying again.'
+				: 'The redirect checks could not confirm that these URLs can move safely. Ask a developer to check the redirect data and retry with a complete, valid inventory.',
 		}
+	}
 	if (reason === 'release-version')
 		return {
 			title: 'A planned release affects this URL change',
@@ -328,7 +345,8 @@ export function CollectionPrefixPublicationDialog({
 		state.phase === 'publishing' ||
 		state.phase === 'checking-status'
 	const saving = state.phase === 'publishing'
-	const description = reason && !unknown ? notice(reason) : undefined
+	const description =
+		reason && !unknown ? notice(reason, blocked?.planFailure) : undefined
 	const currentChoice = review?.createRedirects === createRedirects
 	const canPublish = state.phase === 'ready' && currentChoice
 	const plan = review?.plan
@@ -456,6 +474,22 @@ export function CollectionPrefixPublicationDialog({
 														title: document.title,
 														pathname: blocked.planFailure?.pathname || '',
 													}}
+													onOpen={onClose}
+												/>
+											))}
+										</Stack>
+									</Card>
+								)}
+								{!!blocked?.planFailure?.redirects?.length && (
+									<Card tone="default" border radius={2} padding={3}>
+										<Stack gap={2}>
+											<Text size={1} muted>
+												Affected redirects
+											</Text>
+											{blocked.planFailure.redirects.map((redirect) => (
+												<ConflictRecord
+													key={redirect.documentId}
+													conflict={{ kind: 'redirect', ...redirect }}
 													onOpen={onClose}
 												/>
 											))}

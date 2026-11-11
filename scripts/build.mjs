@@ -81,6 +81,7 @@ for (const file of [
 	'docs/collection-prefix-access.md',
 	'docs/collection-prefix-write-access.md',
 	'docs/collection-prefix-dialog.md',
+	'docs/collection-settings-publication.md',
 	'docs/navigator-acceptance.md',
 	'docs/folders.md',
 	'docs/collection-routing.md',

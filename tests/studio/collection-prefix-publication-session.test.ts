@@ -324,7 +324,9 @@ describe('collection prefix publication session', () => {
 		await t.session.open()
 		await t.session.publish(t.ready())
 		expect(t.state().phase).toBe('unconfirmed')
+		expect(t.session.needsRecovery()).toBe(true)
 		t.session.close()
+		expect(t.session.needsRecovery()).toBe(true)
 		await t.session.open()
 		expect(t.state().phase).toBe('unconfirmed')
 		t.controller.reconcile.mockResolvedValue({
@@ -333,6 +335,7 @@ describe('collection prefix publication session', () => {
 		})
 		await t.session.checkStatus()
 		expect(t.session.getView().open).toBe(false)
+		expect(t.session.needsRecovery()).toBe(false)
 		expect(t.controller.publish).toHaveBeenCalledOnce()
 		expect(t.controller.review).toHaveBeenCalledOnce()
 		expect(t.onPublished).toHaveBeenCalledOnce()
@@ -530,10 +533,14 @@ describe('collection prefix publication session', () => {
 			t.session.close()
 			const listener = vi.fn()
 			t.session.subscribe(listener)
+			expect(t.session.needsRecovery()).toBe(true)
 			result.resolve({ status: 'blocked', reason })
 			await Promise.resolve()
 			expect(t.session.getView().open).toBe(false)
-			expect(listener).not.toHaveBeenCalled()
+			expect(t.session.needsRecovery()).toBe(false)
+			// Notify the owner to update its action label, without opening a dialog
+			// or sending a user-facing notification.
+			expect(listener).toHaveBeenCalledOnce()
 			expect(t.onPublished).not.toHaveBeenCalled()
 			await t.session.open()
 			expect(t.state().phase).toBe('ready')
@@ -582,10 +589,12 @@ describe('collection prefix publication session', () => {
 			result.resolve({ status, operationId: 'operation-1' })
 			await Promise.resolve()
 			expect(t.session.getView().open).toBe(false)
+			expect(t.session.needsRecovery()).toBe(true)
 			expect(listener).not.toHaveBeenCalled()
 			expect(t.onPublished).not.toHaveBeenCalled()
 			expect(t.controller.getPending()).toBe(newer)
 			await t.session.open()
+			expect(t.session.needsRecovery()).toBe(false)
 			if (status === 'published') expect(t.session.getView().open).toBe(false)
 			else
 				expect(t.state()).toMatchObject({

@@ -1,9 +1,12 @@
 # Reviewing a collection URL change
 
 This private dialog and session owner prepare the editor review for changing an
-existing collection prefix, such as `/journal` to `/blog`. They are not connected
-to the collection settings Publish action yet. No public API or live Studio
-acceptance is claimed by this slice.
+existing collection prefix, such as `/journal` to `/blog`. The private
+[settings Publish integration](collection-settings-publication.md) connects them
+to the native action behind an explicit development gate. The proof Studio
+enables that gate. Live checks on November 10, 2026 verified reviewed prefix moves
+and an actionable redirect-draft block. Public exports and broader Studio
+acceptance remain separate checkpoints.
 
 The dialog explains which item URLs change, whether new redirects will be created,
 and which existing redirects will point to a new destination. Publishing includes
@@ -26,7 +29,7 @@ React owner can use its `subscribe` and `getView` methods with
 `useSyncExternalStore`. Creating the session performs no reads or writes.
 Dispose it when the action or workspace changes.
 
-The eventual native action must first classify the settings change. This session
+The native action first classifies the settings change. This session
 only handles an ordinary draft changing an already published prefix. First-time
 settings publication, unchanged prefixes, locked prefixes, and release editing
 have separate handling. The action must respect the native action's availability
@@ -90,6 +93,12 @@ release store supplies the display name when available; otherwise the known
 release identifier stays visible with an explanation. Optional enriched names
 change only the display, never the publishing checks.
 
+Redirect blockers show the affected rule's source → destination in the same
+native row style. The explanation distinguishes unpublished redirect changes
+from a proposed URL already used by an active redirect. The row opens the exact
+affected version and reads native status indicators. If the checked inventory
+cannot identify a record, the notice does not invent a link.
+
 These details travel with the blocked result. The session does not rerun a
 separate query to guess which conflict caused the block.
 
@@ -129,9 +138,16 @@ can check the older attempt without treating the newer result as its own.
 
 ## What remains before editors use this
 
-The native settings action still needs to select this flow, supply current Studio
-state, enrich actionable conflicts, wire callbacks and successful refreshes, and
-coordinate first-time and unchanged-prefix publishing. Then the complete workflow
-needs live Studio review, including permissions, concurrent edits, navigation,
-timeouts, and reopening after a lost response. Component and session tests cover
-these boundaries locally; they do not replace that acceptance work.
+The private native settings action selects this flow, supplies current Studio
+state, connects callbacks and success toasts, and coordinates first-time and
+unchanged-prefix publishing. The
+[November 10 live checks](collection-settings-publication.md#current-acceptance-boundary)
+verified same-prefix saves without a routine dialog, reviewed prefix moves with
+and without new redirects, existing redirect updates, and the clickable notice
+for an affected redirect draft.
+
+The first-ever settings publish has not been tested live. Broader review still
+includes custom-role permissions, additional conflicts, concurrent edits,
+cancellation, timeouts, and reopening after a lost response. Component and session
+tests cover these boundaries locally; they do not replace that acceptance work.
+The fixture does not yet deliver HTTP redirects.

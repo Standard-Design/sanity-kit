@@ -192,6 +192,11 @@ export function prefixChangesAreProtected(options: {
 			}
 			for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
 				if (metadata.has(key) || equal(a[key], b[key])) continue
+				// Sanity adds draft ancestry after the first edit of a published
+				// document. It is server metadata, not a consumer schema field.
+				// Only the document root has this exemption; nested values still
+				// require their normal schema and read-only checks.
+				if (path.length === 0 && key === '_system') continue
 				if (
 					options.initializeRedirectOrigin &&
 					path.length === 0 &&

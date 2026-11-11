@@ -1,8 +1,8 @@
 /**
- * Private draft editor for the settings loaded by url/settings. Each collection
+ * Private editor for the settings loaded by url/settings. Each collection
  * owns one configured document; collection items continue to store only slugs.
- * This is intentionally not the reviewed prefix-publishing workflow. Ordinary
- * publishing is disabled until that workflow can coordinate URLs and redirects.
+ * Publishing stays disabled by default. An internal integration gate installs
+ * the reviewed publisher while its native action is undergoing acceptance.
  * @see docs/collection-routing.md
  */
 import { CogIcon } from '@sanity/icons/Cog'
@@ -22,6 +22,10 @@ import {
 } from 'sanity'
 import type { StructureBuilder } from 'sanity/structure'
 import { CollectionDisplayNamesProvider } from './display-names.js'
+import {
+	createCollectionSettingsPublishAction,
+	isCollectionSettingsPublishAction,
+} from './settings-publication-action.js'
 import { CollectionSettingsContext } from './settings-context.js'
 import { pagePathname } from '../../url/registry.js'
 import { isReservedPath } from '../../url/reservations.js'
@@ -35,6 +39,8 @@ import {
 
 export interface CollectionRoutingSettingsOptions {
 	readonly routes: CollectionRoutingConfig
+	/** @internal Unreleased integration gate; never enabled implicitly. */
+	readonly _enablePublication?: true
 }
 
 /** Snapshot and validate registration before creating schema closures or menus. */
@@ -130,14 +136,42 @@ export function CollectionIdentifierInput({
 	return <TextInput {...elementProps} value={value ?? ''} readOnly disabled />
 }
 
-/** Keep Sanity's permission-aware discard action; no live-routing actions yet. */
+/** Preserve native draft discard when reviewed publishing is not enabled. */
 function draftActions(actions: DocumentActionComponent[]) {
 	return actions.filter((action) => action.action === 'discardChanges')
+}
+
+/** Only our guarded Publish may survive the final workspace reducer. */
+function settingsActions(routes: CollectionRoutingConfig, enabled: boolean) {
+	const wrapped = new WeakMap<
+		DocumentActionComponent,
+		DocumentActionComponent
+	>()
+	return (actions: DocumentActionComponent[]) => {
+		if (!enabled) return draftActions(actions)
+		let published = false
+		return actions.flatMap((action) => {
+			if (action.action === 'discardChanges') return [action]
+			if (action.action !== 'publish' || published) return []
+			published = true
+			if (isCollectionSettingsPublishAction(action, routes)) return [action]
+			let value = wrapped.get(action)
+			if (!value) {
+				value = createCollectionSettingsPublishAction(action, routes)
+				wrapped.set(action, value)
+			}
+			return [value]
+		})
+	}
 }
 
 export const collectionRoutingSettings =
 	definePlugin<CollectionRoutingSettingsOptions>((options) => {
 		const { config, entries } = registration(options.routes)
+		const reduceActions = settingsActions(
+			config,
+			options._enablePublication === true,
+		)
 		const entryFor = (
 			document: { _id?: string; collection?: unknown } | undefined,
 		) => {
@@ -182,7 +216,16 @@ export const collectionRoutingSettings =
 				versionType: 'draft',
 				releaseId: undefined,
 			})
-			if (actions.some((action) => action.action !== 'discardChanges'))
+			if (
+				actions.some(
+					(action) =>
+						action.action !== 'discardChanges' &&
+						!(
+							options._enablePublication &&
+							isCollectionSettingsPublishAction(action, config)
+						),
+				)
+			)
 				throw new Error(
 					'Collection settings require withCollectionRoutingSettings at the workspace boundary so native publication cannot bypass the URL-change review.',
 				)
@@ -221,7 +264,9 @@ export const collectionRoutingSettings =
 						title: 'Collection settings',
 						type: 'document',
 						icon: CogIcon,
-						components: { input: DraftSettingsInput },
+						...(!options._enablePublication
+							? { components: { input: DraftSettingsInput } }
+							: {}),
 						// A stray creation intent or release version must not become a second
 						// editable settings document for the same collection.
 						readOnly: ({ document }) =>
@@ -334,7 +379,9 @@ export const collectionRoutingSettings =
 					),
 				actions: (previous, context) =>
 					context.schemaType === COLLECTION_ROUTE_TYPE
-						? draftActions(previous)
+						? context.versionType === 'draft'
+							? reduceActions(previous)
+							: draftActions(previous)
 						: previous,
 			},
 		}
@@ -368,13 +415,19 @@ export function collectionRoutingSettingsItems(
 /**
  * Finalize actions after built-in tools and application reducers. A plugin-only
  * reducer runs too early: a later Structure plugin can restore native Publish.
- * Retain harmless draft discard, and leave all other document types untouched.
+ * Keep only draft discard and, with the internal gate, our guarded Publish.
+ * All other document types retain their application-configured actions.
  */
 export function withCollectionRoutingSettings(
 	config: SingleWorkspace,
 	options: CollectionRoutingSettingsOptions,
 ): SingleWorkspace {
 	const plugin = collectionRoutingSettings(options)
+	const { config: routes } = registration(options.routes)
+	const reduceActions = settingsActions(
+		routes,
+		options._enablePublication === true,
+	)
 	const previous = config.document?.actions
 	return {
 		...config,
@@ -389,7 +442,9 @@ export function withCollectionRoutingSettings(
 							? [...actions, ...previous]
 							: actions
 				return context.schemaType === COLLECTION_ROUTE_TYPE
-					? draftActions(customized)
+					? context.versionType === 'draft'
+						? reduceActions(customized)
+						: draftActions(customized)
 					: customized
 			},
 		},

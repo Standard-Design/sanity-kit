@@ -14,9 +14,14 @@ check the outcome if the connection is lost.
 
 The private [review dialog and session](collection-prefix-dialog.md) now render
 these changes and manage waiting/recovery. The settings document's native Publish
-action remains disabled until the separate integration is enabled. The core requires an explicit schema and write-permission
-adapter before it can send a request. The [native adapter](collection-prefix-write-access.md)
-is implemented separately; connecting it to the editor workflow remains ahead.
+action is connected by the private
+[settings publishing integration](collection-settings-publication.md), disabled
+by default and explicitly enabled in the proof Studio. The core requires an
+explicit schema and write-permission adapter before it can send a request. The
+[native adapter](collection-prefix-write-access.md) is connected by that integration.
+Live checks on November 10, 2026 verified same-prefix settings publishing and
+repeated prefix moves with redirect creation and retargeting. The first-ever
+settings publish and broader acceptance remain ahead.
 These are private building blocks, not a consumer-ready
 publishing integration.
 
@@ -94,11 +99,16 @@ Repeated prefix changes therefore do not build a chain of redirects. The shared
 bulk planner checks the complete redirect graph, app reservations, occupied
 paths, and limits. A conflicting redirect draft or release version blocks the
 plan; this workflow cannot overwrite or publish another editor's redirect work.
+A redirect draft pointing to an unchanged page does not block a move merely
+because that page appears in the complete inventory. The checks distinguish
+URLs that actually move from URLs that remain occupied.
 
 An active redirect at a proposed live or draft URL also blocks the move. The
-review identifies its record when the redirect planner can do so. It does not
-assume every redirect destination is a registered CMS page: an application may
-own valid destination routes too.
+review identifies its exact record when the redirect planner can do so. The
+notice explains whether unpublished redirect work or an existing redirect at a
+proposed URL is blocking the change, and shows its source and destination in a
+clickable native row. It does not assume every redirect destination is a
+registered CMS page: an application may own valid destination routes too.
 
 ## Private source contracts
 
@@ -196,7 +206,7 @@ A ready review includes the complete published and draft settings documents.
 **Publishing applies the whole reviewed settings draft**, just like ordinary
 Publish. If the draft also changes the collection display name or another
 settings field, that change is included. Item drafts and independently located
-index pages remain untouched. The future review UI must make this scope clear.
+index pages remain untouched. The review dialog explains this scope.
 
 The writer sends one [Sanity Actions API transaction](https://www.sanity.io/docs/http-reference/actions):
 
@@ -296,8 +306,8 @@ The private `createCollectionSettingsPublicationClassifier(routes)` helper in
   time. A locked prefix already comes from code, so publishing its first settings
   document does not activate or move those URLs.
 - **Unchanged prefix:** both settings versions exist and their effective prefixes
-  match. Changing the display name is a typical example. The later integration
-  can preserve ordinary Publish behavior instead of showing a URL-move review.
+  match. Changing the display name is a typical example. The native integration
+  preserves ordinary Publish behavior instead of showing a URL-move review.
 - **Prefix change:** publishing the draft would move item URLs. This needs the
   reviewed prefix-change workflow described above.
 
@@ -349,8 +359,8 @@ reviewed, and settings identities that were absent. A later recheck must notice
 new documents as well as edits to existing ones. The inventory's completeness
 and read-access declarations are supplied by the caller; the pure planner cannot
 prove them. The reader below supplies checked data to the planner. A guarded
-publish action still needs to connect this plan to Studio. Calling the planner
-writes nothing and does not enable Publish.
+publish action connects this plan to Studio through the private development gate.
+Calling the planner writes nothing and does not enable Publish.
 
 ## Loading and rechecking first-publication evidence
 
@@ -377,7 +387,8 @@ review objects that it created; copying a result does not create a valid review.
 These checks still write nothing. Uncached GROQ queries can briefly lag committed
 document changes, and a recheck does not lock the dataset. The settings writer
 applies final revision/creation guards and handles uncertain outcomes. The Studio
-action still needs to connect this workflow before editors can use it.
+action connects this workflow behind the explicit development gate; live
+acceptance must verify it before consumer use.
 
 ## Publishing first settings and ordinary settings edits
 
@@ -450,13 +461,18 @@ lightweight results rather than full reviewed documents.
 
 ## What remains before editors can publish prefixes
 
-The native schema/write adapter, both writers, and the editor review/recovery
-workflow still need to be connected to the settings Publish action. The current
-fixture keeps native settings Publish disabled until that integration is ready.
-These modules remain private and add no new editor UI on their own.
+The private [native Publish integration](collection-settings-publication.md) now
+connects the schema/write adapter, both writers, and review/recovery UI. It is
+disabled by default. The proof fixture enables it, and the
+[dated live acceptance record](collection-settings-publication.md#current-acceptance-boundary)
+confirms same-prefix publishing, repeated moves, redirect opt-out, existing-alias
+updates, and a blocking redirect draft. The tested article's draft and published
+JSON stayed unchanged. These modules remain private, and enabling the
+development gate is not a release.
 
 Automated tests cover atomic failures, concurrent settings changes, exact-operation
-recovery, full draft/reference handling, and shared pending records. Live
-acceptance must still verify actual server transaction/Actions behavior, native
-permissions and schema validation, the Studio workflow, published/preview routing,
-redirect behavior, and consumer cache refresh.
+recovery, full draft/reference handling, and shared pending records. The first-ever
+settings publish still needs live verification. Broader acceptance must cover
+custom roles, additional schema and conflict cases, concurrency, recovery,
+published/preview routing, HTTP redirect delivery, and consumer cache refresh.
+The proof website does not yet serve saved rules as HTTP redirects.

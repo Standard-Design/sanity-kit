@@ -71,17 +71,21 @@ Native Sanity permissions still control the editor and create intent.
 
 ### Review collection settings
 
-In **Fixture content**, open **Journal (settings proof) URL settings**. This
-singleton uses the private collection settings integration. You can enter a
-prefix such as `/journal`, inspect native validation, and save draft changes.
-Publishing is unavailable until the reviewed prefix-change workflow is added.
+Open the collection's **Settings** action in Pages, or **Articles collection
+settings** in Fixture content. The displayed name follows the settings draft, so
+it may currently say **Stories**. This fixture explicitly enables the private
+native Publish integration. All settings checks use `proofLiveCollectionRouting`,
+the same registration as Pages and the preview website.
 
-This proof is intentionally separate from the existing Journal pages, which
-still store full item paths. It registers a `kitProofSlugPost` type to represent
-the slug-only collection contract; it does not migrate existing posts or seed
-content. This isolated Journal example does not drive the existing Journal URLs.
-Opening this entry uses the normal Sanity initial-value template;
-there is no startup seed or automatic publication.
+A display-name-only edit publishes directly after checks. A change to an existing
+prefix opens the URL review, including affected item URLs, redirect updates, and
+the choice to create redirects from old URLs. Confirmed success closes the dialog
+and shows a native toast. Publishing includes the whole settings draft; it does
+not publish collection items or change their stored slugs.
+
+The older Journal settings demo is no longer installed in this Studio. Its data
+is preserved, and existing Journal pages continue to use full stored paths.
+No startup seed or automatic publication is performed.
 
 ### Preview a collection prefix change
 
@@ -103,7 +107,7 @@ Changing the iframe perspective does not publish settings. The item URL field
 still edits its draft URL; native location links follow the selected perspective.
 
 While live and draft prefixes differ, URL-changing publish/redirect/folder actions
-are protected until the reviewed prefix-publish workflow is available. A content-only
+remain protected until the reviewed settings change is published. A content-only
 item update uses fresh checks and can publish without publishing its settings.
 Do not bypass these guards in a real application; this fixture's initial published
 settings were explicitly created for acceptance testing.
@@ -184,7 +188,8 @@ updates their destinations directly to the new URL in that same transaction.
 Turning off the checkbox skips only the new rule, not those reviewed updates. The fixture frontend does not yet serve these rules as HTTP
 redirects. Collection settings now drive the matching Articles URLs in Pages, the URL field,
 and this website. Reviewed folder renaming, removal, and synchronization are
-available; collection-prefix publishing and HTTP redirect delivery remain later work. This
+available. Collection-prefix publishing is enabled for acceptance; HTTP redirect
+delivery remains separate from this local preview server. This
 factory is private and is not available through the package's `/studio` export.
 See [the URL-field guide](../../../docs/url-field.md) for access requirements,
 storage behavior, and concurrency limits.
@@ -314,4 +319,42 @@ Changes to an existing rule stay in its draft until publishing succeeds. The
 website must load the published rules and refresh any consumer-owned cache;
 this Studio integration does not install a frontend redirect handler. The
 `/redirect-editor-proof` record is dedicated to live acceptance of this flow.
-The acceptance record below describes what was actually exercised.
+The collection acceptance record below describes the newly verified prefix
+publishing flows; the earlier native integration checks remain in
+[ACCEPTANCE.md](ACCEPTANCE.md).
+
+## Collection settings publishing acceptance — November 10, 2026
+
+These checks ran against the enabled native Publish integration in the test
+Studio. They are live observations, separate from automated test results:
+
+1. A display-name-only update to **Stories** published without a routine dialog.
+   Its effective prefix stayed unchanged.
+2. Publishing `/articles` → `/stories` through the review dialog created
+   `/articles/routing-proof` → `/stories/routing-proof`.
+3. A temporary draft of that redirect blocked the next prefix change. The
+   notice showed the exact affected redirect as a clickable native row. Only
+   that temporary test draft was discarded, using Studio's native action.
+4. Publishing `/stories` → `/stories-test` with **Create redirects** off updated
+   the existing alias to `/articles/routing-proof` → `/stories-test/routing-proof`.
+   No `/stories/routing-proof` alias was created. Settings and redirect documents
+   shared the transaction revision.
+5. The article's complete draft and published JSON were unchanged from the
+   initial snapshots. The operation did not publish its draft or rewrite its
+   stored slug or content.
+
+The resulting display name is **Stories** and the published test prefix is
+`/stories-test`. These are mutable fixture data, not configuration defaults.
+The stable collection identifier remains `articles`.
+
+The checks exposed two implementation issues that are now fixed: unrelated
+redirect drafts pointing to unchanged pages no longer block the move, and
+Sanity's root `_system` draft metadata no longer fails the changed-field schema
+check. Nested values, schema validation, and read-only rules remain protected.
+The redirect-conflict notice now explains the reason and identifies the rule.
+
+The first-ever settings publish was **not** tested live. Custom-role permissions,
+wider validation and conflict cases, concurrent edits, cancellation, and recovery
+after a lost response remain acceptance work. The preview server does **not**
+yet serve saved rules as HTTP redirects; these checks verified saved redirect
+records, not HTTP delivery or consumer cache refresh.

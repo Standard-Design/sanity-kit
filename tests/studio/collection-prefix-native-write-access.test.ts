@@ -533,6 +533,56 @@ describe('collection-prefix native write authorization', () => {
 			'protected',
 		)
 	})
+	it('allows native draft ancestry after publishing while preserving consumer field protections', async () => {
+		const t = setup()
+		const target = settingsTarget()
+		if (target.kind !== 'publish-settings') throw new Error('Bad fixture')
+		const draft: Row = {
+			...target.draft,
+			_system: {
+				base: { id: target.published._id, rev: target.published._rev },
+			},
+		}
+		expect(
+			(await t.authorize(t.input([{ ...target, draft }]))).targets[0]?.status,
+		).toBe('granted')
+		expect(t.grant.mock.calls.at(-1)?.[1]).toMatchObject({
+			_system: draft._system,
+		})
+		expect(
+			(
+				await t.authorize(
+					t.input([
+						{
+							...target,
+							draft: {
+								...draft,
+								details: { ...(draft.details as Row), secret: 'Changed' },
+							},
+						},
+					]),
+				)
+			).targets[0]?.status,
+		).toBe('protected')
+		expect(
+			(
+				await t.authorize(
+					t.input([
+						{
+							...target,
+							draft: {
+								...draft,
+								details: {
+									...(draft.details as Row),
+									_system: { value: 'Consumer data' },
+								},
+							},
+						},
+					]),
+				)
+			).targets[0]?.status,
+		).toBe('unverified')
+	})
 	it('checks conditional nested rules using the full document, parent, value, and path', async () => {
 		const rule = vi.fn(({ value }: { value: unknown }) => value === 'Locked')
 		const t = setup({ nestedReadOnly: rule })

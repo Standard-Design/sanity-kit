@@ -418,15 +418,24 @@ page URLs, and redirects, and belongs to the reviewed publish workflow. Sanity's
 ordinary slug uniqueness check is disabled here because its schema/field scope
 does not represent that full routing inventory.
 
-### What this slice deliberately cannot publish yet
+### Default draft-only behavior and private publishing integration
 
-A visible notice explains that draft changes can be saved, but collection URL
+By default, a visible notice explains that draft changes can be saved, but collection URL
 publishing is not available yet. Existing published settings remain unchanged.
 The only retained document action is Sanity's native **Discard changes**, with its
 normal permission checks. Publish, scheduling, deletion, unpublishing, duplication,
 release actions, and custom document actions are unavailable for this settings
 type until they have an explicit safe integration. Other document types keep
 their existing actions.
+
+The private [settings Publish integration](collection-settings-publication.md)
+adds guarded publishing behind an explicit development gate. It supports first
+saves, unchanged prefixes, and reviewed prefix moves. The proof Studio explicitly
+enables the gate with its shared live collection registration. Live checks on
+November 10, 2026 verified a display-name save and repeated prefix moves, including
+redirect creation and retargeting. Other installations remain draft-only unless
+they enable the private gate. The first-ever settings publish remains untested
+live; see the [acceptance record](collection-settings-publication.md#current-acceptance-boundary).
 
 Use the workspace wrapper, not the plugin by itself: its final action reducer runs
 after built-in tools and app reducers. A layout check refuses an unsafe later
@@ -435,9 +444,11 @@ a Content Lake access rule; external writers can still bypass Studio validation.
 
 The private live integration now connects saved prefixes to Pages and URL fields
 when they receive `collectionRouting`. The proof website loads the same settings
-in its requested perspective. Reviewed prefix publishing, redirects for that
-change, and consumer cache activation remain later work. Changing a settings
-draft alone does not activate a new live route or rewrite item slugs.
+in its requested perspective. Reviewed prefix publishing and its redirect updates
+are connected through the private development gate. Their basic live save flows
+are verified, but broader acceptance remains. The fixture does not yet serve saved
+rules as HTTP redirects. Consumer cache activation is a separate application responsibility. Changing a
+settings draft alone does not activate a new live route or rewrite item slugs.
 
 ## Collection actions in Pages
 
@@ -522,6 +533,11 @@ Articles demonstrates an editable default name and an editable prefix, initially
 `/articles`. Pages, its URL field, and the proof website load that prefix in the
 requested perspective. A draft prefix can differ from the published prefix.
 No existing Journal content or settings identity needs to be migrated.
+
+The November 10 publishing checks changed this test collection's display name to
+**Stories** and its published prefix to `/stories-test`. Those are test-data
+values, not new configuration defaults. The collection identifier stays
+`articles`, and item slugs stay unchanged.
 
 ## Private Studio routing sessions
 

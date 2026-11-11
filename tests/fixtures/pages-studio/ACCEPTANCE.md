@@ -1042,3 +1042,79 @@ custom-role permission changes.
 
 Final automated checks passed: `pnpm verify` (2,303 tests), `pnpm test:coverage`,
 and `pnpm test:package`, including installed Studio and frontend consumers.
+
+## Native collection settings Publish — November 10, 2026
+
+The proof Studio now enables the private Publish integration with the same
+`proofLiveCollectionRouting` registration used by Pages and the website. These
+checks used the existing Articles settings and article in the authorized
+`ha9kep4l` / `development` dataset. They supersede the settings state recorded
+in the November 6 entry above.
+
+- Published the display name Stories with the effective prefix still `/articles`.
+  Native Publish completed without a routine review dialog.
+- Changed the prefix to `/stories`, reviewed the affected item URL, and published
+  with redirect creation enabled. Settings and the new
+  `/articles/routing-proof` → `/stories/routing-proof` redirect shared the same
+  transaction revision.
+- Created a temporary draft of that new redirect, changing its status to 302.
+  A further prefix change was blocked with the unpublished-redirect notice.
+  The notice displayed the exact source and destination, identified the draft,
+  and opened the correct redirect when its row was clicked. Discarded only this
+  test-created redirect draft through the native editor; the published redirect
+  remained unchanged by that cleanup.
+- Reviewed `/stories` → `/stories-test` with **Create redirects from old item
+  URLs** unchecked. Publishing updated the existing `/articles/routing-proof`
+  redirect directly to `/stories-test/routing-proof`. It did not create a new
+  `/stories/routing-proof` redirect. Settings and the retargeted redirect again
+  shared a transaction revision.
+- Both the published and draft article documents matched their original JSON
+  snapshots after these settings saves: no slug, content, or revision changed.
+- Before the second move, the website resolved `/stories-test/routing-proof`
+  only in drafts and `/stories/routing-proof` in published. After publishing,
+  `/stories-test/routing-proof` resolved in published too. The old path no longer
+  matched a page. This fixture does not yet deliver HTTP redirects; saved rules
+  and website page resolution were checked separately.
+
+The live checks exposed two fixes included in this slice: unrelated page draft
+destinations must not make unrelated redirect drafts block a collection move,
+and root-level Sanity `_system` draft metadata must not be treated as an unknown
+consumer field. Nested schema checks and actual read-only fields remain protected.
+
+Development HMR also reset an early Pages selection to the previewed Home page
+before a Publish click, incidentally publishing its existing fixture draft. No
+Home fields were edited during this pass. Subsequent write checks used Structure
+with source edits paused; the final browser view returned to Stories settings in
+Pages. This observation is not a claim that a production navigation defect was
+reproduced or fixed.
+
+The fixture now has published display name Stories and prefix `/stories-test`,
+with no settings draft or temporary redirect draft left behind. First-ever
+settings publication, custom-role access, lost-response recovery, and real
+concurrent writers remain live acceptance work. Automated tests cover those
+branches separately. The success dialog closed after confirmed writes; the
+short-lived toast was not captured in this live pass.
+
+Final checks passed: `pnpm verify` (2,750 tests across 96 files) and
+`node scripts/check-package.mjs`, including installed consumers, Studio, and
+TypeGen. All 289 packed files passed the package checks.
+
+### Settings editor retention after a preview refresh
+
+Follow-up testing found that rebuilding native main-document resolvers during
+prefix autosave could replace the selected settings document with the preview's
+page. Pages now suspends that automatic lookup while a registered settings
+document is open at the same preview path. Routing data and locations still
+update. A different preview path or explicit document selection restores native
+lookup; query-only refresh/perspective changes do not dismiss settings.
+
+Verified prefix edits with the settings form open in Pages, including reopening
+it through the collection menu. The preview refreshed while the form and focused
+prefix input remained available. Deliberately navigating the preview address to
+the new draft item URL still opened the correct article in the editor. No content
+was published in this follow-up. The earlier HMR observation alone did not isolate
+this issue; the native resolver refresh is now protected explicitly.
+
+The final follow-up state leaves `/stories-review` as the settings draft and
+`/stories-test` published so the editor can continue the review. Build, typecheck,
+lint, and all 2,753 tests passed after the fix.

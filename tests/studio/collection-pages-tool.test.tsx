@@ -18,6 +18,8 @@ const native: {
 	stack: string[]
 	variants: string[]
 	search: [string, string][]
+	id?: string | undefined
+	type?: string | undefined
 	mounts: number
 	prefix: string
 	ready: boolean
@@ -56,7 +58,9 @@ vi.mock('sanity', () => ({
 	}),
 }))
 vi.mock('sanity/router', () => ({
-	useRouter: () => ({ state: { _searchParams: native.search } }),
+	useRouter: () => ({
+		state: { id: native.id, type: native.type, _searchParams: native.search },
+	}),
 }))
 vi.mock('sanity/presentation', () => ({ usePresentationParams: () => ({}) }))
 vi.mock('../../src/studio/collections/use-routing.js', () => ({
@@ -169,6 +173,9 @@ beforeEach(() => {
 		globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }
 	).IS_REACT_ACT_ENVIRONMENT = true
 	native.mounts = 0
+	native.id = undefined
+	native.type = undefined
+	native.search = []
 	native.snapshot = { status: 'loading', perspective: 'drafts' }
 	host = document.createElement('div')
 	document.body.append(host)
@@ -198,4 +205,86 @@ it('keeps the editor mounted and removes native lookup while routing refreshes',
 	expect(resolve?.mainDocuments).not.toBe(old)
 	expect(native.mounts).toBe(1)
 	expect(host.textContent).toBe('Native editor')
+})
+
+it('keeps settings selected through prefix refreshes without freezing live routes', async () => {
+	native.id = 'journal-settings'
+	native.type = 'sanityKitCollectionRoute'
+	native.search = [['preview', 'http://localhost:3334/journal/post']]
+	native.snapshot = ready('/journal')
+	await render()
+	expect(resolve?.mainDocuments).toEqual([])
+	const suspended = resolve?.mainDocuments
+	native.snapshot = { status: 'loading', perspective: 'drafts' }
+	await render()
+	expect(resolve?.mainDocuments).toBe(suspended)
+	native.snapshot = {
+		status: 'unavailable',
+		perspective: 'drafts',
+		reason: 'settings-invalid',
+	}
+	await render()
+	expect(resolve?.mainDocuments).toBe(suspended)
+	native.snapshot = ready('/news')
+	await render()
+	expect(native.prefix).toBe('/news')
+	expect(resolve?.mainDocuments).toEqual([])
+	expect(resolve?.locations).toBeDefined()
+	// Refresh/perspective search parameters are not a choice of another page.
+	native.search = [
+		[
+			'preview',
+			'http://localhost:3334/journal/post?sanity-preview-perspective=published',
+		],
+	]
+	await render()
+	expect(resolve?.mainDocuments).toEqual([])
+	expect(native.mounts).toBe(1)
+	// A real preview navigation restores native page-to-editor navigation.
+	native.search = [['preview', 'http://localhost:3334/news/post']]
+	await render()
+	expect(resolve?.mainDocuments).toHaveLength(1)
+	// Do not re-pin during an in-flight native lookup or a quick Back action.
+	native.search = [['preview', 'http://localhost:3334/journal/post']]
+	await render()
+	expect(resolve?.mainDocuments).toHaveLength(1)
+})
+
+it('adopts the initial preview URL without dismissing an already selected settings document', async () => {
+	native.id = 'journal-settings'
+	native.type = 'sanityKitCollectionRoute'
+	native.snapshot = ready('/news')
+	await render()
+	expect(resolve?.mainDocuments).toEqual([])
+	native.search = [['preview', '/news/post']]
+	await render()
+	expect(resolve?.mainDocuments).toEqual([])
+	native.search = []
+	await render()
+	expect(resolve?.mainDocuments).toEqual([])
+	native.search = [['preview', '/about']]
+	await render()
+	expect(resolve?.mainDocuments).toHaveLength(1)
+})
+
+it('restores native lookup on explicit document selection and protects settings on reentry', async () => {
+	native.id = 'journal-settings'
+	native.type = 'sanityKitCollectionRoute'
+	native.snapshot = ready('/news')
+	await render()
+	expect(resolve?.mainDocuments).toEqual([])
+	native.id = 'post-one'
+	native.type = 'post'
+	await render()
+	expect(resolve?.mainDocuments).toHaveLength(1)
+	native.id = 'journal-settings'
+	native.type = 'sanityKitCollectionRoute'
+	native.search = [['preview', '/news/post']]
+	await render()
+	expect(resolve?.mainDocuments).toEqual([])
+	// An unrelated document of the same schema type is not a registered setting.
+	native.id = 'unregistered-settings'
+	await render()
+	expect(resolve?.mainDocuments).toHaveLength(1)
+	expect(native.mounts).toBe(1)
 })
