@@ -23,6 +23,10 @@
 			"types": "./dist/url/settings/index.d.ts",
 			"import": "./dist/url/settings/index.js"
 		},
+		"./redirect": {
+			"types": "./dist/redirect/index.d.ts",
+			"import": "./dist/redirect/index.js"
+		},
 		"./studio": {
 			"types": "./dist/studio/index.d.ts",
 			"import": "./dist/studio/index.js"

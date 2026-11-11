@@ -1,5 +1,5 @@
 /**
- * Private request boundary for the redirect subsystem. snapshot.ts decides
+ * Public request boundary for the redirect subsystem. snapshot.ts decides
  * whether data is safe; load.ts supplies published data; this module decides
  * whether a request may use it. See docs/redirects.md for the cache contract.
  * This is plain HTTP handling, not a React Router data-request adapter.

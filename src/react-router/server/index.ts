@@ -46,6 +46,11 @@ export {
 	type SanityLoaderValidationPolicy,
 } from './loaders.js'
 
+export {
+	createSanityRedirectMiddleware,
+	type CreateSanityRedirectMiddlewareConfig,
+} from './redirects.js'
+
 const defaultCookieName = '__sanity_preview'
 const defaultRedirect = '/'
 const minimumSessionSecretLength = 32

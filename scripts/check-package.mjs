@@ -467,7 +467,10 @@ for (const matrix of matrices) {
 	for (const file of [
 		'collection-routing-runtime.mjs',
 		'collection-routing.ts',
-		...(settings ? ['collection-settings.ts'] : []),
+		...(settings
+			? ['collection-settings.ts', 'redirect.ts', 'redirect-runtime.mjs']
+			: []),
+		...(matrix.full ? ['redirect-router.ts'] : []),
 	])
 		await copyFile(join(root, 'tests/package', file), join(cwd, file))
 	run(
@@ -475,6 +478,12 @@ for (const matrix of matrices) {
 		['collection-routing-runtime.mjs', ...(settings ? ['--settings'] : [])],
 		cwd,
 	)
+	if (settings)
+		run(
+			process.execPath,
+			['redirect-runtime.mjs', ...(matrix.full ? ['--router'] : [])],
+			cwd,
+		)
 	await copyFile(
 		join(root, `tests/package/${matrix.full ? 'full.tsx' : 'minimal.ts'}`),
 		join(cwd, 'consumer.tsx'),
@@ -497,7 +506,8 @@ for (const matrix of matrices) {
 			include: [
 				'consumer.tsx',
 				'collection-routing.ts',
-				...(settings ? ['collection-settings.ts'] : []),
+				...(settings ? ['collection-settings.ts', 'redirect.ts'] : []),
+				...(matrix.full ? ['redirect-router.ts'] : []),
 			],
 		}),
 	)
@@ -524,6 +534,27 @@ for (const matrix of matrices) {
 			],
 			cwd,
 		)
+	}
+	if (settings) {
+		await writeFile(
+			join(cwd, 'redirect-entry.js'),
+			"import * as api from '@standard-design/sanity-kit/redirect'; console.log(api)",
+		)
+		const redirects = await build({
+			absWorkingDir: cwd,
+			entryPoints: ['redirect-entry.js'],
+			bundle: true,
+			platform: 'node',
+			format: 'esm',
+			write: false,
+			metafile: true,
+		})
+		for (const input of Object.keys(redirects.metafile.inputs))
+			assert.doesNotMatch(
+				input,
+				/node_modules\/(react|react-dom|react-router|sanity|@sanity\/ui)\/|sanity-kit\/(studio|react-router)/u,
+				'Generic HTTP redirects imported Studio or React Router.',
+			)
 	}
 	await checkBrowserBundles(cwd, matrix.full)
 	console.log(`PASS ${matrix.name}: ${JSON.stringify(matrix.peers)}`)

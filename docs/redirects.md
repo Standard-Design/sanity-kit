@@ -1,15 +1,17 @@
 # Redirect foundation
 
-Status: the private snapshot foundation was approved on October 31, 2026. The
-private Sanity loader described below is also approved. The private request and
-consumer-cache boundary is approved. Native Studio draft editing and guarded redirect publishing/retirement are implemented for review. This is
-not a public package entry point. A private React Router middleware adapter is now
-implemented and transport-tested; a consumer must install it to enable redirects
-on its website.
-A separate private [Studio publication integration](url-field.md#editing-published-pages)
-can now create a redirect with a single-page URL change. The names, record shape, and bounds below describe
-these internal slices; they are not a public API contract. The broader
-[redirect design](redirects-design.md) still describes the later work.
+The public `/redirect` entry handles website requests and optional consumer-owned
+caching. The `/react-router/server` entry also exports the React Router middleware
+adapter. These exports are available in this checkout; an earlier published alpha
+may not contain them. No application routes, cache backend, or infrastructure are
+installed automatically.
+
+The snapshot compiler and Sanity loader described below remain internal stages,
+not separate public imports. Studio redirect management and
+[page URL publishing](url-field.md#editing-published-pages) remain private
+integrations. Those writers save rules; the consuming application's request
+handler makes visitors follow them. See the [redirect design](redirects-design.md)
+for deferred work.
 
 ## What this slice does
 
@@ -226,10 +228,33 @@ loader itself has no cache or HTTP response behavior; those are separate below.
 
 ## Handling a website request
 
-The private `resolveRedirectRequest(client, request, options)` helper lives in
-`src/redirect/request.ts`. The consumer supplies its Sanity client and an explicit
+Import `resolveRedirectRequest`, `redirectResponse`, and `invalidateRedirectCache`
+from `@standard-design/sanity-kit/redirect`. The consumer supplies its Sanity client and an explicit
 `preview` boolean from its own trusted session handling. A query parameter alone
 is not proof that a request is an authorized preview.
+
+```ts
+import {
+	resolveRedirectRequest,
+	redirectResponse,
+} from '@standard-design/sanity-kit/redirect'
+
+// In the application's request handler, before ordinary page routing:
+const result = await resolveRedirectRequest(sanityClient, request, {
+	preview: isAuthorizedPreview, // Derived from the app's trusted session.
+	destinations: 'unverified', // Or supply the known destination pathnames.
+	reservedPathPrefixes: ['/account', '/api'],
+	queryParameterAllowlist: ['lang'],
+})
+request.signal.throwIfAborted()
+const response = redirectResponse(result)
+if (response) return response
+return handlePageRequest(request)
+```
+
+This entry requires the supported Sanity client and `groq` peers. It loads no
+Studio, React, or React Router runtime. Use a client that can read all published
+redirect rules; a successful permission-filtered query does not prove coverage.
 
 The helper skips non-GET/HEAD requests and previews before touching the client or
 cache. It also skips app-reserved paths before loading rules. On other requests,
@@ -268,16 +293,19 @@ adapter below for server-rendered React Router applications.
 
 ## React Router request integration
 
-The private `createSanityRedirectMiddleware()` factory in
-`src/react-router/server/redirects.ts` returns a **middleware array**. A consumer
-installs that array on its root route, or spreads it into an existing middleware
-array. This code uses the package's supported React Router 8.4-or-newer API; it is
-not a React Router 7 adapter. It is not exported from the package yet.
+Import `createSanityRedirectMiddleware` from
+`@standard-design/sanity-kit/react-router/server`. It returns a **middleware array**.
+Install that array on the root route, or spread it into an existing middleware
+array. Both functions must remain together in their returned order. This uses
+the supported React Router 8 peer contract, not React Router 7. It does not
+appear in the browser-safe `/react-router` entry.
 
-The intended configuration looks like this once the integration is made public:
+For example:
 
 ```ts
 // In the consuming app's root route; `sanity` is its server-side kit instance.
+import { createSanityRedirectMiddleware } from '@standard-design/sanity-kit/react-router/server'
+
 export const middleware = createSanityRedirectMiddleware({
 	kit: sanity,
 	destinations: 'unverified',
@@ -344,8 +372,8 @@ been connected.
 
 ## Optional consumer-owned caching
 
-Omit `cache` to read Sanity on each eligible request. When supplied, its private
-contract is:
+Omit `cache` to read Sanity on each eligible request. The exported `RedirectCache`
+type has this contract:
 
 ```ts
 interface RedirectCache {
@@ -594,3 +622,21 @@ reviews, retirement, native permission changes, full-draft preservation, real SD
 transport options, uncertain results, and recovery after module reload. Live
 publish/update/retire acceptance also passed in the test Studio; see the fixture
 acceptance log for the observations and checks that were not performed live.
+
+## Public request types and installation checks
+
+`/redirect` exports `RedirectRequestClient`, `RedirectRequestOptions`,
+`RedirectRequestResult`, `RedirectCache`, `RedirectCacheContext`,
+`RedirectSnapshotOptions`, `RedirectSnapshotReason`, and `RedirectMatch`.
+The result distinguishes a match, miss, bypass, invalid path, and failed check;
+handle those states rather than treating a failed read as no redirect.
+`/react-router/server` exports `CreateSanityRedirectMiddlewareConfig` alongside
+the middleware factory. Its `kit` supplies preview state; it has no caller-supplied
+`preview` flag.
+
+Installed-tarball checks exercise the ordinary HTTP entry without Studio or
+React Router, plus the router adapter's actual document and data-request
+responses and signed Published-preview bypass. They also check client types
+across the supported SDK versions, rule-cache reuse/invalidation, failure
+responses, and cancellation. These are installation and transport checks, not
+proof of a consumer's cache backend, credentials, or deployed route placement.

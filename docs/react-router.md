@@ -139,3 +139,16 @@ Implementation: `src/react-router/index.tsx` and `src/react-router/route-data.ts
 Tests: `tests/react-router/routes.test.tsx` and loader tests.
 Continue with [loaders](loaders.md), [links](link.md), or the
 [documentation index](README.md).
+
+## Check redirects before content routing
+
+For CMS-managed redirects, import `createSanityRedirectMiddleware` from the
+server-only `@standard-design/sanity-kit/react-router/server` entry. It returns
+an ordered pair of middleware functions to install on the application's root
+or CMS route. Keep both functions together. The adapter uses the server kit's
+signed preview context and React Router's document/data response conventions.
+It does not generate routes or install a cache backend.
+
+See [React Router redirect setup](redirects.md#react-router-request-integration)
+for placement, reserved paths, failure behavior, and optional caching. Applications
+using ordinary HTTP routing can use `/redirect` without React Router.

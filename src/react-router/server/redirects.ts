@@ -26,8 +26,8 @@ export interface CreateSanityRedirectMiddlewareConfig extends Omit<
  * trusted session, never a search parameter. The published client supplies
  * rules even when the caller has other draft-aware clients in its application.
  * Returns an array for the route middleware export (spread into an existing
- * array). Keep both functions in order. This helper stays private until the
- * consumer-integration/export review.
+ * array). Keep both functions in order. Available from /react-router/server;
+ * the consuming app owns route registration and middleware installation.
  */
 export function createSanityRedirectMiddleware(
 	config: CreateSanityRedirectMiddlewareConfig,
