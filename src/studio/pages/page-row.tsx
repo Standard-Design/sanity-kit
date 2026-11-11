@@ -6,6 +6,7 @@
 import { Box, Card, Flex, Stack, Text } from '@sanity/ui'
 import { DocumentIcon } from '@sanity/icons/Document'
 import { HomeIcon } from '@sanity/icons/Home'
+import { memo } from 'react'
 import {
 	usePresentationNavigate,
 	usePresentationParams,
@@ -14,16 +15,33 @@ import type { PageDocument } from './model.js'
 import { useBrowserState } from './browser-context.js'
 import { PageStatus } from './document-status.js'
 
-export function PageRow({
-	document,
-	disabled = false,
-	selected = false,
-}: {
+interface PageRowProps {
 	document: PageDocument
 	disabled?: boolean
 	selected?: boolean
-}) {
+}
+
+export function PageRow(props: PageRowProps) {
 	const { runtime, setPickerOpen } = useBrowserState()
+	return (
+		<PageRowContent
+			{...props}
+			runtime={runtime}
+			setPickerOpen={setPickerOpen}
+		/>
+	)
+}
+
+// Search and scroll state update the context frequently. Keep those updates out
+// of unchanged rows while retaining native navigation and status subscriptions.
+const PageRowContent = memo(function PageRowContent({
+	document,
+	disabled = false,
+	selected = false,
+	runtime,
+	setPickerOpen,
+}: PageRowProps &
+	Pick<ReturnType<typeof useBrowserState>, 'runtime' | 'setPickerOpen'>) {
 	const navigate = usePresentationNavigate()
 	const params = usePresentationParams()
 	const path = runtime.model.documentPath(document)
@@ -76,4 +94,4 @@ export function PageRow({
 			</Flex>
 		</Card>
 	)
-}
+})

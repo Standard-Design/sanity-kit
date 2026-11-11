@@ -202,3 +202,46 @@ commit of 289ms. Typing the same search took 975ms across nine render commits,
 the largest taking 241ms. Production reduced the measured work, but did not
 remove the concern. The profiling build still adds instrumentation, and these
 numbers remain React render time rather than interaction-to-paint latency.
+
+## Reducing repeated row rendering — November 11, 2026
+
+The page row now separates its browser-state subscription from its visual
+content. Search and scroll updates still reach a small wrapper, but React can
+reuse the visual row when its document, selection, disabled state, routing
+runtime, and picker callback have not changed. Native Presentation and document
+status subscriptions remain inside the visual row, so they can update normally.
+This changes rendering work, not the row's appearance or navigation behavior.
+
+Focused tests check unchanged rows, changed titles/paths, selection and disabled
+state, replacement routing/callbacks, and native Presentation/status updates.
+Together with the existing browser suite, 69 tests pass.
+
+A controlled comparison used Google Chrome for Testing 153.0.8010.12, the
+production profiling harness, a 280px navigator, and 1,000 ordinary pages already
+shown in the flat search list. Both versions retained 1,002 buttons and issued
+zero data queries during each sample. The original row from the committed
+baseline was supplied through a temporary esbuild source override; the harness
+and repository source were not changed for that comparison.
+
+| Search update | Original total React render time | Updated total React render time |
+| ------------- | -------------------------------: | ------------------------------: |
+| `P` to `Pa`   |                          193.2ms |                           6.1ms |
+| `Pa` to `Pag` |                          211.8ms |                           6.2ms |
+
+These are individual render-time samples, not end-to-end input latency, a
+statistical benchmark, or a supported page limit. The original version recorded
+one commit per sample; the updated version recorded two, with largest commits
+of 5.8ms and 5.7ms. Each reset, field update, and measurement sequence completed
+within two seconds. The settled report and input value were checked afterward.
+
+Earlier attempts were excluded from this comparison: delayed browser automation
+allowed the data session's 60-second background refresh to enter the sample.
+The Measure control also updates harness state after reading its snapshot.
+Reset immediately before each action and reject interaction samples containing
+background data queries when repeating this check.
+
+This improvement applies when rows remain mounted. The first nonempty search
+switches from the folder tree to a flat list, which mounts matching rows again.
+Initial loading and large tree/search transitions retain the scale limitation
+recorded above. They still need evaluation in the combined consumer acceptance;
+this change adds no virtualization and does not claim to solve those costs.
