@@ -164,7 +164,7 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|url-field|pages|pages-release-plan|collection-prefix-publication|collection-prefix-access|collection-prefix-write-access|collection-prefix-dialog|collection-settings-publication|navigator-acceptance|folders|collection-routing|collection-routing-api|redirects|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
+			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|url-field|pages|pages-release-plan|collection-prefix-publication|collection-prefix-access|collection-prefix-write-access|collection-prefix-dialog|collection-settings-publication|navigator-acceptance|folders|folder-import|collection-routing|collection-routing-api|redirects|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
@@ -205,6 +205,7 @@ for (const required of [
 	'docs/collection-settings-publication.md',
 	'docs/navigator-acceptance.md',
 	'docs/folders.md',
+	'docs/folder-import.md',
 	'docs/collection-routing.md',
 	'docs/collection-routing-api.md',
 	'docs/redirects.md',
@@ -468,7 +469,13 @@ for (const matrix of matrices) {
 		'collection-routing-runtime.mjs',
 		'collection-routing.ts',
 		...(settings
-			? ['collection-settings.ts', 'redirect.ts', 'redirect-runtime.mjs']
+			? [
+					'collection-settings.ts',
+					'redirect.ts',
+					'redirect-runtime.mjs',
+					'folder-import.ts',
+					'folder-import-runtime.mjs',
+				]
 			: []),
 		...(matrix.full ? ['redirect-router.ts'] : []),
 	])
@@ -484,6 +491,7 @@ for (const matrix of matrices) {
 			['redirect-runtime.mjs', ...(matrix.full ? ['--router'] : [])],
 			cwd,
 		)
+	if (settings) run(process.execPath, ['folder-import-runtime.mjs'], cwd)
 	await copyFile(
 		join(root, `tests/package/${matrix.full ? 'full.tsx' : 'minimal.ts'}`),
 		join(cwd, 'consumer.tsx'),
@@ -506,7 +514,9 @@ for (const matrix of matrices) {
 			include: [
 				'consumer.tsx',
 				'collection-routing.ts',
-				...(settings ? ['collection-settings.ts', 'redirect.ts'] : []),
+				...(settings
+					? ['collection-settings.ts', 'redirect.ts', 'folder-import.ts']
+					: []),
 				...(matrix.full ? ['redirect-router.ts'] : []),
 			],
 		}),
@@ -549,6 +559,33 @@ for (const matrix of matrices) {
 			write: false,
 			metafile: true,
 		})
+		await writeFile(
+			join(cwd, 'folder-entry.js'),
+			`
+import {createFolderSynchronizer} from '@standard-design/sanity-kit/folders/server';
+const service = createFolderSynchronizer({pages: [{schemaType: 'page', pathnameField: 'pathname.current'}]}, {
+ withConfig() { return {config: () => ({projectId: 'testproject', dataset: 'test'})} }
+});
+if (Object.keys(service).join(',') !== 'synchronize') throw new Error('Unexpected folder API');
+console.log('PASS installed folder server bundle runtime');
+`,
+		)
+		const folders = await build({
+			absWorkingDir: cwd,
+			entryPoints: ['folder-entry.js'],
+			outfile: 'folder-bundle.cjs',
+			bundle: true,
+			platform: 'node',
+			format: 'cjs',
+			metafile: true,
+		})
+		for (const input of Object.keys(folders.metafile.inputs))
+			assert.doesNotMatch(
+				input,
+				/node_modules\/(react|react-dom|react-router|sanity|@sanity\/ui)\//u,
+				'Folder imports loaded Studio or a framework runtime.',
+			)
+		run(process.execPath, ['folder-bundle.cjs'], cwd)
 		for (const input of Object.keys(redirects.metafile.inputs))
 			assert.doesNotMatch(
 				input,

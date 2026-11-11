@@ -27,6 +27,10 @@
 			"types": "./dist/redirect/index.d.ts",
 			"import": "./dist/redirect/index.js"
 		},
+		"./folders/server": {
+			"types": "./dist/folders/server/index.d.ts",
+			"import": "./dist/folders/server/index.js"
+		},
 		"./studio": {
 			"types": "./dist/studio/index.d.ts",
 			"import": "./dist/studio/index.js"

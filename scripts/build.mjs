@@ -84,6 +84,7 @@ for (const file of [
 	'docs/collection-settings-publication.md',
 	'docs/navigator-acceptance.md',
 	'docs/folders.md',
+	'docs/folder-import.md',
 	'docs/collection-routing.md',
 	'docs/collection-routing-api.md',
 	'docs/redirects.md',
