@@ -1,10 +1,9 @@
-# Redirect foundation
+# Redirects
 
 The public `/redirect` entry handles website requests and optional consumer-owned
 caching. The `/react-router/server` entry also exports the React Router middleware
-adapter. These exports are available in this checkout; an earlier published alpha
-may not contain them. No application routes, cache backend, or infrastructure are
-installed automatically.
+adapter. Both ship in alpha.6. Your application connects them to its own routes
+and, if needed, a cache backend.
 
 The snapshot compiler and Sanity loader described below remain internal stages,
 not separate public imports. Studio redirect management and

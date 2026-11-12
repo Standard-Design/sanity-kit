@@ -1,17 +1,31 @@
 # Pages release work
 
-This plan divides the remaining Pages work into independently reviewable slices.
-It records the parallel work approved on November 5, 2026. It is a work plan,
-not a list of features already available in the published package.
+Pages and its routing tools shipped in `0.1.0-alpha.6` on November 12, 2026.
+This page records what passed, what still needs testing in a consuming app, and
+the earlier implementation plan.
 
 ## Remaining release checklist
 
-Update this checklist after each slice approval and include the current list in
-the approval handoff. Remove finished work from the remaining list; retain its
-commit in the progress record below. A completed implementation remains separate
-from a reviewed, committed slice and from live acceptance.
+The alpha.6 handoff is complete. The approved commit, `ca1c65f`, is on `main`
+and tagged `v0.1.0-alpha.6`. Main and release-tag CI passed. The 304-file
+GitHub tarball matches the public npm download, and a clean registry install
+passed the TypeScript and runtime checks. Both `latest` and `alpha` point to
+alpha.6. See the [release record](prerelease.md#release-status).
 
-Last approved slice: alpha.6 release preparation (November 12, 2026), covering
+Before the next prerelease:
+
+- Integrate the published package into Standard Stack. Check the Studio and
+  website together, including page creation, URL changes, collection settings,
+  preview and published routing, and redirects.
+- Verify any cache refresh behavior in the consuming deployment. Live testing
+  with a restricted Studio account remains open; those permission cases have
+  automated coverage.
+- Use the consumer results to settle the public API and decide whether to
+  publish a beta. Release-aware URL moves and wildcard redirects remain deferred.
+
+## Alpha.6 implementation and acceptance record
+
+The alpha.6 release preparation slice was approved November 12, 2026. It covered
 the version, release notes, upgrade guide, and this checklist. The preceding
 page URL workflow report is committed and pushed as `1c480e9`. Navigator
 performance (`9b7d64a`) and the
@@ -37,16 +51,6 @@ The data reviewer (`ded9f47`), URL planner (`5ffe637`), classification (`adcd4db
 and native write/schema authorization (`dd1b9ee`) are also approved, committed,
 and pushed. First and later publishing retain the shared prepare-and-recheck
 pattern.
-
-| Slice           | What remains                                                                                                                             | Status                                                                                    |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
-| Release handoff | Move the approved alpha.6 commit to `main`, pass CI, pack from the clean commit, review checksums, then obtain tag/publication approval. | Release preparation approved November 12. No tag or publication has occurred for alpha.6. |
-
-The alpha.6 preparation check passed from an isolated working-tree snapshot:
-304 packed files, six application profiles, installed Studio integrations, and
-TypeGen. Subsequent changes only corrected two documentation links and clarified
-that folder metadata has no Studio schema. This test tarball is not the final
-release artifact; that must be packed from the clean, approved release commit.
 
 The initial release keeps these explicit limits: no restricted-account live test
 was possible; deployed cache refresh belongs to the consuming application;
@@ -190,6 +194,10 @@ checks have since passed; restricted-account acceptance remains unverified. No p
 by the kit.
 
 ## Parallel tracks
+
+This section and the implementation checkpoints below record the plan during
+development. For the current release and follow-up work, see the
+[release checklist](#remaining-release-checklist).
 
 | Track                           | Current work                                                                                      | Review boundary                                                                  |
 | ------------------------------- | ------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------- |

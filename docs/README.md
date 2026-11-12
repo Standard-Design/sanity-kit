@@ -1,16 +1,14 @@
 # Documentation
 
-These repository guides cover the implemented checkout and the published
-`@standard-design/sanity-kit@0.1.0-alpha.5`. Each newer subsystem identifies its
-checkout-only APIs. Alpha.5 does not include Pages, URL fields, collection routing,
-or redirect APIs; the package version in this repository is not proof that those
-features have been released.
+These guides cover `@standard-design/sanity-kit@0.1.0-alpha.6`, the prerelease
+that adds Pages, URL fields, collection routing, and redirects.
 
 Start with the [README quick start](../README.md#quick-start) and
 [entry-point map](../README.md#package-entry-points-and-subsystem-guides).
 For published releases, read the [release status](prerelease.md#release-status),
 [scope migration](prerelease.md#upgrading-from-alpha3), and
-[changelog](../CHANGELOG.md). Alpha.4 consumers should follow the
+[changelog](../CHANGELOG.md). See [upgrading from alpha.5](prerelease.md#upgrading-from-alpha5)
+to adopt the new tools. Alpha.4 consumers should also follow the
 [client compatibility checklist](prerelease.md#upgrading-from-alpha4);
 alpha.2 consumers also need the [API upgrade checklist](prerelease.md#upgrading-from-alpha2).
 Historical tarballs, bundled guides, and checksums are unchanged.
@@ -34,10 +32,10 @@ can use the framework-independent helpers without adopting the router adapter.
 | [Zod validation](validation-zod.md)      | Connect schemas to the common decoder contract                        |
 | [Sitemaps](sitemaps.md)                  | Produce validated, published-only XML responses                       |
 
-## Checkout-only Pages and routing integrations
+## Pages and routing integrations
 
-These APIs have public package entry points in local builds, but are not in
-npm alpha.5. Consumers keep their own Studio, website routes, and infrastructure.
+These APIs ship in alpha.6. Consumers keep their own Studio, website routes, and
+infrastructure.
 
 | Guide                                                     | What it explains                                                                                                       |
 | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
@@ -64,7 +62,7 @@ Installed-tarball checks cover public imports, native Studio configuration with
 Pages and standalone Structure, ordinary HTTP responses, and React Router
 transport. The proof Studio has separate live acceptance records. Neither proves
 a deployed application's credentials, custom roles, cache backend, or recovery
-behavior. See the [remaining release checklist](pages-release-plan.md).
+behavior. See the [Pages release plan](pages-release-plan.md) for follow-up work.
 
 ## Design decisions and remaining proposals
 
@@ -72,10 +70,9 @@ behavior. See the [remaining release checklist](pages-release-plan.md).
   bulk-change, and field/helper behavior, alongside the remaining implementation
   proposals. Approval status is explicit; the guides distinguish the initial URL
   helpers from deferred workflows.
-- [Redirect subsystem](redirects-design.md): proposed Sanity-managed rules,
-  Studio workflows, URL-change integration, frontend resolution, and optional
-  consumer-owned caching. Includes safety policies and implementation gates;
-  none of the illustrated redirect APIs exist in the released package.
+- [Redirect subsystem design](redirects-design.md): original design for
+  Sanity-managed rules, Studio workflows, frontend resolution, and caching.
+  For the shipped APIs and examples, use the [redirect guide](redirects.md).
 
 ## Shared terms
 

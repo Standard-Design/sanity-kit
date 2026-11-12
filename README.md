@@ -1,7 +1,7 @@
 # `@standard-design/sanity-kit`
 
 Reusable Sanity tools for public configuration, data validation, images, links,
-React Router pages and preview, and sitemaps. The alpha.6 release candidate also includes
+React Router pages and preview, and sitemaps. Alpha.6 also includes
 Studio Pages navigation, URL editing, collection settings, and redirects.
 
 Use individual helpers or combine them into a React Router integration. The kit
@@ -13,11 +13,10 @@ Start with the [quick start](#quick-start) for the setup sequence. Use the
 and detailed subsystem guides. The [extraction record](docs/extraction-provenance.md)
 explains where the package came from and what changed during extraction.
 
-For the candidate Studio and routing APIs, see [Pages](docs/pages.md), the
+For the Studio and routing APIs, see [Pages](docs/pages.md), the
 [URL field](docs/url-field.md), [collection routing](docs/collection-routing-api.md),
-and [redirect handling](docs/redirects.md). These are implemented in this checkout
-and checked from compiled tarballs; they are not in npm alpha.5. Consumers own
-their Studio and application routes. The kit supplies installers and helpers,
+and [redirect handling](docs/redirects.md). Consumers own their Studio and
+application routes. The kit supplies installers and helpers,
 not a Studio application or hosting service.
 
 ## Table of contents
@@ -39,41 +38,27 @@ not a Studio application or hosting service.
 
 ## Installation and release status
 
-This checkout prepares **0.1.0-alpha.6**, adding Pages and routing tools. It is
-not yet published. See the [alpha.5 upgrade guide](docs/prerelease.md#upgrading-from-alpha5)
-for how to adopt the candidate; the published version below remains alpha.5.
-
-[`@standard-design/sanity-kit@0.1.0-alpha.5`](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.5)
+[`@standard-design/sanity-kit@0.1.0-alpha.6`](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.6)
 is published on npm, with matching assets in the
-[GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.5).
-Alpha.5 excludes deprecated client `8.6.0`, preserves client 7 support,
-and bundles the improved documentation. Its runtime APIs and behavior are unchanged
-from alpha.4. The newer APIs described below require a build of this checkout.
-See the [alpha.4 upgrade checklist](docs/prerelease.md#upgrading-from-alpha4).
+[GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.6).
+See the [alpha.5 upgrade guide](docs/prerelease.md#upgrading-from-alpha5) to adopt
+Pages or the new routing tools.
 
 Pin the exact version when integrating:
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.5
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.6
 ```
 
-The existing [alpha.4 npm release](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.4)
-and [GitHub assets](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.4)
-remain available. These are alpha releases, not stable-release promises. npm
-assigned both `alpha` and `latest` on first publication despite `--tag alpha`,
-and rejected removal of `latest`. As of October 25, 2026, `alpha` points to
-alpha.5 while `latest` remains on alpha.4. Prefer an exact version over an
-unqualified install. See the [release status](docs/prerelease.md#release-status) for the
-verification record and tag caveat; a source version bump is not a publication.
+Both npm tags, `latest` and `alpha`, point to alpha.6 as of November 12, 2026.
+An unqualified install gets alpha.6, which is still a prerelease. Pin the exact
+version for reproducible installs. See the [release status](docs/prerelease.md#release-status)
+for verification and earlier releases.
 
 You can also install the reviewed compiled tarball from the release assets;
 see [artifact verification and handoff](docs/prerelease.md#verification-and-handoff).
 Direct Git dependencies are not supported: the installable package lives in the
 compiled distribution, not the repository root.
-
-Alpha.5 includes the navigation and status corrections made after alpha.4.
-These repository docs also correct alpha.5's preparation-time publication wording.
-Published tarballs, their bundled documentation, and their checksums are unchanged.
 
 ### Migrating from the old scope
 
@@ -250,7 +235,7 @@ internal compiled paths are not public APIs.
 The [documentation index](docs/README.md) explains shared terms and application
 ownership. Each subsystem guide covers its options, failure behavior, and tests.
 
-The following additions are available in this checkout, **not npm alpha.5**:
+Alpha.6 adds these capabilities:
 
 | Entry point            | Added capabilities                                                                                                                                                                                                                                     |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
@@ -265,8 +250,8 @@ The Studio installers work in a consumer-owned Studio; the URL field also works
 without Pages. Installing collection settings also installs checked publishing,
 subject to native permissions, validation, and action availability. Request helpers need the
 consumer's routing and optional cache integration. See the
-[release checklist](docs/pages-release-plan.md) for remaining acceptance work.
-No version bump, tag, or package publication is implied by these exports.
+[Pages release plan](docs/pages-release-plan.md) for the acceptance record and
+follow-up work.
 
 ## Development and verification
 

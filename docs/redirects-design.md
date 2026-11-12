@@ -1,6 +1,9 @@
 # Redirect subsystem — design proposal
 
-Status: proposed on October 31, 2026. **Not released.** A private
+This proposal records the redirect design as it stood during development. For
+the APIs that shipped in alpha.6, use the [redirect guide](redirects.md).
+
+The design work started on October 31, 2026. During development, a private
 [snapshot validator and lookup](redirects.md) is implemented and approved. A private
 published-rule loader is also approved. A private
 [single-page publication integration](url-field.md#editing-published-pages) is

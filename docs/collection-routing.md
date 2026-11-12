@@ -14,7 +14,7 @@ This version supports one website per configured Sanity project and dataset.
 There is no separate website discriminator in the configuration or documents.
 Supporting several websites in the same dataset is deferred.
 
-The read APIs are public in this checkout: `createCollectionRouting` from
+Alpha.6 includes two public read APIs: `createCollectionRouting` from
 `@standard-design/sanity-kit/url` resolves supplied documents, and
 `createCollectionRoutingLoader` from `/url/settings` reads them with the
 application's client. See the [consumer API guide](collection-routing-api.md).

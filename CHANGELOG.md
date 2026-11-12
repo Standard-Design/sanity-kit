@@ -1,11 +1,12 @@
 # Changelog
 
-## 0.1.0-alpha.6 — release candidate
+## 0.1.0-alpha.6 — November 12, 2026
 
-Prepared for review; not yet tagged or published. This release adds Pages, URL
-editing, collection routing, and redirects to the existing kit. Consumers keep
-their own Studio and website. These additions are not included in npm alpha.5.
-See the [alpha.5 upgrade guide](docs/prerelease.md#upgrading-from-alpha5).
+Published on [npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.6)
+and [GitHub](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.6).
+This release adds Pages, URL editing, collection routing, and redirects.
+Consumers keep their own Studio and website. See the
+[alpha.5 upgrade guide](docs/prerelease.md#upgrading-from-alpha5).
 
 ### Studio editing
 
@@ -89,7 +90,8 @@ See the [alpha.5 upgrade guide](docs/prerelease.md#upgrading-from-alpha5).
 - Keep planners, writers, native action factories, session owners, and receipts
   private. Release-aware URL moves, populated-folder removal, document-free
   indexes, multisite routing, arbitrary template parameters, and wildcard
-  redirects remain deferred. See the Pages release checklist before publishing.
+  redirects remain deferred. See the [Pages release plan](docs/pages-release-plan.md)
+  for the acceptance record and follow-up work.
 
 ## 0.1.0-alpha.5
 

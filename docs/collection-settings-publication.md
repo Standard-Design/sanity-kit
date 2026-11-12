@@ -4,12 +4,11 @@ This integration connects the collection settings form to the guarded
 writers. It chooses the right workflow when an editor clicks **Publish**: publish
 ordinary settings directly, or review a change that moves existing item URLs.
 
-Import `withCollectionRoutingSettings` from `@standard-design/sanity-kit/studio`.
+Import `withCollectionRoutingSettings` from `@standard-design/sanity-kit/studio`
+in alpha.6.
 Installing the wrapper automatically installs checked Publish for ordinary
 settings drafts. Native action availability, permissions, validation, and current
-document state still decide whether an editor can publish. There is no separate
-publishing mode. The installer is available in this checkout; it does not
-announce a package release or replace broader consumer acceptance.
+document state still decide whether an editor can publish.
 
 ## What an editor does
 

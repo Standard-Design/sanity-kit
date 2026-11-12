@@ -1,19 +1,36 @@
 # Prerelease integration
 
-Version `0.1.0-alpha.5` of `@standard-design/sanity-kit` is published on npm
-and GitHub. It excludes deprecated client `8.6.0` and includes the improved
-README and guides. Original code uses the [MIT license](../LICENSE);
+Version `0.1.0-alpha.6` of `@standard-design/sanity-kit` is published on npm
+and GitHub. It adds Pages, URL editing, collection routing, and redirects.
+Original code uses the [MIT license](../LICENSE);
 [third-party notices](../THIRD_PARTY_NOTICES.md) describe adapted code and
 Standard Design's MIT interpretation of conflicting Tinloof license declarations.
 Upstream confirmation remains a follow-up, not a release prerequisite.
 
-Alpha.5's API is unchanged from alpha.3, which introduced breaking changes to request
-context naming and loader validation/types, as well as static link fragments and
-expanded documentation. Follow the [upgrade checklist](#upgrading-from-alpha2)
-when replacing alpha.2. Use the approved artifact for the intended revision;
-a source version bump does not itself tag, push, or publish a release.
+Follow the [alpha.5 upgrade guide](#upgrading-from-alpha5) to install alpha.6
+and adopt the new features. Use the checklists below if upgrading from an
+earlier release.
 
 ## Release status
+
+Alpha.6 was published on November 12, 2026, to
+[npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.6)
+and [GitHub](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.6).
+It was built from commit `ca1c65f1a9234bd3a1e8f7c40bd6fba6a65bc465`.
+The npm download matched the reviewed GitHub tarball byte for byte. A clean
+registry install with client `8.6.1` passed strict TypeScript and runtime checks
+for URL resolution, collection settings, redirects, and folder imports without
+installing Studio, React, or React Router. The
+[release-tag CI run](https://github.com/Standard-Design/sanity-kit/actions/runs/43258169792)
+passed verification, coverage, and packaging. GitHub assets include the tarball,
+`manifest.json`, and `SHA256SUMS`.
+
+Both `alpha` and `latest` point to alpha.6 as of November 12, 2026.
+The release is still a prerelease. Pin an exact version for repeatable installs.
+Inspect both tags after future releases; publishing under `alpha` does not
+automatically move an existing `latest` tag.
+
+### Earlier releases
 
 Alpha.5 is available on [npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.5)
 and as a [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.5),
@@ -31,33 +48,19 @@ matched the reviewed tarball byte-for-byte; a clean registry installation passed
 runtime and strict minimal-consumer TypeScript checks. GitHub assets include the
 tarball, `manifest.json`, and `SHA256SUMS`.
 
-Publication explicitly used `--tag alpha`, but npm also assigned `latest` on
-first publication. An authenticated removal attempt returned HTTP 400. Alpha.5
-publication updated only `alpha`. As of October 25, 2026, `alpha` points to
-alpha.5 and `latest` remains on alpha.4; `latest` is not a stability guarantee.
-Pin the exact approved version for reproducible integration and inspect all tags
-after future publications rather than assuming they move together.
+The first npm publication assigned both tags despite `--tag alpha`. Alpha.5
+updated only `alpha`, leaving `latest` at alpha.4 until it was moved separately
+after alpha.6 was verified. Each published tarball contains the documentation
+from its own release commit.
 
-Alpha.5 includes the navigation and status corrections made after alpha.4.
-These repository docs also correct alpha.5's preparation-time publication wording.
-Published tarballs, their bundled documentation, and their checksums are unchanged.
-The registry and GitHub release records establish publication; a source version
-bump or successful dry-run alone does not.
+## Alpha.6 APIs
 
-## Alpha.6 release candidate
-
-This checkout prepares `0.1.0-alpha.6`; it has not been tagged or published.
-The npm registry still lists alpha.5 under `alpha` and alpha.4 under `latest`
-(checked November 11, 2026). Alpha.6 is not present in the registry.
-
-This candidate exports Pages and Studio installers through `/studio`, pure
+Alpha.6 exports Pages and Studio installers through `/studio`, pure
 URL/collection resolution through `/url`, settings reads through `/url/settings`,
 HTTP redirects through `/redirect`, and additive import synchronization through
 `/folders/server`. `/react-router/server` additionally
-exports redirect middleware. These additions are **not in npm alpha.5** and are
-not activated by installing that historical version.
+exports redirect middleware. These APIs require alpha.6.
 
-Use a reviewed build from the intended commit when testing these additions.
 Consumers own the Studio configuration, schemas, application routes, credentials,
 and cache backend. Start with [Pages](pages.md), [standalone URL fields](url-field.md),
 [collection settings installation](collection-settings-publication.md), and
@@ -77,11 +80,7 @@ checks passed with the measured list renderer.
 No separate restricted account was available, so its live permission behavior
 remains unverified despite automated coverage. Deployed cache behavior belongs
 to the consuming application and must be verified there. The
-[Pages release checklist](pages-release-plan.md) records the remaining release gates.
-
-A successful local build or package check does not publish these APIs. The next
-version, tag, release notes, and artifact still require the normal review and
-release workflow. No historical alpha artifact is replaced.
+[Pages release plan](pages-release-plan.md) records acceptance and follow-up work.
 
 ## Upgrading from alpha.5
 
@@ -89,9 +88,8 @@ Alpha.6 keeps the existing package name and application entry points. Pages and
 its routing tools are additions you install explicitly; upgrading does not
 replace your Studio or rewrite existing documents.
 
-1. After release approval, install the exact alpha.6 artifact in the frontend
-   and Studio/codegen workspaces that use the kit. Until it is published, use the
-   reviewed compiled tarball rather than an npm install command for alpha.6.
+1. Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.6` in the frontend
+   and Studio/codegen workspaces that use the kit.
 2. Keep the existing Node 24+ and client `^7.27.0 || ^8.6.1` requirements. A Studio
    using `/studio` must use the tested Sanity **6.17.0** version and install its
    optional peers, including `@tanstack/react-virtual` (`^3.14.22`). See the
@@ -211,7 +209,7 @@ does not disable strict checking of application code. It may download dependenci
 Temporary consumers are retained
 under the system temporary directory and their location is printed for inspection.
 
-For the checkout-only APIs, package checks also install `/url/settings` and
+For the APIs introduced in alpha.6, package checks also install `/url/settings` and
 `/redirect` without Studio or React Router. Folder-import checks install
 `/folders/server` with supported client 7 and 8 versions, exercise access checks
 and explicit reruns after an uncertain result, and execute a server bundle
@@ -252,7 +250,7 @@ Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
 
 ```sh
-pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.5.tgz
+pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.6.tgz
 ```
 
 Keep that exact file accessible to CI and other developers and commit the
@@ -294,10 +292,10 @@ For each future publication:
    inspect all dist-tags and report unexpected assignments. Install the registry
    package in a clean consumer before handing it off.
 
-Consumers can install the published alpha.5 version:
+Consumers can install the published alpha.6 version:
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.5
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.6
 ```
 
 The checked-in CI workflow does not publish, manage npm credentials, or configure
@@ -370,7 +368,7 @@ Node 24+ is required. This prerelease targets ESM, React 19.2.7+ and React Route
 | `/react-router/visual-editing`     | React, React DOM, React Router, `@sanity/visual-editing` and its peers |
 | `/validation/zod`                  | Zod                                                                    |
 
-Additional checkout-only entries require:
+Additional entries introduced in alpha.6 require:
 
 | Import                                          | Required peers in addition to `@sanity/client`                                                                                                             |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |

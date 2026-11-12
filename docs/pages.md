@@ -1,11 +1,10 @@
-# Pages Studio integration — in development
+# Pages Studio integration
 
 Pages is a page-browser plugin for an application's existing Sanity Studio. It helps editors find a
 page, preview it, and open its document without leaving Sanity's native
 Presentation tool.
 
-**Pages is implemented in this checkout, not npm alpha.5.** Local builds export
-`pagesTool()` and the companion Studio installers from
+Alpha.6 exports `pagesTool()` and the companion Studio installers from
 `@standard-design/sanity-kit/studio`. Editors can browse pages and collections,
 create pages from registered templates, manage saved folders, and review folder
 renames. The [URL field](url-field.md) supports draft editing and checked
@@ -13,10 +12,8 @@ publishing with optional redirects. [Collection settings](collection-settings-pu
 control editable names/prefixes, and [redirect management](redirects.md) uses native
 Studio forms and actions.
 
-These are supported import boundaries for the checkout, not a release announcement.
-Consumer installation tests and basic live workflows have passed; broader roles,
-concurrency, recovery, navigation/performance, and release acceptance remain in
-the [release checklist](pages-release-plan.md).
+See the [Pages release plan](pages-release-plan.md) for what was verified and
+what to check when integrating Pages in your own Studio and website.
 
 ## Add the plugin to your Studio
 
@@ -25,7 +22,7 @@ Sanity, owns `sanity.config.ts`, defines schemas and templates, and deploys the
 Studio. The kit adds a plugin to that installation. The Studio in this repository
 is only a development fixture, not an application to copy into a consumer.
 
-This example targets a local build of the unreleased checkout:
+For example, register Pages in your Studio configuration:
 
 ```ts
 import { defineConfig } from 'sanity'
@@ -210,7 +207,7 @@ in the fixture; this does not claim all upstream declarations pass strict librar
 checking. The repository still has one development-only peer warning:
 `@sanity/workflow-blueprint` requests TypeScript 6 or 7, while this repository uses
 5.9.3. That is not a reason to require TypeScript in every consuming application;
-the later compatibility matrix must resolve or explicitly bound it before release.
+the alpha.6 peer requirements are listed in the package manifest.
 
 ## What each part owns
 
@@ -464,11 +461,10 @@ uses Sanity's own preview/version subscriptions in addition to the kit's shared
 navigation listener. Native schema preview customization is not yet used for row
 titles: those still follow the registered `titleField` mapping.
 
-This is not the full release gate. Sorting/filtering and larger-list performance
-remain part of navigator acceptance; add virtualization only if measurements
-justify it. Empty-folder removal and reviewed rename are implemented. Available
-actions connect to their actual workflows rather than placeholders. The [URL field](url-field.md) also has its own explicit
-folder-creation flow.
+Large navigator lists render the visible rows and a small buffer around them.
+See the [navigator acceptance record](navigator-acceptance.md) for performance
+measurements. Editors can remove empty folders and review folder renames. The
+[URL field](url-field.md) also lets editors create folders.
 
 ## Shared live-data loading
 
@@ -1164,12 +1160,10 @@ operation; collection settings have their own checked publishing workflow.
 
 ### Remaining scope and release checks
 
-The current implementation includes collection settings publication, folder
-rename/removal, redirect management, and public application/Studio imports.
-The [release plan](pages-release-plan.md) owns the remaining readiness checklist:
-combined consumer installation, broader live permission and validation cases,
-concurrent edits, uncertain-response recovery, navigation/performance acceptance,
-and final artifact preparation.
+Alpha.6 includes collection settings publishing, folder rename and removal,
+redirect management, and public imports for applications and Studio.
+The [release plan](pages-release-plan.md) records the completed checks and what
+still needs testing in a consuming app.
 
 Deferred features include release-aware URL moves, deleting populated folders,
 document-free collection index entries, multisite routing, arbitrary creation
@@ -1181,9 +1175,9 @@ work; subsystem guides describe implemented behavior.
 ## Where to read the implementation and evidence
 
 The source paths and fixture links below refer to a repository checkout at the
-same revision. Local package builds include the compiled plugin and this guide,
-but not the test fixture. Only `/studio` is a supported Studio import; compiled
-implementation paths are private. Nothing in this slice publishes a release.
+same revision. The published package includes the compiled plugin and this guide.
+The test fixture lives in the repository. Use `/studio` for Studio imports;
+compiled implementation paths are private.
 
 - `src/url/registry.ts`: shared configuration and pathname checks; no Studio
   runtime import and no database writes. `src/studio/pages/registry.ts` is the

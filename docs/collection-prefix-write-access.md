@@ -146,7 +146,7 @@ The adapter does not lock the dataset. The writer's revision guards protect its
 settings and changed redirects, while unrelated concurrent URL writes can still
 race the final inventory read. See the writer guide for that distinction.
 
-## Verification still needed
+## Verification and limits
 
 Automated checks cover native validation, scoped permission results, read-only
 fields and nested values, exact receipt access, stale redirects, cancellation,
@@ -155,7 +155,8 @@ native Publish permission sequence. Live checks on November 10, 2026 exercised
 the adapter through same-prefix publishing and repeated prefix moves. They also
 exposed and verified the fix for Sanity's root `_system` metadata.
 
-The first-ever settings publish, custom roles, denied grants, wider validation
-cases, and failure/recovery behavior still need live acceptance before release.
-See the [recorded flows](collection-settings-publication.md#current-acceptance-boundary)
-for the scope of the completed checks.
+Later live tests covered first settings publishing and recovery after a lost
+response. Custom roles and denied grants have automated coverage; live testing
+with a restricted account remains open. See the
+[Pages acceptance record](pages-release-acceptance.md) for the scope of the
+completed checks.

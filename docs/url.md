@@ -1,12 +1,8 @@
 # Shared URL resolution
 
-Import from `@standard-design/sanity-kit/url`.
-
-This entry point is available in local builds on the Pages development branch,
-not in the published `0.1.0-alpha.5` package. The fixed-prefix resolver API was
-approved on October 31, 2026, along with the separate internal authoring
-preparation layer. The conflict-checking and native validation adapter described
-below are also approved. All remain unreleased.
+Import from `@standard-design/sanity-kit/url`, introduced in alpha.6.
+The authoring, conflict-checking, and native validation helpers described below
+support the Studio integrations internally.
 
 ## What this does
 
