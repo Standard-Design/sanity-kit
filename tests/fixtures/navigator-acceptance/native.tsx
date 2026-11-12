@@ -5,17 +5,25 @@ import type { SanityClient } from '@sanity/client'
 export const fixture = {
 	documents: [] as Record<string, unknown>[],
 	queries: 0,
+	queryStarts: 0,
+	pendingQueries: 0,
 	queryMilliseconds: 0,
 }
 const client = {
 	async fetch(query: string, params: Record<string, unknown>) {
 		const start = performance.now()
-		const result: unknown = await (
-			await evaluate(parse(query), { dataset: fixture.documents, params })
-		).get()
-		fixture.queries += 1
-		fixture.queryMilliseconds += performance.now() - start
-		return result
+		fixture.queryStarts += 1
+		fixture.pendingQueries += 1
+		try {
+			const result: unknown = await (
+				await evaluate(parse(query), { dataset: fixture.documents, params })
+			).get()
+			fixture.queries += 1
+			return result
+		} finally {
+			fixture.pendingQueries -= 1
+			fixture.queryMilliseconds += performance.now() - start
+		}
 	},
 	listen: () => ({ subscribe: () => ({ unsubscribe() {} }) }),
 	withConfig: () => client,

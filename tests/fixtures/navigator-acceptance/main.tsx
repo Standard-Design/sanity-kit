@@ -13,10 +13,13 @@ import { createPagesDataStore } from '../../../src/studio/pages/data-store.js'
 import { PagesBrowser } from '../../../src/studio/pages/browser.js'
 import { PagesHeader } from '../../../src/studio/pages/header.js'
 import { fixture } from './native.js'
+import { createMeasurements } from './measurements.js'
 
 type Scene = 'labels' | 'collection' | 'ordinary'
-const scene = (new URLSearchParams(location.search).get('scene') ??
-	'labels') as Scene
+const parameters = new URLSearchParams(location.search)
+const scene = (parameters.get('scene') ?? 'labels') as Scene
+// Keep comparison scenes reproducible; unsupported values use the existing default.
+const ordinaryCount = parameters.get('count') === '100' ? 100 : 1000
 const long = 'exceptionally-long-folder-name-with-no-shortened-path-segments'
 const page = (id: string, pathname: string, title = id) => ({
 	_id: id,
@@ -39,7 +42,7 @@ if (scene === 'labels') {
 			),
 		)
 } else if (scene === 'ordinary') {
-	for (let index = 0; index < 1000; index++)
+	for (let index = 0; index < ordinaryCount; index++)
 		fixture.documents.push(
 			page(
 				`page-${String(index).padStart(4, '0')}`,
@@ -56,10 +59,113 @@ for (let index = 0; index < (scene === 'collection' ? 5000 : 8); index++)
 		title: `Post ${index}`,
 		pathname: { current: `/journal/post-${index}` },
 	})
-const metrics = {
-	commits: 0,
-	renderMilliseconds: 0,
-	largestCommitMilliseconds: 0,
+const measurements = createMeasurements(
+	() => performance.now(),
+	() => ({
+		started: fixture.queryStarts,
+		completed: fixture.queries,
+		pending: fixture.pendingQueries,
+		milliseconds: fixture.queryMilliseconds,
+	}),
+)
+measurements.reset('Initial load', true)
+const actions = [
+	'Initial load',
+	'Tree to search',
+	'Search update',
+	'Clear search',
+	'Scroll',
+	'Other interaction',
+]
+
+/** Reporting owns its state so reading a sample cannot rerender the navigator. */
+function MeasurementPanel({ width }: { width: number }) {
+	const [label, setLabel] = useState('Initial load')
+	const [report, setReport] = useState(
+		'Initial load is recording. Once loading finishes, read within 20 seconds of the reload.',
+	)
+	const measure = () => {
+		const sample = measurements.finish()
+		if (!sample) return
+		const root =
+			document.querySelector('[role=dialog][aria-label="Choose page"]') ??
+			document.querySelector('[data-harness-navigator]')!
+		const scroll = root.querySelector<HTMLElement>('[data-pages-scroll]')
+		const ordinaryRows = root.querySelectorAll(
+			'button[aria-label^="Page "]',
+		).length
+		if (
+			sample.kind === 'initial' &&
+			scene === 'ordinary' &&
+			ordinaryRows !== ordinaryCount
+		) {
+			sample.valid = false
+			sample.reasons.push('The complete ordinary-page tree was not rendered.')
+		}
+		setReport(
+			JSON.stringify(
+				{
+					scene,
+					ordinaryCount: scene === 'ordinary' ? ordinaryCount : undefined,
+					build: document
+						.querySelector('meta[name=harness-mode]')
+						?.getAttribute('content'),
+					width,
+					...sample,
+					buttons: root.querySelectorAll('button').length,
+					ordinaryRows,
+					itemRows: root.querySelectorAll('button[aria-label^="Post "]').length,
+					scrollWidth: scroll?.scrollWidth,
+					clientWidth: scroll?.clientWidth,
+					scrollTop: scroll?.scrollTop,
+					scrollHeight: scroll?.scrollHeight,
+					viewportHeight: scroll?.clientHeight,
+				},
+				null,
+				2,
+			),
+		)
+	}
+	return (
+		<section style={{ maxWidth: 560 }} aria-label="Measurement controls">
+			<label>
+				Measurement action{' '}
+				<select
+					value={label}
+					onChange={(event) => setLabel(event.currentTarget.value)}
+				>
+					{actions.map((action) => (
+						<option key={action}>{action}</option>
+					))}
+				</select>
+			</label>
+			<div style={{ display: 'flex', gap: 8, padding: '12px 0' }}>
+				<button
+					disabled={label === 'Initial load'}
+					onClick={() => {
+						measurements.reset(label)
+						setReport(
+							`Recording: ${label}. Perform one action, then select Measure within 20 seconds.`,
+						)
+					}}
+				>
+					Reset measurements
+				</button>
+				<button onClick={measure}>Measure</button>
+			</div>
+			<p>
+				Measure stops the sample. Reload for initial load; reset before every
+				other action. Pending requests or background refreshes invalidate
+				interaction samples.
+			</p>
+			<pre
+				aria-label="Measurements"
+				style={{ margin: 0, whiteSpace: 'pre-wrap' }}
+			>
+				{report}
+			</pre>
+		</section>
+	)
 }
 const theme = buildTheme()
 const noop = () => {}
@@ -118,38 +224,6 @@ function App() {
 		renamePending: false,
 		showFolderCreate: noop,
 	}
-	const [report, setReport] = useState(
-		'Select Measure after an interaction settles.',
-	)
-	const measure = () => {
-		const root =
-			document.querySelector('[role=dialog][aria-label="Choose page"]') ??
-			document.querySelector('[data-harness-navigator]')!
-		const scroll = root.querySelector<HTMLElement>('[data-pages-scroll]')
-		setReport(
-			JSON.stringify(
-				{
-					scene,
-					build: document
-						.querySelector('meta[name=harness-mode]')
-						?.getAttribute('content'),
-					width,
-					metrics,
-					queries: fixture.queries,
-					queryMilliseconds: Math.round(fixture.queryMilliseconds),
-					buttons: root.querySelectorAll('button').length,
-					itemRows: root.querySelectorAll('button[aria-label^="Post "]').length,
-					scrollWidth: scroll?.scrollWidth,
-					clientWidth: scroll?.clientWidth,
-					scrollTop: scroll?.scrollTop,
-					scrollHeight: scroll?.scrollHeight,
-					viewportHeight: scroll?.clientHeight,
-				},
-				null,
-				2,
-			),
-		)
-	}
 	return (
 		<ThemeProvider theme={theme} scheme="dark">
 			<Card
@@ -162,7 +236,10 @@ function App() {
 					font: '14px system-ui',
 				}}
 			>
-				<h1 style={{ fontSize: 18 }}>Navigator acceptance — {scene}</h1>
+				<h1 style={{ fontSize: 18 }}>
+					Navigator acceptance — {scene}
+					{scene === 'ordinary' ? ` (${ordinaryCount} pages)` : ''}
+				</h1>
 				<p>
 					Real kit rows, Sanity UI, menus and picker. Synthetic
 					hooks/data/status; no writes. Local GROQ time is not network latency.
@@ -170,7 +247,8 @@ function App() {
 				<nav>
 					<a href="?scene=labels">Extreme labels</a> ·{' '}
 					<a href="?scene=collection">5,000 collection items</a> ·{' '}
-					<a href="?scene=ordinary">1,000 ordinary pages</a>
+					<a href="?scene=ordinary&count=100">100 ordinary pages</a> ·{' '}
+					<a href="?scene=ordinary&count=1000">1,000 ordinary pages</a>
 				</nav>
 				<div style={{ display: 'flex', gap: 8, padding: '12px 0' }}>
 					{[240, 280, 320].map((size) => (
@@ -180,18 +258,6 @@ function App() {
 					))}
 					<button onClick={() => setNavigatorEnabled((v) => !v)}>
 						Switch sidebar / picker
-					</button>
-					<button onClick={measure}>Measure</button>
-					<button
-						onClick={() => {
-							metrics.commits = 0
-							metrics.renderMilliseconds = 0
-							metrics.largestCommitMilliseconds = 0
-							fixture.queries = 0
-							fixture.queryMilliseconds = 0
-						}}
-					>
-						Reset measurements
 					</button>
 				</div>
 				<div style={{ display: 'flex', alignItems: 'flex-start', gap: 24 }}>
@@ -207,14 +273,9 @@ function App() {
 						<BrowserContext.Provider value={value}>
 							<Profiler
 								id="navigator"
-								onRender={(_id, _phase, actual) => {
-									metrics.commits++
-									metrics.renderMilliseconds += actual
-									metrics.largestCommitMilliseconds = Math.max(
-										metrics.largestCommitMilliseconds,
-										actual,
-									)
-								}}
+								onRender={(_id, phase, actual, _base, _start, commitTime) =>
+									measurements.record(phase, actual, commitTime)
+								}
 							>
 								<PagesHeader
 									{...({
@@ -227,12 +288,7 @@ function App() {
 							</Profiler>
 						</BrowserContext.Provider>
 					</div>
-					<pre
-						aria-label="Measurements"
-						style={{ margin: 0, whiteSpace: 'pre-wrap', maxWidth: 480 }}
-					>
-						{report}
-					</pre>
+					<MeasurementPanel width={width} />
 				</div>
 			</Card>
 		</ThemeProvider>

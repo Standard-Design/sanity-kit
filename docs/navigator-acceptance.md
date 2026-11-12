@@ -245,3 +245,49 @@ switches from the folder tree to a flat list, which mounts matching rows again.
 Initial loading and large tree/search transitions retain the scale limitation
 recorded above. They still need evaluation in the combined consumer acceptance;
 this change adds no virtualization and does not claim to solve those costs.
+
+## Repeating bounded measurements
+
+The isolated harness now offers ordinary-page scenes with **100 or 1,000 pages**.
+Start the production profiling server with
+`HARNESS_MODE=production node tests/fixtures/navigator-acceptance/server.mjs`, then
+open `http://localhost:3346/?scene=ordinary&count=100` or
+`http://localhost:3346/?scene=ordinary&count=1000`. Only these counts are accepted;
+a missing or different count uses 1,000. The heading and report show the active
+count. These are comparison cases, not supported-size limits.
+
+Each reload starts an **Initial load** sample. Wait for the ordinary-page tree
+to appear, then select **Measure within 20 seconds of the reload**. Measure
+stops the sample and displays its report. The report flags an incomplete
+ordinary-page tree or pending requests; it allows the data requests needed for
+initial loading. Reload to repeat initial loading; Reset is disabled while
+Initial load is selected, because resetting a loaded view is not an initial mount.
+
+For an interaction, first prepare its starting state, choose the matching
+**Measurement action**, and select **Reset measurements**. Perform one action,
+then select **Measure** within 20 seconds. For example:
+
+- **Tree to search:** start with empty search, then enter `P`.
+- **Search update:** start with `P` already loaded, then change it to `Pa`.
+- **Clear search:** start with search results, then clear the search.
+- **Scroll:** start with the desired list loaded, then scroll once.
+
+Report state is separate from navigator state, so reading or resetting a sample
+does not render the navigator. Each report includes its label, elapsed time,
+individual React commits, total and largest render times, rendered row counts,
+query starts/completions, and pending requests at both boundaries. Query counters
+remain cumulative internally; reports show the difference within the sample.
+A failed request still counts as a query start.
+
+A sample is marked invalid if it lasts over 20 seconds, exceeds 200 recorded
+commits, records no render, or starts/ends with pending requests. Interaction
+samples are also invalid if any request starts during the action. This catches
+the real data session's 60-second background reconciliation without disabling
+it. Invalid samples are diagnostic evidence, not usable timing comparisons.
+
+Repeat each action separately at each count and retain the reports, including
+invalid attempts. Compare several valid samples rather than a single run. Keep
+sidebar width and browser conditions the same. These controls improve
+repeatability; they do not measure input-to-paint latency or replace acceptance
+in a consumer Studio. The new controls have automated checks; the 100-versus-
+1,000-page mount comparison still needs to be run in the browser.

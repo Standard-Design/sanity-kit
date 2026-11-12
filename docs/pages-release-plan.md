@@ -11,7 +11,11 @@ the approval handoff. Remove finished work from the remaining list; retain its
 commit in the progress record below. A completed implementation remains separate
 from a reviewed, committed slice and from live acceptance.
 
-Last approved slice: documentation reconciliation (`2d10e96`, November 11, 2026), committed and pushed. Folder-import public API (`dfcaf4a`) is also committed and pushed. Navigator browser acceptance (`b11a35f`) is also committed and pushed. Public Studio integrations (`c3df9d5`) include automatic checked settings Publish and singular/plural settings navigation helpers. Routing (`dc6902d`) and redirect (`b8fd7ee`) API commits are also pushed with passing CI.
+Last approved slice: navigator row rendering (`d5b9dbf`, November 11, 2026),
+committed and pushed. Documentation (`2d10e96`), folder-import API (`dfcaf4a`),
+and navigator baseline acceptance (`b11a35f`) are also committed and pushed.
+The public Studio, routing, and redirect API checkpoints are complete.
+
 The preceding collection-prefix review dialog/session is committed as `9be3dfb`.
 First and unchanged-prefix settings publishing (`96d50c7`) is also committed.
 The data reviewer (`ded9f47`), URL planner (`5ffe637`), classification (`adcd4db`),
@@ -19,18 +23,25 @@ and native write/schema authorization (`dd1b9ee`) are also approved, committed,
 and pushed. First and later publishing retain the shared prepare-and-recheck
 pattern.
 
-| Slice                                    | What remains                                                                                                                         | Status                                                                                                |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------- |
-| 1. Navigator rendering improvement       | Review the bounded row-rendering change and measured benefit for retained rows.                                                      | Staged; 69 tests and controlled browser comparison pass                                               |
-| 2. Combined live and consumer acceptance | Finish restricted-account, real revision-conflict, uncertain-response recovery, packed end-to-end, and large-list transition checks. | Automated coverage and prior live evidence recorded; controlled recovery harness preparation underway |
-| 3. Release preparation                   | Final verification, version/release notes, artifact review, CI, and explicit release approval.                                       | Pending preceding checks                                                                              |
+| Slice                                    | What remains                                                                                                                  | Status                                                                                                                                            |
+| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Combined live and consumer acceptance | Restricted-account, real revision-conflict, uncertain-response recovery, packed end-to-end, and large-list transition checks. | Next staged part: reproducible navigator measurement harness. Installed-package checks pass for `d5b9dbf`; remaining live evidence is incomplete. |
+| 2. Release preparation                   | Final verification, version/release notes, artifact review, CI, and explicit release approval.                                | Pending acceptance                                                                                                                                |
 
-Public APIs and the documentation reconciliation are committed. Navigator
-measurements now show less repeated rendering for retained rows. Initial mount
-and tree-to-search transitions still render large lists; their practical impact
-remains in combined consumer acceptance, not a claim resolved by memoization.
-The controlled recovery harness will supplement real-server/native-session
-checks; it cannot replace an actual restricted-account check.
+The navigator row improvement is committed. It reduces repeated rendering;
+initial mount and tree-to-search transitions remain part of acceptance. The next
+staged slice isolates measurement reporting and identifies contaminated samples,
+so those remaining checks can be repeated reliably. It adds no package runtime
+behavior and does not establish new browser timings.
+
+The full installed-tarball check passed for `d5b9dbf`: 299 files, six application
+profiles, SDK 7/8, Studio with Pages and standalone fields/settings, redirect
+transport, browser boundaries, and TypeGen. This is separate from a live
+installed-consumer workflow. A controlled recovery attempt reached draft saving,
+but browser views became blank/stale before publication could be tested. The
+normal fixture was restored and the disposable draft removed; all 23 existing
+snapshot records were unchanged. No recovery success is claimed. An actual
+restricted account remains necessary for that permission acceptance case.
 
 These are the remaining review checkpoints, not a promise that each must be one
 commit. Split a checkpoint only when implementation or review establishes a
