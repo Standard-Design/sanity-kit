@@ -77,6 +77,7 @@ for (const file of [
 	'docs/url-field.md',
 	'docs/pages.md',
 	'docs/pages-release-plan.md',
+	'docs/pages-release-acceptance.md',
 	'docs/collection-prefix-publication.md',
 	'docs/collection-prefix-access.md',
 	'docs/collection-prefix-write-access.md',
