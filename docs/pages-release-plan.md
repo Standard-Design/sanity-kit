@@ -11,8 +11,8 @@ the approval handoff. Remove finished work from the remaining list; retain its
 commit in the progress record below. A completed implementation remains separate
 from a reviewed, committed slice and from live acceptance.
 
-Last approved slice: navigator row rendering (`d5b9dbf`, November 11, 2026),
-committed and pushed. Documentation (`2d10e96`), folder-import API (`dfcaf4a`),
+Last approved slice: navigator measurement harness (`256d4e1`, November 11,
+2026), committed and pushed; verification, coverage, and package CI passed. Navigator row rendering (`d5b9dbf`) is also committed. Documentation (`2d10e96`), folder-import API (`dfcaf4a`),
 and navigator baseline acceptance (`b11a35f`) are also committed and pushed.
 The public Studio, routing, and redirect API checkpoints are complete.
 
@@ -23,25 +23,34 @@ and native write/schema authorization (`dd1b9ee`) are also approved, committed,
 and pushed. First and later publishing retain the shared prepare-and-recheck
 pattern.
 
-| Slice                                    | What remains                                                                                                                  | Status                                                                                                                                            |
-| ---------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Combined live and consumer acceptance | Restricted-account, real revision-conflict, uncertain-response recovery, packed end-to-end, and large-list transition checks. | Next staged part: reproducible navigator measurement harness. Installed-package checks pass for `d5b9dbf`; remaining live evidence is incomplete. |
-| 2. Release preparation                   | Final verification, version/release notes, artifact review, CI, and explicit release approval.                                | Pending acceptance                                                                                                                                |
+| Slice                                    | What remains                                                                                                                                            | Status                                                                                                                                                                                            |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Combined live and consumer acceptance | Finish native concurrent-edit UI and installed page-URL end-to-end checks; review large-list measurements and the unavailable restricted-account check. | Real-server revision rejection, installed native recovery, and installed website HTTP checks passed. Large-tree mount/transition evidence remains incomplete; no restricted account is available. |
+| 2. Release preparation                   | Final verification, version/release notes, artifact review, CI, and explicit release approval.                                                          | Pending acceptance                                                                                                                                                                                |
 
 The navigator row improvement is committed. It reduces repeated rendering;
-initial mount and tree-to-search transitions remain part of acceptance. The next
-staged slice isolates measurement reporting and identifies contaminated samples,
+initial mount and tree-to-search transitions remain part of acceptance. The committed
+measurement harness isolates reporting and identifies contaminated samples,
 so those remaining checks can be repeated reliably. It adds no package runtime
 behavior and does not establish new browser timings.
 
 The full installed-tarball check passed for `d5b9dbf`: 299 files, six application
 profiles, SDK 7/8, Studio with Pages and standalone fields/settings, redirect
-transport, browser boundaries, and TypeGen. This is separate from a live
-installed-consumer workflow. A controlled recovery attempt reached draft saving,
-but browser views became blank/stale before publication could be tested. The
-normal fixture was restored and the disposable draft removed; all 23 existing
-snapshot records were unchanged. No recovery success is claimed. An actual
-restricted account remains necessary for that permission acceptance case.
+transport, browser boundaries, and TypeGen. The same installed artifact also passed native settings first-publish and
+prefix-change recovery: withholding one successful response produced the unknown
+notice; close/reopen and same-tab reload kept the exact operation; checking its
+receipt restored Publish with a success toast and no repeated write. Installed
+website HTTP checks passed for saved redirects, HEAD, preview bypass, and data
+perspectives. See the [acceptance record](pages-release-acceptance.md) for scope.
+The user confirmed on November 11 that no separate restricted test account is
+available. Permission behavior has automated coverage, but restricted-account
+live acceptance remains unverified and must be disclosed in the release review.
+
+A live two-client check sent an outdated revision through the actual settings
+writer. Sanity rejected it with HTTP 409, preserving the published record and
+the second client’s draft edit. No receipt or partial write remained, and the
+disposable records were removed with revision checks. This establishes server
+revision protection, not two-browser conflict UI or restricted-role behavior.
 
 These are the remaining review checkpoints, not a promise that each must be one
 commit. Split a checkpoint only when implementation or review establishes a

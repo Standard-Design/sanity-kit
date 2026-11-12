@@ -291,3 +291,41 @@ sidebar width and browser conditions the same. These controls improve
 repeatability; they do not measure input-to-paint latency or replace acceptance
 in a consumer Studio. The new controls have automated checks; the 100-versus-
 1,000-page mount comparison still needs to be run in the browser.
+
+## Bounded browser follow-up — November 11, 2026
+
+The committed measurement harness was exercised with the production profiling
+build in Google Chrome for Testing. The following **individual samples** used
+the 100-page scene, the 280px sidebar setting, and closed DevTools:
+
+| Action                      | Total React render time | Largest commit | Commits | Sample duration |
+| --------------------------- | ----------------------: | -------------: | ------: | --------------: |
+| Empty search to `P`         |                  50.7ms |         35.0ms |       2 |           680ms |
+| Existing `P` search to `Pa` |                   2.5ms |          2.2ms |       2 |           658ms |
+
+Both reports were valid, with zero query starts/completions and zero pending
+requests at the start and end. Search showed the expected ordinary-page results.
+The sample duration includes the automation's time between Reset and Measure;
+it is not input latency. The render times measure React work only. These two
+samples illustrate the difference between mounting the flat results and updating
+rows that remain mounted; they are not a statistical benchmark.
+
+The remaining attempts did not produce a comparable mount result:
+
+- Two 100-page initial-load captures exceeded the 20-second window, at about
+  20.7 and 23.5 seconds, and were marked invalid.
+- Two further 100-page initial reports were valid by the recorder's checks,
+  with render totals of 86.6 and 81.0ms. However, docked DevTools reduced the
+  available page width and compressed the flexible sidebar. They are excluded
+  from the planned comparison at a consistent sidebar width.
+- The 1,000-page initial capture exceeded the window at about 33.9 seconds and
+  was marked invalid. Delayed or stale browser-control observations prevented a
+  timely reading. Subsequent action-selector interactions did not settle
+  reliably enough to capture a labeled transition sample.
+
+No new clear-search or scroll timing samples were completed in this follow-up.
+The earlier retained-row comparison remains separate evidence. Initial loading,
+the first search transition, clearing search, and scrolling at both sizes still
+need a repeatable comparison under consistent browser conditions. This pass does
+not establish a supported ordinary-page count, resolve the large-tree limitation,
+or justify adding virtualization without its own interaction acceptance.
