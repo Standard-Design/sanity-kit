@@ -11,15 +11,15 @@ entries sometimes describe states and limitations that later checks supersede.
 
 ## What is already established
 
-| Area                        | Automated evidence                                                                                                                                                                                    | Recorded live evidence                                                                                                                                                                                                                                    |
-| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| First settings publish      | The activation reviewer checks occupied URLs and access. The writer strictly creates settings and its receipt together, rejects a concurrent first publish, and preserves item documents.             | November 11: a temporary singleton published through native Studio, showed confirmation, and shared a transaction revision with its receipt. Test records were removed with revision checks.                                                              |
-| Name-only settings changes  | The normal action publishes the full settings draft without inventing a prefix move. Native validation, synchronization, permission, and read-only checks still apply.                                | November 10: the display name changed with the existing prefix, without a routine review dialog.                                                                                                                                                          |
-| Prefix moves                | Review captures complete bounded inventories. Both new redirects and updates to existing redirects are checked. Revisions, consent, and access are checked again before dispatch.                     | November 10: two moves succeeded. The second declined new redirects but still updated the existing alias directly. Item snapshots and revisions stayed unchanged.                                                                                         |
-| Conflicting redirect drafts | A draft or release affecting the move blocks it. Unrelated redirect drafts pointing to unchanged pages do not.                                                                                        | November 10: a temporary redirect draft blocked the move; the notice opened the exact conflicting redirect.                                                                                                                                               |
-| Permission decisions        | Scoped custom grants are checked without role names. Missing and unverified access remain distinct. Native grants and schema validation inspect the actual proposed documents and receipt identities. | Successful runs used the existing signed-in account. They do not establish behavior under a restricted custom role.                                                                                                                                       |
-| Concurrency and recovery    | Tests change reviewed records, revoke permissions, cancel requests, lose responses, reload controllers, and overlap operation identities. Unknown writes are not automatically repeated.              | November 11: two API clients exercised the actual settings writer; Sanity rejected a stale revision with HTTP 409 and preserved the competing edit. Installed native response-loss recovery also passed. Two-session native conflict UI remains separate. |
-| Website delivery            | Request tests cover GET/HEAD, exact matching, preview bypass, failures, query handling, and consumer-cache invalidation. Fixture HTTP tests use real local sockets with mocked Sanity reads.          | November 11: the published listener delivered the saved redirect and rendered the destination without overlays; preview bypass and published data isolation were checked.                                                                                 |
+| Area                        | Automated evidence                                                                                                                                                                                    | Recorded live evidence                                                                                                                                                                                                            |
+| --------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| First settings publish      | The activation reviewer checks occupied URLs and access. The writer strictly creates settings and its receipt together, rejects a concurrent first publish, and preserves item documents.             | November 11: a temporary singleton published through native Studio, showed confirmation, and shared a transaction revision with its receipt. Test records were removed with revision checks.                                      |
+| Name-only settings changes  | The normal action publishes the full settings draft without inventing a prefix move. Native validation, synchronization, permission, and read-only checks still apply.                                | November 10: the display name changed with the existing prefix, without a routine review dialog.                                                                                                                                  |
+| Prefix moves                | Review captures complete bounded inventories. Both new redirects and updates to existing redirects are checked. Revisions, consent, and access are checked again before dispatch.                     | November 10: two moves succeeded. The second declined new redirects but still updated the existing alias directly. Item snapshots and revisions stayed unchanged.                                                                 |
+| Conflicting redirect drafts | A draft or release affecting the move blocks it. Unrelated redirect drafts pointing to unchanged pages do not.                                                                                        | November 10: a temporary redirect draft blocked the move; the notice opened the exact conflicting redirect.                                                                                                                       |
+| Permission decisions        | Scoped custom grants are checked without role names. Missing and unverified access remain distinct. Native grants and schema validation inspect the actual proposed documents and receipt identities. | Successful runs used the existing signed-in account. They do not establish behavior under a restricted custom role.                                                                                                               |
+| Concurrency and recovery    | Tests change reviewed records, revoke permissions, cancel requests, lose responses, reload controllers, and overlap operation identities. Unknown writes are not automatically repeated.              | November 11: the actual writer rejected a stale revision with HTTP 409. Two native Studio tabs also proved that a competing edit makes an open review stale and disables Publish. Installed native response-loss recovery passed. |
+| Website delivery            | Request tests cover GET/HEAD, exact matching, preview bypass, failures, query handling, and consumer-cache invalidation. Fixture HTTP tests use real local sockets with mocked Sanity reads.          | November 11: the published listener delivered the saved redirect and rendered the destination without overlays; preview bypass and published data isolation were checked.                                                         |
 
 These checks do not need to be repeated merely because another slice is approved.
 Repeat the affected checks after a relevant code or configuration change, or when
@@ -90,14 +90,36 @@ two-native-session UI behavior. Local snapshots and results are recorded in
 `/private/tmp/sanity-kit-concurrency-acceptance-20261111.json`; this temporary file
 is not a shipped artifact.
 
-**Remaining native UI check:** use two independent Studio sessions on dedicated
-settings and redirects. In the first, prepare a prefix review. In the second,
-change the settings draft or an existing redirect that the review would update.
-Then try to confirm the original review. It must require a fresh review or report
-a conflict, and must preserve the second session's changes. Check document
-revisions and network requests, not only the dialog text. This combines the
-native UI with the server guards; two components sharing one browser's in-memory
-pending slot are a different case already covered by automated tests.
+**Native two-tab stale-review check passed on November 11, 2026.** Two Chrome
+for Testing tabs used the installed package and the empty test collection's new
+settings document, `kitProofRecoveryAcceptance-20261111d`. Native Publish first
+activated `/recovery-acceptance-20261111-d`; the published settings and activation
+receipt shared revision `099957aa-27d3-4175-ab2d-46ef80f0985d`.
+
+The first tab changed the prefix to
+`/recovery-acceptance-20261111-d-concurrent` and opened the native publish review
+at draft revision `a3c2d96a-b975-42f0-9cb5-ef3233533532`. The second tab changed
+the display name to **Concurrent second editor**, saved as draft revision
+`6cbbb2d8-aa65-46ba-bd84-9094d0fcac32`. The first tab automatically replaced its
+review with **Review out of date**, explained that settings, items, or redirects
+had changed, and offered **Review latest**. Publish was disabled, so the stale
+review could not be confirmed.
+
+Fresh snapshots after that notice matched the second tab's saved state exactly:
+its draft fields and revision survived, the published settings stayed unchanged,
+and no additional receipt or redirect appeared. This proves the native action's
+pre-dispatch stale-review handling across two tabs; the separate API test above
+proves server rejection when a conflicting edit occurs after the final check.
+Both tabs used the same signed-in account, so this does not establish
+restricted-account behavior. The empty collection did not exercise concurrent
+changes to existing redirects.
+
+After both dialogs were closed, the test's published settings, draft, and
+activation receipt were removed with exact revision guards. A fresh read
+confirmed their absence and all 23 original records unchanged. Local phase
+snapshots use `/private/tmp/sanity-kit-native-concurrency-20261111d-*.json`,
+including the `result` and `cleanup` records; these temporary files are not
+shipped artifacts.
 
 ### 3. Uncertain-response recovery passed
 
@@ -194,6 +216,42 @@ case; automated perspective tests cover that distinction. No dataset writes or
 browser-rendering checks were performed for this installed website run. The
 consumer intentionally uses fresh reads without a cache backend. Native Studio
 workflow acceptance and controlled response-loss recovery are recorded separately.
+
+#### Installed page URL workflow — in progress, November 11, 2026
+
+A later run restarted the installed Studio on port 3000 and installed website
+on ports 3334/3335, using the same verified tarball. This is separate from the
+completed run above, after which the source servers were restored. The installed
+servers remain running while this page workflow is unfinished.
+
+The temporary concurrency collection and schema were removed from the installed
+configuration after their test records were cleaned up. The ordinary fixture
+routing and public URL-field setup are restored, without the temporary recovery
+transport or layout. A baseline confirmed the disposable page ID and both test
+paths were unused and captured existing fixture content, redirects, and the
+folder registry before editing.
+
+Native Studio created and published `kitProofPageAcceptance-20261111c`, titled
+**Packed page acceptance 20261111c**, at
+`/packed-page-acceptance-20261111-c-before`. The editor showed Published and a
+disabled Publish action. Read-only HTTP checks then confirmed that the published
+website returned status **200** and the exact page title, ID, and pathname;
+preview draft reads returned the same page. The intended new path,
+`/packed-page-acceptance-20261111-c-after`, had no published page.
+
+The computer locked during the next attempted edit. A fresh raw read found only
+the published page at the original path, with revision
+`Nmh64LTSf28NqZjKcmBL3F`; no changed draft or URL-change receipt existed. Existing
+fixture content and the folder registry still matched the baseline. No root
+folder record was added for this page.
+
+**Still pending:** save the changed URL as a draft, verify differing draft and
+published page routes, publish the reviewed URL change with its redirect, follow
+the redirect on the installed website, and remove only the reviewed disposable
+page/redirect/receipt with revision guards. The first publish does not establish
+those remaining steps. Local HTTP evidence is
+`/tmp/sanitykit-packed-page-http-first.json`; the baseline and current raw
+snapshots remain local acceptance artifacts, not packaged data.
 
 ## Cache acceptance depends on the consumer
 

@@ -11,9 +11,18 @@ the approval handoff. Remove finished work from the remaining list; retain its
 commit in the progress record below. A completed implementation remains separate
 from a reviewed, committed slice and from live acceptance.
 
-Last approved slice: navigator measurement harness (`256d4e1`, November 11,
-2026), committed and pushed; verification, coverage, and package CI passed. Navigator row rendering (`d5b9dbf`) is also committed. Documentation (`2d10e96`), folder-import API (`dfcaf4a`),
-and navigator baseline acceptance (`b11a35f`) are also committed and pushed.
+Last approved slice: native concurrency acceptance and release-progress
+documentation (November 11, 2026). This approval covers the acceptance record and
+this checklist; the staged navigator experiment still awaits live testing.
+
+The packaging fix (`acd0a6f`, November 11, 2026) is committed and pushed.
+The earlier live acceptance documentation
+(`8ebb810`), navigator measurement harness (`256d4e1`), and row-rendering
+improvement (`d5b9dbf`) are also committed and pushed. Verification and coverage
+passed for `8ebb810`; its package job found the missing guide. The approved fix
+includes that guide and passed the full local package check with 300 files.
+GitHub CI for `acd0a6f` passed verification, coverage, and packaging
+([run 43130487557](https://github.com/Standard-Design/sanity-kit/actions/runs/43130487557)).
 The public Studio, routing, and redirect API checkpoints are complete.
 
 The preceding collection-prefix review dialog/session is committed as `9be3dfb`.
@@ -23,16 +32,22 @@ and native write/schema authorization (`dd1b9ee`) are also approved, committed,
 and pushed. First and later publishing retain the shared prepare-and-recheck
 pattern.
 
-| Slice                                    | What remains                                                                                                                                            | Status                                                                                                                                                                                            |
-| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Combined live and consumer acceptance | Finish native concurrent-edit UI and installed page-URL end-to-end checks; review large-list measurements and the unavailable restricted-account check. | Real-server revision rejection, installed native recovery, and installed website HTTP checks passed. Large-tree mount/transition evidence remains incomplete; no restricted account is available. |
-| 2. Release preparation                   | Final verification, version/release notes, artifact review, CI, and explicit release approval.                                                          | Pending acceptance                                                                                                                                                                                |
+| Slice                                    | What remains                                                                                                                                       | Status                                                                                                                                                                                                                                                                                                                                                                                                                  |
+| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Combined live and consumer acceptance | Finish installed page-URL end-to-end checks; resolve the measured large-tree rendering cost and disclose the unavailable restricted-account check. | Real-server revision rejection, native two-tab stale-review handling, installed native recovery, and website HTTP checks passed. Installed page first-publish and initial HTTP checks passed; URL-change acceptance remains in progress. The measured renderer is staged with automated and package checks passing; live performance and keyboard acceptance remain pending unlock. No restricted account is available. |
+| 2. Release preparation                   | Final verification, version/release notes, artifact review, CI, and explicit release approval.                                                     | Pending acceptance                                                                                                                                                                                                                                                                                                                                                                                                      |
 
 The navigator row improvement is committed. It reduces repeated rendering;
 initial mount and tree-to-search transitions remain part of acceptance. The committed
 measurement harness isolates reporting and identifies contaminated samples,
 so those remaining checks can be repeated reliably. It adds no package runtime
-behavior and does not establish new browser timings.
+behavior and does not establish new browser timings. A separate virtualization
+implementation is staged in response to the measured 1,000-page costs. Build,
+lint, type checking, all 2,808 tests, coverage, and the installed-package check
+(304 files, including Studio and TypeGen) pass. The renderer, measurement
+harness, dependency boundary, and documentation form one review slice. Those
+original mount and tree-to-search limitations remain unresolved until the new
+implementation passes live keyboard/layout checks and fresh browser measurements.
 
 The full installed-tarball check passed for `d5b9dbf`: 299 files, six application
 profiles, SDK 7/8, Studio with Pages and standalone fields/settings, redirect
@@ -50,7 +65,13 @@ A live two-client check sent an outdated revision through the actual settings
 writer. Sanity rejected it with HTTP 409, preserving the published record and
 the second client’s draft edit. No receipt or partial write remained, and the
 disposable records were removed with revision checks. This establishes server
-revision protection, not two-browser conflict UI or restricted-role behavior.
+revision protection with controlled authorization callbacks. A separate installed
+Studio check then opened a prefix review in one Chrome tab and saved a competing
+display-name edit in another. The first tab automatically showed **Review out of
+date** with Publish disabled. The second edit and published settings remained
+unchanged, no new receipt appeared, and guarded cleanup restored all 23 original
+records. That native UI check used the existing signed-in account; restricted-role
+behavior remains unverified.
 
 These are the remaining review checkpoints, not a promise that each must be one
 commit. Split a checkpoint only when implementation or review establishes a
@@ -83,8 +104,9 @@ schema protections, and verified the new redirect details in the notice.
 An isolated first-ever settings publish passed on November 11, including native
 template creation, direct Publish, the success toast, and an exact write receipt.
 Existing settings, item versions, and redirects remained unchanged. The temporary
-settings and receipt were removed after verification. Custom roles, concurrency,
-and recovery remain in broader acceptance. The approved fixture slice (`99f3f1a`) also
+settings and receipt were removed after verification. Later concurrency and
+recovery acceptance passed as recorded above; restricted-account acceptance
+remains unavailable. The approved fixture slice (`99f3f1a`) also
 verifies saved redirects as real HTTP responses on a separate published listener
 (port 3335), while Studio preview (port 3334) bypasses redirects. It adds no cache
 backend or production preview authentication. Full evidence is in the
@@ -132,8 +154,8 @@ Its 13 focused tests and full installed-package checks pass, including Sanity
 client 7/8 types, uncertain-result handling, and execution without Studio or React.
 A live import with the intended consumer credentials remains part of acceptance. The broader documentation reconciliation is
 committed as `2d10e96`. The combined acceptance audit found substantial existing
-automated coverage, with live restricted-account, two-session conflict, and
-lost-response checks still outstanding. No production cache backend is required
+automated coverage. Its initially outstanding two-tab conflict and lost-response
+checks have since passed; restricted-account acceptance remains unverified. No production cache backend is required
 by the kit.
 
 ## Parallel tracks
