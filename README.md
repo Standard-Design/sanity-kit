@@ -275,6 +275,10 @@ with real Studio preview, schemas, credentials, and storage.
 
 `pnpm build` assembles compiled JavaScript, declarations, metadata, licenses, and
 these guides in `dist`. Repository-root packing and publishing are blocked.
+Finish the README, installation and upgrade guides, and changelog for the
+version being released before packing. Review the docs inside the tarball as
+part of approving the release.
+
 After review and commit, `pnpm pack:release` creates a local tarball with commit
 and checksum metadata; it does not tag, push, or publish.
 

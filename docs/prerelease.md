@@ -233,7 +233,14 @@ not the repository root, and verifies its reported integrity. Dry-run success
 does not confirm registry write permission, name availability, license clearance,
 or publication. Root packing and root publishing dry-runs must still fail.
 
-After reviewing and committing the slice on the intended release branch, run:
+Before packing, update the README, installation and upgrade guides, changelog,
+and affected subsystem guides for the version being released. Write them for
+someone installing that version. Use the exact version in install commands
+and describe what it includes, what older users need to change, and any known
+limits. Keep temporary preparation and registry status in the release notes.
+
+After reviewing and committing the code and documentation on the intended
+release branch, run:
 
 ```sh
 pnpm pack:release
@@ -243,8 +250,12 @@ This requires a clean working tree. It creates a local tarball, `manifest.json`,
 and `SHA256SUMS` under `.artifacts/<version>-<commit>/`. The manifest records the
 full commit, branch, npm integrity value, SHA-256, and exact packed file list.
 No tag, GitHub release, push, or npm publication is performed. Verify the intended
-branch before handing off the artifact. Once an artifact is shared, use a new
-prerelease version for any subsequent code change.
+branch before handing off the artifact. Open the README, changelog, and upgrade
+guide from inside the tarball. Check that the install version matches the
+package manifest and that the instructions cover the APIs that ship. If a
+guide needs a correction, review it and pack again before publishing.
+Once an artifact is shared, use a new prerelease version for any subsequent
+code change.
 
 Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
@@ -279,9 +290,10 @@ For each future publication:
    satisfy its authentication/2FA requirements, and check that the exact package
    version is not already published. Organization creation alone is not proof
    of this environment's permissions. These account checks remain a release gate.
-3. Commit the reviewed slice, pass CI, and run `pnpm pack:release` from clean
-   history. Inspect the generated manifest, file list, and SHA-256; the tarball
-   must contain only compiled output, docs, and the required notices.
+3. Commit the reviewed code and release documentation, pass CI, and run
+   `pnpm pack:release` from clean history. Inspect the bundled guides, manifest,
+   file list, and SHA-256. The tarball must contain only compiled output, docs,
+   and the required notices.
 4. After explicit publication approval, publish that exact reviewed tarball
    generated from `dist` with `--access public --tag alpha` and the npm registry.
    Never publish the repository root, suppress its guards, or repack changed code
@@ -290,7 +302,8 @@ For each future publication:
    [release status](#release-status)).
 5. Verify the registry's name, version, integrity, public access, and `alpha` tag;
    inspect all dist-tags and report unexpected assignments. Install the registry
-   package in a clean consumer before handing it off.
+   package in a clean consumer before handing it off. Record the actual
+   publication date, tags, and verification results in the GitHub release notes.
 
 Consumers can install the published alpha.6 version:
 
