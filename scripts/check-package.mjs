@@ -145,12 +145,21 @@ const studioPeers = [
 	'@sanity/ui',
 	'styled-components',
 	'react-focus-lock',
+	'@tanstack/react-virtual',
 	'i18next',
 	'react-i18next',
 	'rxjs',
 ]
 for (const name of studioPeers)
 	assert.equal(packedManifest.peerDependenciesMeta[name]?.optional, true)
+for (const manifest of [sourceManifest, distManifest, packedManifest]) {
+	assert.equal(manifest.peerDependencies['@tanstack/react-virtual'], '^3.14.22')
+	assert.equal(
+		manifest.peerDependenciesMeta['@tanstack/react-virtual']?.optional,
+		true,
+	)
+	assert.equal(manifest.dependencies?.['@tanstack/react-virtual'], undefined)
+}
 assert.equal(
 	contents.has('__stale-build-sentinel.js'),
 	false,
@@ -439,7 +448,7 @@ for (const matrix of matrices) {
 	// still lack Sanity. RxJS is also an existing dependency of @sanity/client,
 	// so its presence alone cannot indicate that Studio was pulled in.
 	for (const name of matrix.full
-		? ['sanity']
+		? ['sanity', '@tanstack/react-virtual', '@tanstack/virtual-core']
 		: studioPeers.filter((peer) => peer !== 'rxjs')) {
 		assert.equal(
 			existsSync(join(cwd, 'node_modules', name)),
@@ -583,14 +592,14 @@ console.log('PASS installed folder server bundle runtime');
 		for (const input of Object.keys(folders.metafile.inputs))
 			assert.doesNotMatch(
 				input,
-				/node_modules\/(react|react-dom|react-router|sanity|@sanity\/ui)\//u,
+				/node_modules\/(react|react-dom|react-router|sanity|@sanity\/ui|@tanstack\/(react-virtual|virtual-core))\//u,
 				'Folder imports loaded Studio or a framework runtime.',
 			)
 		run(process.execPath, ['folder-bundle.cjs'], cwd)
 		for (const input of Object.keys(redirects.metafile.inputs))
 			assert.doesNotMatch(
 				input,
-				/node_modules\/(react|react-dom|react-router|sanity|@sanity\/ui)\/|sanity-kit\/(studio|react-router)/u,
+				/node_modules\/(react|react-dom|react-router|sanity|@sanity\/ui|@tanstack\/(react-virtual|virtual-core))\/|sanity-kit\/(studio|react-router)/u,
 				'Generic HTTP redirects imported Studio or React Router.',
 			)
 	}
@@ -691,6 +700,12 @@ assert.ok(
 	Object.keys(studioBundle.metafile.inputs).some((path) =>
 		path.includes('sanity-kit/studio/pages/plugin.js'),
 	),
+)
+assert.ok(
+	Object.keys(studioBundle.metafile.inputs).some((path) =>
+		path.includes('node_modules/@tanstack/react-virtual/'),
+	),
+	'The installed Pages navigator must resolve its explicit Studio virtualizer peer.',
 )
 console.log(`PASS studio-consumer: ${JSON.stringify(studioVersions)}`)
 
@@ -804,14 +819,14 @@ async function checkBrowserBundles(cwd, full) {
 	for (const input of Object.keys(urlOnly.metafile.inputs))
 		assert.doesNotMatch(
 			input,
-			/node_modules\/(groq|sanity|react|react-dom|react-router|@sanity\/ui)\/|sanity-kit\/(studio|url\/settings\/load)/u,
+			/node_modules\/(groq|sanity|react|react-dom|react-router|@sanity\/ui|@tanstack\/(react-virtual|virtual-core))\/|sanity-kit\/(studio|url\/settings\/load)/u,
 			'Pure URL resolution loaded a network reader or UI/framework dependency.',
 		)
 	const normal = await build({ ...options, entryPoints: ['browser.js'] })
 	for (const path of Object.keys(normal.metafile.inputs)) {
 		assert.doesNotMatch(
 			path,
-			/node_modules\/(sanity|@sanity\/ui|styled-components|react-focus-lock)\/|sanity-kit\/studio\//u,
+			/node_modules\/(sanity|@sanity\/ui|styled-components|react-focus-lock|@tanstack\/(react-virtual|virtual-core))\/|sanity-kit\/studio\//u,
 			'Studio code leaked into a frontend entry point.',
 		)
 		assert.doesNotMatch(

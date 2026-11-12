@@ -7,16 +7,20 @@ import { useCollectionTitleResolver } from '../collections/settings-context.js'
 import {
 	useEffect,
 	useLayoutEffect,
+	useMemo,
 	useRef,
 	useState,
 	useSyncExternalStore,
 } from 'react'
-import { Box, Button, Flex, Stack, Text } from '@sanity/ui'
+import { Box, Button, Flex, Text } from '@sanity/ui'
 import { ArrowLeftIcon } from '@sanity/icons/ArrowLeft'
 import { usePresentationParams } from 'sanity/presentation'
 import { useBrowserState } from './browser-context.js'
 import { usePagesDataSession } from './use-page-data.js'
 import { PageRow } from './page-row.js'
+import { VirtualRows } from './virtual-rows.js'
+import { pageRows } from './visible-rows.js'
+import { estimateRow, RowLayout } from './tree-browser.js'
 import { DataWarning } from './data-warning.js'
 import { BrowserHeader } from './browser-header.js'
 import { TooltipButton } from './tooltip.js'
@@ -80,6 +84,10 @@ export function CollectionBrowser({
 		)
 			resource.loadMore()
 	}, [resource, result, pendingSearch, error])
+	const rows = useMemo(
+		() => pageRows(pendingSearch ? [] : result.data.documents),
+		[pendingSearch, result.data.documents],
+	)
 	return (
 		<Flex
 			direction="column"
@@ -153,17 +161,24 @@ export function CollectionBrowser({
 					result.data.documents.length === 0 && (
 						<Text size={1}>No items found.</Text>
 					)}
-				<Stack gap={1}>
-					{!pendingSearch &&
-						result.data.documents.map((document) => (
-							<PageRow
-								key={document._id}
-								document={document}
-								disabled={error}
-								selected={current?._id === document._id}
-							/>
-						))}
-				</Stack>
+				<VirtualRows
+					items={rows}
+					scrollRef={scroll}
+					initialOffset={saved.current}
+					estimateSize={estimateRow}
+					canFocus={() => !error}
+					renderItem={(row) => (
+						<RowLayout row={row}>
+							{row.kind === 'page' && (
+								<PageRow
+									document={row.document}
+									disabled={error}
+									selected={current?._id === row.document._id}
+								/>
+							)}
+						</RowLayout>
+					)}
+				/>
 				{result.data.next && !pendingSearch && (
 					<Button
 						mode="bleed"

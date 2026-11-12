@@ -12,10 +12,15 @@ import { createPagesRuntime } from '../../../src/studio/pages/runtime.js'
 import { createPagesDataStore } from '../../../src/studio/pages/data-store.js'
 import { PagesBrowser } from '../../../src/studio/pages/browser.js'
 import { PagesHeader } from '../../../src/studio/pages/header.js'
-import { fixture } from './native.js'
-import { createMeasurements } from './measurements.js'
+import { fixture, useClient } from './native.js'
+import type { PagesDataSession } from '../../../src/studio/pages/data-session.js'
+import {
+	createMeasurements,
+	ordinaryInventoryReadiness,
+	ordinaryRenderReadiness,
+} from './measurements.js'
 
-type Scene = 'labels' | 'collection' | 'ordinary'
+type Scene = 'labels' | 'collection' | 'ordinary' | 'mixed'
 const parameters = new URLSearchParams(location.search)
 const scene = (parameters.get('scene') ?? 'labels') as Scene
 // Keep comparison scenes reproducible; unsupported values use the existing default.
@@ -32,7 +37,7 @@ fixture.documents = [
 	page('home', '/', 'Home'),
 	page('journal-index', '/journal', 'Journal'),
 ]
-if (scene === 'labels') {
+if (scene === 'labels' || scene === 'mixed') {
 	for (let depth = 1; depth <= 6; depth++)
 		fixture.documents.push(
 			page(
@@ -41,8 +46,11 @@ if (scene === 'labels') {
 				'An exceptionally long page title that should ellipsize while its complete path wraps',
 			),
 		)
-} else if (scene === 'ordinary') {
-	for (let index = 0; index < ordinaryCount; index++)
+}
+// Mixed heights exercise virtualization without changing the comparison scenes.
+if (scene === 'ordinary' || scene === 'mixed') {
+	const count = scene === 'mixed' ? 1000 : ordinaryCount
+	for (let index = 0; index < count; index++)
 		fixture.documents.push(
 			page(
 				`page-${String(index).padStart(4, '0')}`,
@@ -66,6 +74,7 @@ const measurements = createMeasurements(
 		completed: fixture.queries,
 		pending: fixture.pendingQueries,
 		milliseconds: fixture.queryMilliseconds,
+		byKind: fixture.queryKinds,
 	}),
 )
 measurements.reset('Initial load', true)
@@ -79,8 +88,15 @@ const actions = [
 ]
 
 /** Reporting owns its state so reading a sample cannot rerender the navigator. */
-function MeasurementPanel({ width }: { width: number }) {
+function MeasurementPanel({
+	width,
+	getInventory,
+}: {
+	width: number
+	getInventory: PagesDataSession['pages']['getSnapshot']
+}) {
 	const [label, setLabel] = useState('Initial load')
+	const [summary, setSummary] = useState('')
 	const [report, setReport] = useState(
 		'Initial load is recording. Once loading finishes, read within 20 seconds of the reload.',
 	)
@@ -94,14 +110,48 @@ function MeasurementPanel({ width }: { width: number }) {
 		const ordinaryRows = root.querySelectorAll(
 			'button[aria-label^="Page "]',
 		).length
-		if (
-			sample.kind === 'initial' &&
-			scene === 'ordinary' &&
-			ordinaryRows !== ordinaryCount
-		) {
-			sample.valid = false
-			sample.reasons.push('The complete ordinary-page tree was not rendered.')
+		const inventorySnapshot = getInventory()
+		const inventory =
+			scene === 'ordinary'
+				? ordinaryInventoryReadiness(inventorySnapshot, [
+						'home',
+						'journal-index',
+						...Array.from(
+							{ length: ordinaryCount },
+							(_, index) => `page-${String(index).padStart(4, '0')}`,
+						),
+					])
+				: undefined
+		const virtual = root.querySelector<HTMLElement>('[data-pages-virtual]')
+		const windowCounts = virtual
+			? {
+					logical: Number(virtual.getAttribute('data-pages-logical-count')),
+					rendered: Number(virtual.getAttribute('data-pages-rendered-count')),
+				}
+			: undefined
+		const rendering =
+			scene === 'ordinary'
+				? ordinaryRenderReadiness({
+						ordinaryRows,
+						viewportHeight: scroll?.clientHeight ?? 0,
+						virtual: windowCounts,
+					})
+				: undefined
+		if (sample.kind === 'initial' && scene === 'ordinary') {
+			if (!inventory?.ready) {
+				sample.valid = false
+				sample.reasons.push(
+					'The complete ordinary-page inventory is not ready.',
+				)
+			}
+			if (!rendering?.ready) {
+				sample.valid = false
+				sample.reasons.push('The bounded ordinary-page window is not ready.')
+			}
 		}
+		setSummary(
+			`Loaded pages: ${inventorySnapshot.data.documents.length}${inventory ? ` / ${inventory.expected} expected` : ''}. Mounted units: ${windowCounts ? `${windowCounts.rendered} / ${windowCounts.logical} logical` : 'unavailable'}. Pending queries: ${sample.queries.pendingAtEnd}.`,
+		)
 		setReport(
 			JSON.stringify(
 				{
@@ -114,6 +164,10 @@ function MeasurementPanel({ width }: { width: number }) {
 					...sample,
 					buttons: root.querySelectorAll('button').length,
 					ordinaryRows,
+					inventory,
+					loadedPages: inventorySnapshot.data.documents.length,
+					window: windowCounts,
+					rendering,
 					itemRows: root.querySelectorAll('button[aria-label^="Post "]').length,
 					scrollWidth: scroll?.scrollWidth,
 					clientWidth: scroll?.clientWidth,
@@ -143,7 +197,12 @@ function MeasurementPanel({ width }: { width: number }) {
 				<button
 					disabled={label === 'Initial load'}
 					onClick={() => {
-						measurements.reset(label)
+						measurements.reset(
+							label,
+							false,
+							label === 'Clear search' ? ['recent'] : [],
+						)
+						setSummary('')
 						setReport(
 							`Recording: ${label}. Perform one action, then select Measure within 20 seconds.`,
 						)
@@ -155,9 +214,12 @@ function MeasurementPanel({ width }: { width: number }) {
 			</div>
 			<p>
 				Measure stops the sample. Reload for initial load; reset before every
-				other action. Pending requests or background refreshes invalidate
-				interaction samples.
+				other action. Pending requests invalidate a sample. Only Clear search
+				may include completed recent-item queries, reported as query-inclusive.
+				Compare render-only samples separately; unexpected reads or failed
+				queries invalidate interaction samples.
 			</p>
+			{summary && <p aria-label="Measured inventory and window">{summary}</p>}
 			<pre
 				aria-label="Measurements"
 				style={{ margin: 0, whiteSpace: 'pre-wrap' }}
@@ -191,7 +253,7 @@ function App() {
 					{
 						name: 'journal',
 						title:
-							scene === 'labels'
+							scene === 'labels' || scene === 'mixed'
 								? 'Exceptionally long collection display name for editorial navigation testing'
 								: 'Journal',
 						itemsTitle: 'Posts',
@@ -204,6 +266,9 @@ function App() {
 		[],
 	)
 	const dataStore = useMemo(() => createPagesDataStore(runtime), [runtime])
+	// Read the same resource as the browser without adding subscriptions or queries.
+	const getInventory = dataStore.session(useClient(), ['published']).pages
+		.getSnapshot
 	const value = {
 		runtime,
 		dataStore,
@@ -246,6 +311,7 @@ function App() {
 				</p>
 				<nav>
 					<a href="?scene=labels">Extreme labels</a> ·{' '}
+					<a href="?scene=mixed">Mixed heights + 1,000 pages</a> ·{' '}
 					<a href="?scene=collection">5,000 collection items</a> ·{' '}
 					<a href="?scene=ordinary&count=100">100 ordinary pages</a> ·{' '}
 					<a href="?scene=ordinary&count=1000">1,000 ordinary pages</a>
@@ -288,7 +354,7 @@ function App() {
 							</Profiler>
 						</BrowserContext.Provider>
 					</div>
-					<MeasurementPanel width={width} />
+					<MeasurementPanel width={width} getInventory={getInventory} />
 				</div>
 			</Card>
 		</ThemeProvider>

@@ -1,14 +1,12 @@
 /** Shared navigator/picker shell. URL and document selection stay in Presentation. */
-import { Box, Flex, Stack, Text } from '@sanity/ui'
+import { Box, Flex, Text } from '@sanity/ui'
 import { Menu, MenuButton, MenuItem } from '@sanity/ui/menu'
 import { AddIcon } from '@sanity/icons/Add'
 import { EllipsisHorizontalIcon } from '@sanity/icons/EllipsisHorizontal'
 import { useLayoutEffect, useMemo, useRef, useSyncExternalStore } from 'react'
-import { usePresentationParams } from 'sanity/presentation'
 import { useBrowserState } from './browser-context.js'
 import { usePagesDataSession } from './use-page-data.js'
 import { TreeRows, groupKeys } from './tree-browser.js'
-import { PageRow } from './page-row.js'
 import { CollectionBrowser } from './collection-browser.js'
 import { DataWarning, FolderDataWarning } from './data-warning.js'
 import { buildNavigationTree, type NavigationNode } from './navigation.js'
@@ -117,30 +115,22 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 			folders: folderChoices(tree.roots),
 			session,
 		})
-	const { preview } = usePresentationParams()
-	const current = runtime.model.previewedDocument(documents, preview)
 	const scrollRef = useRef<HTMLDivElement>(null)
 	const initialScroll = useRef(state.scrollTop)
 	useLayoutEffect(() => {
 		if (scrollRef.current) scrollRef.current.scrollTop = initialScroll.current
 	}, [result.loading])
 	const search = state.query.trim().toLowerCase()
-	const filtered = documents.filter((document) =>
-		`${document.title ?? ''} ${document.pathname ?? ''}`
-			.toLowerCase()
-			.includes(search),
+	const filtered = useMemo(
+		() =>
+			documents.filter((document) =>
+				`${document.title ?? ''} ${document.pathname ?? ''}`
+					.toLowerCase()
+					.includes(search),
+			),
+		[documents, search],
 	)
-	// Valid but unusual paths must not be described as missing URLs.
-	const unfiledGroups = [
-		{
-			title: 'Pages without URLs',
-			pages: tree.unfiled.filter((page) => !page.pathname),
-		},
-		{
-			title: 'Ungrouped pages',
-			pages: tree.unfiled.filter((page) => page.pathname),
-		},
-	]
+
 	return (
 		<Flex
 			direction="column"
@@ -235,6 +225,9 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 				data-pages-scroll="pages"
 				onScroll={(event) => {
 					const scrollTop = event.currentTarget.scrollTop
+					// Re-enabling a large list after collapse must use its latest
+					// position. Preserve the mount target while inventory is loading.
+					if (!result.loading) initialScroll.current = scrollTop
 					setState((value) => ({ ...value, scrollTop }))
 				}}
 			>
@@ -260,48 +253,16 @@ function PageTreeBrowser({ fitContent }: { fitContent: boolean }) {
 							<Text size={1}>No pages found.</Text>
 						</Box>
 					)}
-				{search ? (
-					<Stack gap={1}>
-						{filtered.map((document) => (
-							<PageRow
-								key={document._id}
-								document={document}
-								disabled={error}
-								selected={current?._id === document._id}
-							/>
-						))}
-					</Stack>
-				) : (
-					<>
-						<TreeRows
-							nodes={tree.roots}
-							documents={documents}
-							disabled={error}
-							onCreateFolder={createFolder}
-						/>
-						{unfiledGroups
-							.filter((group) => group.pages.length > 0)
-							.map((group) => (
-								<Box key={group.title} marginTop={3}>
-									<Stack gap={1}>
-										<Box padding={2}>
-											<Text size={1} muted>
-												{group.title}
-											</Text>
-										</Box>
-										{group.pages.map((page) => (
-											<PageRow
-												key={page.key}
-												document={page.document}
-												disabled={error}
-												selected={current?._id === page.document._id}
-											/>
-										))}
-									</Stack>
-								</Box>
-							))}
-					</>
-				)}
+				<TreeRows
+					nodes={tree.roots}
+					documents={documents}
+					disabled={error}
+					onCreateFolder={createFolder}
+					unfiled={tree.unfiled}
+					searchDocuments={search ? filtered : undefined}
+					scrollRef={scrollRef}
+					initialOffset={initialScroll.current}
+				/>
 			</Box>
 		</Flex>
 	)

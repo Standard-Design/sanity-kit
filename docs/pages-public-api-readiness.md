@@ -100,6 +100,7 @@ The source package requires Node 24 or later. The current Studio fixture targets
 Sanity **6.17.0**, pinned exactly because Pages uses unstable native Presentation
 extension slots. Studio peers include Sanity UI `^4.4.10`, icons `^5.2.2`, React
 and React DOM `^19.2.7`, styled-components `^6.5.3`, react-focus-lock `^2.13.7`,
+`@tanstack/react-virtual` `^3.14.22`,
 i18next `^26.5.10`, react-i18next `^17.1.8`, and rxjs `^7.8.2`. They are optional
 package peers so non-Studio consumers need not install them, not optional when
 using a Studio entry that needs them. The isolated Studio check currently tests

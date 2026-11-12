@@ -101,6 +101,7 @@
 		"speakingurl": "^14.0.1"
 	},
 	"peerDependencies": {
+		"@tanstack/react-virtual": "^3.14.22",
 		"@sanity/icons": "^5.2.2",
 		"sanity": "6.17.0",
 		"@sanity/ui": "^4.4.10",
@@ -120,6 +121,9 @@
 		"rxjs": "^7.8.2"
 	},
 	"peerDependenciesMeta": {
+		"@tanstack/react-virtual": {
+			"optional": true
+		},
 		"@sanity/icons": {
 			"optional": true
 		},
@@ -170,6 +174,7 @@
 		}
 	},
 	"devDependencies": {
+		"@tanstack/react-virtual": "3.14.22",
 		"@arethetypeswrong/cli": "^0.18.5",
 		"@eslint/js": "^10.0.1",
 		"@sanity/client": "^8.6.1",

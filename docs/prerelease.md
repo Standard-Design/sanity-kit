@@ -331,11 +331,11 @@ Node 24+ is required. This prerelease targets ESM, React 19.2.7+ and React Route
 
 Additional checkout-only entries require:
 
-| Import                                          | Required peers in addition to `@sanity/client`                                                                                  |
-| ----------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------- |
-| `/url`                                          | None                                                                                                                            |
-| `/url/settings`, `/redirect`, `/folders/server` | `groq`                                                                                                                          |
-| `/studio`                                       | Sanity, Sanity UI, Sanity icons, React/React DOM, `groq`, styled-components, react-focus-lock, i18next, react-i18next, and RxJS |
+| Import                                          | Required peers in addition to `@sanity/client`                                                                                                             |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/url`                                          | None                                                                                                                                                       |
+| `/url/settings`, `/redirect`, `/folders/server` | `groq`                                                                                                                                                     |
+| `/studio`                                       | Sanity, Sanity UI, Sanity icons, React/React DOM, `groq`, styled-components, react-focus-lock, `@tanstack/react-virtual`, i18next, react-i18next, and RxJS |
 
 The Studio baseline is Sanity `6.17.0` exactly. See the
 [Studio dependency details](pages.md#dependencies-and-package-isolation) and

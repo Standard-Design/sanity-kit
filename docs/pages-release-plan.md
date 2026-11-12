@@ -13,7 +13,9 @@ from a reviewed, committed slice and from live acceptance.
 
 Last approved slice: native concurrency acceptance and release-progress
 documentation (November 11, 2026). This approval covers the acceptance record and
-this checklist; the staged navigator experiment still awaits live testing.
+this checklist; the navigator performance slice now has live acceptance evidence
+and remains uncommitted for review. The documentation commit is `945e22f` (not
+yet pushed).
 
 The packaging fix (`acd0a6f`, November 11, 2026) is committed and pushed.
 The earlier live acceptance documentation
@@ -32,22 +34,34 @@ and native write/schema authorization (`dd1b9ee`) are also approved, committed,
 and pushed. First and later publishing retain the shared prepare-and-recheck
 pattern.
 
-| Slice                                    | What remains                                                                                                                                       | Status                                                                                                                                                                                                                                                                                                                                                                                                                  |
-| ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Combined live and consumer acceptance | Finish installed page-URL end-to-end checks; resolve the measured large-tree rendering cost and disclose the unavailable restricted-account check. | Real-server revision rejection, native two-tab stale-review handling, installed native recovery, and website HTTP checks passed. Installed page first-publish and initial HTTP checks passed; URL-change acceptance remains in progress. The measured renderer is staged with automated and package checks passing; live performance and keyboard acceptance remain pending unlock. No restricted account is available. |
-| 2. Release preparation                   | Final verification, version/release notes, artifact review, CI, and explicit release approval.                                                     | Pending acceptance                                                                                                                                                                                                                                                                                                                                                                                                      |
+| Slice                                         | What remains                                                                                            | Status                                                                                                                                                                                                                                                                                                      |
+| --------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Navigator performance and final acceptance | Review and commit the measured virtualization slice; disclose the unavailable restricted-account check. | Live initial-load/search timings improved. Keyboard traversal, sidebar/picker scroll restoration, collapse/expand, mixed-height rows, and collection pagination/search passed. Installed page URL publishing, redirects, perspectives, and guarded cleanup also passed. No restricted account is available. |
+| 2. Release preparation                        | Final verification, version/release notes, artifact review, CI, and explicit release approval.          | Pending acceptance approval.                                                                                                                                                                                                                                                                                |
 
-The navigator row improvement is committed. It reduces repeated rendering;
-initial mount and tree-to-search transitions remain part of acceptance. The committed
-measurement harness isolates reporting and identifies contaminated samples,
-so those remaining checks can be repeated reliably. It adds no package runtime
-behavior and does not establish new browser timings. A separate virtualization
-implementation is staged in response to the measured 1,000-page costs. Build,
-lint, type checking, all 2,808 tests, coverage, and the installed-package check
-(304 files, including Studio and TypeGen) pass. The renderer, measurement
-harness, dependency boundary, and documentation form one review slice. Those
-original mount and tree-to-search limitations remain unresolved until the new
-implementation passes live keyboard/layout checks and fresh browser measurements.
+The navigator row improvement is committed. A separate virtualization slice now
+addresses the measured cost of mounting and searching 1,000 ordinary pages.
+The final idle-browser sample measured 48.3 ms of React rendering for initial
+load and 14.1 ms for the first search, compared with the earlier 379.7 ms and
+262.2 ms samples. These are synthetic React profiling results, not network or
+end-to-end response times. All expected pages were loaded; the renderer mounted
+only the visible window and its buffer. Repeated earlier candidate samples also
+showed the improvement.
+
+Live checks caught and corrected saved-scroll restoration when switching between
+the sidebar and picker, and when collapsing a restored tree below the windowing
+threshold. Both fixes passed their browser retests. Keyboard wrapping, collection
+pagination/search, and mixed-height rows at narrow widths passed the checks
+described in the [navigator acceptance record](navigator-acceptance.md).
+Wheel-scroll timing was not captured because the automation scroll command
+failed; keyboard-driven scrolling was verified.
+
+The final source passes build, lint, type checking, formatting, and all 2,811 tests
+in 104 files. Coverage and the installed-package check passed before the small
+scroll-restoration follow-ups. The final installed-package check also passes against the updated source
+(304 packed files, application and Studio profiles, dependency isolation, and TypeGen). The renderer, measurement harness, dependency boundary,
+regressions, and performance record form one review slice; no commit is approved
+yet for that slice.
 
 The full installed-tarball check passed for `d5b9dbf`: 299 files, six application
 profiles, SDK 7/8, Studio with Pages and standalone fields/settings, redirect
@@ -56,7 +70,11 @@ prefix-change recovery: withholding one successful response produced the unknown
 notice; close/reopen and same-tab reload kept the exact operation; checking its
 receipt restored Publish with a success toast and no repeated write. Installed
 website HTTP checks passed for saved redirects, HEAD, preview bypass, and data
-perspectives. See the [acceptance record](pages-release-acceptance.md) for scope.
+perspectives. A later installed page workflow also passed native draft URL
+editing, separate draft/published reads, reviewed Publish, GET/HEAD redirect
+delivery, and actual browser navigation to the new URL. Guarded cleanup restored
+the baseline, and the source servers are running again. See the
+[acceptance record](pages-release-acceptance.md) for scope.
 The user confirmed on November 11 that no separate restricted test account is
 available. Permission behavior has automated coverage, but restricted-account
 live acceptance remains unverified and must be disclosed in the release review.

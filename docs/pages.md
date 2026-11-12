@@ -174,7 +174,8 @@ safeguards continue to apply.
 
 The initial candidate is deliberately restricted to one Studio baseline:
 Sanity **6.17.0**, Sanity UI **4.4.10**, styled-components **6.5.3**, and
-react-focus-lock **2.13.7**, and Sanity icons **5.2.2**, with React/React DOM
+react-focus-lock **2.13.7**, TanStack React Virtual **3.14.22**, and Sanity icons
+**5.2.2**, with React/React DOM
 **19.3.1** in the Studio tests.
 Sanity itself is an exact peer version. The other Studio peers use caret
 ranges from those baselines, so the plugin does not unnecessarily pin shared
@@ -183,10 +184,13 @@ Sanity's header/navigator extension slots are unstable; a broad version range
 would promise compatibility we have not checked. This baseline may need widening
 before adoption by an existing Studio.
 
-Sanity, Sanity UI, styled-components, react-focus-lock, `@sanity/icons`,
+Sanity, Sanity UI, styled-components, react-focus-lock,
+`@tanstack/react-virtual` (`^3.14.22`), `@sanity/icons`,
 `i18next` (`^26.5.10`), `react-i18next` (`^17.1.8`), and `rxjs` (`^7.8.2`)
 are optional peers. RxJS implements the native Presentation location resolver
-subscription for settings-backed routes.
+subscription for settings-backed routes. TanStack React Virtual provides measured
+row virtualization in the navigator; install it in the Studio package, not a
+frontend or server package that only imports the routing or folder helpers.
 The translation libraries scope active-redirect deletion wording to its native
 confirmation dialog.
 The consuming Studio supplies them; the kit does not bundle another Sanity
@@ -722,6 +726,31 @@ Escape or page selection closes it and returns focus to Choose
 page. When the sidebar replaces the picker, the header does not try to focus
 the now-removed button. These behaviors belong to the plugin's header adapter, not to
 the route registry or frontend router.
+
+### Rendering long lists
+
+Pages keeps the complete loaded page list so it can search it, build folders,
+and identify the previewed page. It does not need to draw every row at once.
+For a long list, the navigator draws the rows near the visible part of its scroll
+area, plus a small buffer. Scrolling brings other rows into view. Editors keep
+the same continuous list; there is no extra pagination step for ordinary pages.
+
+The internal `visible-rows.ts` helper puts expanded folders, pages, collection
+sections, and notices into display order. `virtual-rows.tsx` then chooses which
+parts of that sequence to render. It measures each rendered row because a folder
+is shorter than a page, and a long URL can wrap onto another line. The existing
+row components still own the labels, status indicators, menus, and navigation.
+
+Keyboard navigation follows the complete display order, including rows that
+are not currently drawn. A focused row stays mounted, so scrolling does not
+remove its controls or the button a menu returns focus to. Collection data
+subscriptions also stay separate from the visible window: scrolling past a
+collection must not discard its loaded recent items or start another fetch.
+
+This reduces rendering work; it does not reduce the ordinary-page inventory
+loaded from Sanity. Collection browsing still fetches its existing bounded
+batches. The [navigator acceptance record](navigator-acceptance.md) distinguishes
+automated checks from live keyboard, layout, and performance measurements.
 
 ## Collection index pages and document-free routes
 

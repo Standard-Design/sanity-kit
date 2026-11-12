@@ -192,17 +192,26 @@ describe('Pages Presentation adapter lifecycle', () => {
 		}))
 		// JSDOM has no layout. Give the real Popover a visible anchor and viewport
 		// so Floating UI does not hide it before we exercise the real focus lock.
-		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({
-			x: 20,
-			y: 20,
-			top: 20,
-			left: 20,
-			right: 220,
-			bottom: 60,
-			width: 200,
-			height: 40,
-			toJSON: () => ({}),
-		})
+		vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockImplementation(
+			function (this: HTMLElement) {
+				const top =
+					20 -
+					(this.hasAttribute('data-pages-virtual')
+						? (this.closest<HTMLElement>('[data-pages-scroll]')?.scrollTop ?? 0)
+						: 0)
+				return {
+					x: 20,
+					y: top,
+					top,
+					left: 20,
+					right: 220,
+					bottom: top + 40,
+					width: 200,
+					height: 40,
+					toJSON: () => ({}),
+				}
+			},
+		)
 		vi.spyOn(document.documentElement, 'clientWidth', 'get').mockReturnValue(
 			1024,
 		)
@@ -978,20 +987,25 @@ describe('Pages Presentation adapter lifecycle', () => {
 			return (await result.get()) as unknown
 		})
 		await render()
-		for (const title of ['About', 'Journal']) {
-			expect(
-				getComputedStyle(
-					button(`Collapse ${title}`).parentElement!.closest(
-						'[data-ui="Box"]',
-					)!,
-				).paddingBottom,
-			).toBe('0.75rem')
+		for (const [title, lastChild] of [
+			['About', 'Team · /about/team'],
+			['Journal', 'Browse all posts'],
+		] as const) {
+			const ending = button(lastChild).closest<HTMLElement>(
+				'[data-pages-row-key]',
+			)!
+			// The group's12px separation plus the following sibling's4px gap belong
+			// after its final descendant, outside the child's indentation guide.
+			expect(getComputedStyle(ending.firstElementChild!).paddingBottom).toBe(
+				'16px',
+			)
 			await click(`Collapse ${title}`)
-			expect(
-				getComputedStyle(
-					button(`Expand ${title}`).parentElement!.closest('[data-ui="Box"]')!,
-				).paddingBottom,
-			).toBe('0px')
+			const heading = button(`Expand ${title}`).closest<HTMLElement>(
+				'[data-pages-row-key]',
+			)!
+			expect(getComputedStyle(heading.firstElementChild!).paddingBottom).toBe(
+				'4px',
+			)
 		}
 		expect(native.navigate).not.toHaveBeenCalled()
 	})
@@ -1018,15 +1032,19 @@ describe('Pages Presentation adapter lifecycle', () => {
 			(element) => element.textContent === 'Ungrouped pages',
 		)!
 		expect(
-			missing.parentElement!.parentElement!.contains(
+			missing.compareDocumentPosition(
 				button('Missing URL · Preview unavailable'),
-			),
-		).toBe(true)
+			) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy()
 		expect(
-			ungrouped.parentElement!.parentElement!.contains(
-				button('Unusual URL · /about//team'),
-			),
-		).toBe(true)
+			button('Missing URL · Preview unavailable').compareDocumentPosition(
+				ungrouped,
+			) & Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy()
+		expect(
+			ungrouped.compareDocumentPosition(button('Unusual URL · /about//team')) &
+				Node.DOCUMENT_POSITION_FOLLOWING,
+		).toBeTruthy()
 		expect(container.textContent).not.toContain('Other pages')
 		await click('Unusual URL · /about//team')
 		expect(native.navigate).toHaveBeenCalledWith('/about//team', {
@@ -1176,7 +1194,12 @@ describe('Pages Presentation adapter lifecycle', () => {
 		await click('Browse all posts')
 		expect(itemRows()).toHaveLength(50)
 		await click('Load more items')
-		expect(itemRows()).toHaveLength(100)
+		expect(
+			document
+				.querySelector('[data-pages-scroll="collection"] [data-pages-virtual]')
+				?.getAttribute('data-pages-logical-count'),
+		).toBe('100')
+		expect(itemRows().length).toBeLessThan(50)
 		fillSearch('post-4999')
 		expect(itemRows()).toHaveLength(0)
 		await act(async () => {
@@ -1184,6 +1207,82 @@ describe('Pages Presentation adapter lifecycle', () => {
 		})
 		expect(itemRows()).toHaveLength(1)
 		expect(button('Post 4999 · /journal/post-4999')).toBeTruthy()
+	})
+	it('does not restart recent queries when their rows scroll out of the rendering window', async () => {
+		savedFolderFixture(
+			['/about'],
+			Array.from({ length: 200 }, (_, index) => ({
+				_id: `page-${index}`,
+				_type: 'kitProofPage',
+				title: `Page ${index}`,
+				pathname: { current: `/page-${index}` },
+			})),
+		)
+		await render()
+		expect(button('Browse all posts')).toBeTruthy()
+		const queries = native.fetch.mock.calls.length
+		const scroller = document.querySelector<HTMLElement>(
+			'[data-pages-scroll="pages"]',
+		)!
+		await act(async () => {
+			scroller.scrollTop = 6_000
+			scroller.dispatchEvent(new Event('scroll'))
+			await Promise.resolve()
+		})
+		expect(
+			document.querySelector('[aria-label^="Browse all posts"]'),
+		).toBeNull()
+		expect(
+			document.querySelectorAll('[data-pages-row-key]').length,
+		).toBeLessThan(40)
+		await act(async () => {
+			scroller.scrollTop = 0
+			scroller.dispatchEvent(new Event('scroll'))
+			await Promise.resolve()
+		})
+		expect(button('Browse all posts')).toBeTruthy()
+		expect(native.fetch.mock.calls.length).toBe(queries)
+	})
+	it('uses the clamped position when a restored tree collapses below the window threshold and expands again', async () => {
+		savedFolderFixture(
+			['/about'],
+			Array.from({ length: 200 }, (_, index) => ({
+				_id: `page-${index}`,
+				_type: 'kitProofPage',
+				title: `Page ${index}`,
+				pathname: { current: `/about/page-${index}` },
+			})),
+		)
+		await render()
+		const scroll = () =>
+			document.querySelector<HTMLElement>('[data-pages-scroll="pages"]')!
+		act(() => {
+			scroll().scrollTop = 5_000
+			scroll().dispatchEvent(new Event('scroll'))
+		})
+		await click('Toggle navigator')
+		await click('Choose page')
+		expect(scroll().scrollTop).toBe(5_000)
+		async function choose(text: string) {
+			await click('Pages options')
+			const option = Array.from(
+				document.querySelectorAll<HTMLElement>('[role="menuitem"]'),
+			).find((item) => item.textContent === text)!
+			act(() => option.click())
+		}
+		await choose('Collapse all')
+		// Browser layout clamps the now-short list to its top; JSDOM has no layout.
+		act(() => {
+			scroll().scrollTop = 0
+			scroll().dispatchEvent(new Event('scroll'))
+		})
+		await choose('Expand all')
+		expect(scroll().scrollTop).toBe(0)
+		expect(button('Collapse About')).toBeTruthy()
+		expect(button('About · /about')).toBeTruthy()
+		expect(
+			document.querySelectorAll('[data-pages-row-key]').length,
+		).toBeLessThan(40)
 	})
 	it('loads another collection batch when scrolling near the bottom', async () => {
 		collectionFixture(70)
@@ -1199,7 +1298,11 @@ describe('Pages Presentation adapter lifecycle', () => {
 			scroller.dispatchEvent(new Event('scroll', { bubbles: true }))
 			await Promise.resolve()
 		})
-		expect(button('Post 69 · /journal/post-69')).toBeTruthy()
+		expect(
+			document
+				.querySelector('[data-pages-scroll="collection"] [data-pages-virtual]')
+				?.getAttribute('data-pages-logical-count'),
+		).toBe('70')
 		expect(
 			native.fetch.mock.calls.some((call) => call[1]?.hasCursor === true),
 		).toBe(true)
@@ -1247,7 +1350,11 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(native.navigate).not.toHaveBeenCalled()
 		expect(button('Post 49 · /journal/post-49')).toBeTruthy()
 		await click('Load more items')
-		expect(button('Post 69 · /journal/post-69')).toBeTruthy()
+		expect(
+			document
+				.querySelector('[data-pages-scroll="collection"] [data-pages-virtual]')
+				?.getAttribute('data-pages-logical-count'),
+		).toBe('70')
 		fillSearch('post-69')
 		expect(
 			document.querySelector('[aria-label="Post 49 · /journal/post-49"]'),

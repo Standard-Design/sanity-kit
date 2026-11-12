@@ -329,3 +329,220 @@ the first search transition, clearing search, and scrolling at both sizes still
 need a repeatable comparison under consistent browser conditions. This pass does
 not establish a supported ordinary-page count, resolve the large-tree limitation,
 or justify adding virtualization without its own interaction acceptance.
+
+## Fresh-tab comparison — November 11, 2026
+
+A fresh tab in Google Chrome for Testing 153.0.8010.12 produced consistent
+controls without opening DevTools. The same production profiling harness and
+280px sidebar setting were used for both scenes; a screenshot confirmed the
+uncompressed sidebar layout. This pass obtained the following valid samples:
+
+| Action              | Ordinary pages | Total React render time | Largest commit | Commits | Samples |
+| ------------------- | -------------: | ----------------------: | -------------: | ------: | ------: |
+| Initial load        |            100 |          77.5ms; 65.3ms | 36.0ms; 30.0ms |  8 each |       2 |
+| Initial load        |          1,000 |                 379.7ms |        237.3ms |       8 |       1 |
+| Empty search to `P` |            100 |                  37.0ms |         37.0ms |       1 |       1 |
+| Empty search to `P` |          1,000 |                 262.2ms |        262.2ms |       1 |       1 |
+
+Initial loading completed five synthetic requests at 100 pages and fourteen at
+1,000 pages. Every initial sample started and ended with zero pending requests
+and was read within 4.5–5.4 seconds. The initial-sample check also confirmed that
+all expected ordinary rows had rendered. Both search transitions had zero query
+starts/completions and zero pending requests. Their capture windows were about
+580ms and 1,080ms. These windows include automation time and are not input
+latency. An attempted second 1,000-page reload did not produce a fresh report;
+the unchanged report was not counted as another sample.
+
+Clearing `P` back to the tree was also exercised at both sizes. Both reports were
+rejected by the recorder because one data request started and completed:
+
+| Rejected clear-search sample | Total React render time | Largest commit | Commits |
+| ---------------------------- | ----------------------: | -------------: | ------: |
+| 100 ordinary pages           |                  43.0ms |         41.4ms |       3 |
+| 1,000 ordinary pages         |                 238.9ms |        236.3ms |       3 |
+
+This rejection does not mean clearing search failed. Returning to the tree
+remounts the recent collection-items component. Its resource becomes dirty when
+search removes the last subscriber, so a refresh on return is expected. The
+current recorder conservatively rejects every interaction with a request and
+does not identify query plans; these reports remain excluded from the valid
+comparison. A future clear-search measurement should distinguish this expected
+request from periodic background reconciliation rather than disable either.
+
+The fresh-tab samples substantiate the remaining mounting cost: the 1,000-row
+initial load and first search each included a React commit above 200ms, despite
+the much cheaper retained-row updates recorded earlier. The sample counts are
+small, the data and status hooks are synthetic, and production profiling adds
+instrumentation. These are not paint/interaction measurements or supported-size
+claims. Keep the large ordinary-tree limitation explicit. Improving those
+transitions requires a separate change that limits mounted rows, with keyboard,
+folder-expansion, and scroll-continuity acceptance. No rendering change was made
+in this measurement pass, and no new scroll timing was captured.
+
+## Measured rendering implementation — automated evidence
+
+The next implementation keeps the complete loaded inventory but mounts only a
+window of a long list. Small lists retain ordinary rendering. The window uses
+measured row heights, rather than assuming folders, page rows, and wrapped paths
+are equally tall. Expanded collection subscriptions stay alive when their rows
+scroll out of view. Existing collection pagination is unchanged.
+
+Automated checks cover a 1,000-row list with a bounded mounted window, scrolling
+to distant rows, changed row heights, notices above the list, two-control folder
+rows, disabled controls, focus recovery after collapse, and retained menu
+triggers. Separate tests use the real focus-lock library to exercise its boundary
+guards. JSDOM does not perform the browser's default Tab navigation: those tests
+drive guard arrival explicitly and are not a substitute for live keyboard checks.
+
+Build, lint, type checking, all 2,808 tests, and coverage passed. The installed
+package check passed with 304 files, including all application profiles, Studio
+bundling, and TypeGen. It also confirmed that the new virtualizer remains an
+optional Studio dependency and does not enter frontend or server-only installs.
+
+The measurement harness now checks the actual shared data session to establish
+that the inventory finished loading. It separately reports the logical row count
+and mounted window count. It no longer requires every page to have a mounted row
+before measuring a virtualized list. Render-only interaction samples still
+require zero reads. A clear-search sample may include the expected recent-items
+refresh, but is labeled query-inclusive and must finish without pending, failed,
+or unrelated reads.
+
+At this checkpoint, browser acceptance still needed initial load, first search,
+clear-search, scrolling, real Tab/Shift+Tab traversal, menu and dialog return
+focus, narrow wrapped paths, the content-sized picker, expanded folders, and
+saved scroll positions. The Mac was locked during this work, so this checkpoint
+made no new browser timing or visual acceptance claim. The follow-ups below
+record the later checks and their remaining measurement limits.
+
+## Measured rendering live follow-up — November 11, 2026
+
+The staged rendering and harness candidate with snapshot hash
+`d03af60388ad71e18de8282de8766f15d0ba62cc40f4329fe9b32dcf86da6829`,
+on top of commit `945e22f`, was exercised in Google Chrome for Testing
+153.0.8010.12. These samples used the same synthetic workload, production
+profiling build, 280px sidebar, and closed DevTools as the earlier comparison:
+
+| Action                        | Ordinary pages | Total React render time | Largest commit | Commits | Sample duration | Requests                        |
+| ----------------------------- | -------------: | ----------------------: | -------------: | ------: | --------------: | ------------------------------- |
+| Initial load                  |            100 |                  41.6ms |         14.0ms |      12 |       5,839.2ms | 5                               |
+| Empty search to `P`           |            100 |                  15.6ms |         10.9ms |       5 |       1,467.2ms | 0                               |
+| Initial load                  |          1,000 |                  37.4ms |         16.1ms |      12 |       5,013.0ms | 14                              |
+| Initial load, repeated reload |          1,000 |                  35.2ms |         15.5ms |      12 |       5,270.7ms | 14                              |
+| Empty search to `P`           |          1,000 |                  16.6ms |         12.4ms |       5 |       1,488.5ms | 0                               |
+| Empty search to `P`, repeated |          1,000 |                  16.5ms |         12.0ms |       5 |       1,497.9ms | 0                               |
+| Clear `P` back to the tree    |          1,000 |                  24.4ms |         15.4ms |       6 |       1,505.7ms | 1 expected recent-items refresh |
+
+All reports passed their recorder checks. The clear-search result is explicitly
+**query-inclusive**, rather than a render-only interaction sample. The initial
+checks establish that the full inventory loaded while only a window of rows was
+mounted. The search samples had no requests.
+
+For this workload, the 1,000-page initial-render totals of 35.2–37.4ms and
+first-search totals of 16.5–16.6ms are substantially below the earlier 379.7ms
+and 262.2ms individual samples. The rendering strategy changed: the earlier
+version mounted every row, while this candidate mounts a measured window. These
+few samples show reduced React work for that change; they are not statistical
+benchmarks, user-perceived latency measurements, or a supported-size guarantee.
+Sample duration includes automation and reading time, not just rendering.
+
+The same pass exercised real keyboard and native menu behavior:
+
+- Tab moved from the first row, Page 0, through virtual window boundaries to
+  Page 26; Shift+Tab returned to Page 6.
+- PageDown moved the visible window to rows 2–24 while retaining focus on
+  Page 0. The next Tab correctly focused Page 1.
+- Opening the picker and pressing Tab focused Search.
+- The native folder menu remained visible above neighboring rows. Escape
+  returned focus to its trigger.
+
+This pass also found a remaining defect: switching from the sidebar to the
+picker preserved the search query but lost the saved scroll position. Page 6
+was at the top in the sidebar; Page 0 appeared at the top in the picker. The
+owner corrected the initially cached zero scroll offset. Browser acceptance was
+**not complete at this checkpoint**; the functional retest below verifies the fix.
+
+The native scroll automation returned `noWindowsAvailable`. No valid wheel-scroll
+timing sample was captured or inferred from the successful PageDown check.
+Remaining visual, scrolling, and state-continuity checks still apply.
+
+## Functional retest after unlocking — November 11, 2026
+
+The updated candidate was exercised in Google Chrome for Testing against the
+production profiling harness on port 3346. This pass verified the sidebar-to-
+picker scroll fix described above:
+
+- With 1,000 pages and search `P`, 30 Tab presses reached Page 28. The sidebar
+  showed Page 19 partially at the top and Page 20 as the first complete row.
+  Switching to the picker retained that same partial-row offset.
+- In the picker, Tab focused Search. Shift+Tab moved to Pages options, and
+  another Shift+Tab wrapped to Page 999. Tab wrapped back to Pages options.
+  Escape closed the picker and returned focus to the Choose page trigger,
+  displaying Home.
+
+The mixed scene combined six exceptionally long, deeply nested paths with
+1,000 ordinary pages. Changing the sidebar width from 240px to 320px caused the
+actual row heights to be measured again, without overlapping rows. All remained
+reachable by keyboard. The extreme paths, nested six levels deep, became very
+tall at 240px; this check establishes correct wrapping and layout, not that this
+unusual content is easy to scan at that width.
+
+The 5,000-item collection scene also passed these functional checks:
+
+- Browse all followed by 65 Tab presses reached Post 64; another 60 reached
+  Post 124. This crossed the 50- and 100-item pagination boundaries while the
+  rendered window remained bounded.
+- The sidebar showed Post 115 at the top. Switching to the picker retained
+  Post 115 at the top.
+- A nonexistent search showed No items. Searching for Post 4999 returned that
+  exact final item.
+
+A fresh 1,000-page initial-load report passed the recorder checks: 50.2ms total
+React render time, 15.7ms largest commit, 12 commits, 1,002 loaded documents out
+of 1,002 expected, 12 mounted rows out of 1,005 logical rows, and zero pending
+requests. A concurrent build may have affected this sample, so it is excluded
+from the comparative timing results. No wheel-scroll timing was acquired in
+this pass.
+
+A separate stale-scroll-offset edge case was still under correction: collapsing
+the list to 60 or fewer rows switches to ordinary rendering, and expanding it
+again must restore the correct virtual window. The final live retest below
+verifies that transition. This checkpoint alone did not complete browser
+acceptance or establish release readiness.
+
+## Final candidate checks — November 11, 2026
+
+The final production profiling bundle used runtime, harness, and manifest changes
+with HEAD-diff hash
+`a479d223b456d1c47419e61ab029f529978802504df7d7b388fe2f0bcf8d45a3`.
+Builds and tests were idle during these samples. Google Chrome for Testing and
+the 280px sidebar setting remained the same:
+
+| Action              | Ordinary pages | Total React render time | Largest commit | Commits | Sample duration | Requests |
+| ------------------- | -------------: | ----------------------: | -------------: | ------: | --------------: | -------: |
+| Initial load        |          1,000 |                  48.3ms |         16.5ms |      12 |       4,479.3ms |       14 |
+| Empty search to `P` |          1,000 |                  14.1ms |         10.5ms |       5 |       1,800.0ms |        0 |
+
+Both reports were valid and ended with zero pending requests. Initial loading
+confirmed 1,002 documents out of 1,002 expected, with 12 mounted rows out of
+1,005 logical rows. Search rendered 16 rows out of 1,000 logical results. These
+are additional individual measurements of React work on synthetic data, with
+the same interpretation limits as the earlier samples.
+
+The final collapse/expand check passed. After clearing search `P`, 42 Tab presses
+reached Page 125 in the tree. Switching from the deeply scrolled sidebar to the
+picker preserved that state. Pages options → Collapse all clamped the view to
+Home and the collapsed Journal and Pages groups. Expand all kept Home at the
+top, with Journal and Page 0 visible; the old deep offset did not return.
+
+Together with the preceding functional retest, this completes the described
+live keyboard, native menu, wrapped-row layout, pagination, and scroll-position
+continuity checks for this candidate. It does not add a wheel-scroll performance
+measurement. It also does not measure production-data network performance,
+input-to-paint latency, or establish a general supported content-size limit.
+
+The final automated checks passed: 104 test files, 2,811 tests, build, lint,
+type checking, and formatting. The final installed-package check also passed:
+304 packed files, application and Studio profiles, dependency isolation, and
+TypeGen. It used an isolated snapshot of the final working source. The tarball
+integrity was
+`sha512-rv1Wv4M3vPxvywSlH+wTKo0yjgph2Iq+ihD1V2SkuIyd4Im3UaE3ZY0Yo6mPWG1NcJnyoj2/2cTjJJMxthKo0Q==`.

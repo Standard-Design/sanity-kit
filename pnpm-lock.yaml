@@ -18,6 +18,9 @@ importers:
         specifier: ^14.0.1
         version: 14.0.1
     devDependencies:
+      '@tanstack/react-virtual':
+        specifier: 3.14.22
+        version: 3.14.22(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@arethetypeswrong/cli':
         specifier: ^0.18.5
         version: 0.18.5
