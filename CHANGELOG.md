@@ -1,10 +1,11 @@
 # Changelog
 
-## Unreleased — Pages and routing release-note candidate
+## 0.1.0-alpha.6 — release candidate
 
-These changes describe the current checkout and remain subject to final review,
-acceptance, and release preparation. They are not included in npm alpha.5. No
-version bump, tag, or publication is recorded by this entry.
+Prepared for review; not yet tagged or published. This release adds Pages, URL
+editing, collection routing, and redirects to the existing kit. Consumers keep
+their own Studio and website. These additions are not included in npm alpha.5.
+See the [alpha.5 upgrade guide](docs/prerelease.md#upgrading-from-alpha5).
 
 ### Studio editing
 
@@ -43,6 +44,11 @@ version bump, tag, or publication is recorded by this entry.
   draft-only or publishing modes. Support normal checked Publish, retirement,
   and deletion with an explanatory confirmation for active redirects.
 
+- Window large navigator lists while retaining native rows, menus, keyboard
+  traversal, wrapped paths, and saved scroll positions. Small lists render
+  normally. Studio consumers install the optional `@tanstack/react-virtual` peer
+  (`^3.14.22`); application-only imports do not require it.
+
 ### Application APIs
 
 - Export `/url` helpers for pure fixed-prefix and settings-backed URL resolution,
@@ -71,8 +77,15 @@ version bump, tag, or publication is recorded by this entry.
   that do not import `/studio`.
 - Record live proof checks for first-settings publication, same-prefix edits,
   repeated prefix moves, redirect opt-out/retargeting, and a separate published
-  HTTP server. These fixtures do not establish every custom-role, concurrency,
-  recovery, or deployed-cache outcome.
+  HTTP server. Installed consumers also pass page URL draft/published separation,
+  publishing with redirects, browser navigation, uncertain-write recovery, and
+  native two-tab stale-review handling. Guarded cleanup preserves existing data.
+- Measure 1,000-page React rendering at 48.3 ms for initial loading and 14.1 ms
+  for first search, compared with earlier 379.7 ms and 262.2 ms samples. These are
+  synthetic profiling measurements, not end-to-end or network guarantees.
+- Restricted-account live testing remains unverified because no separate test
+  account was available. Permission cases have automated coverage. Consumers
+  must verify their deployed cache refresh behavior; no cache backend is supplied.
 - Keep planners, writers, native action factories, session owners, and receipts
   private. Release-aware URL moves, populated-folder removal, document-free
   indexes, multisite routing, arbitrary template parameters, and wildcard

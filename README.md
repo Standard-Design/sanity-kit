@@ -1,7 +1,7 @@
 # `@standard-design/sanity-kit`
 
 Reusable Sanity tools for public configuration, data validation, images, links,
-React Router pages and preview, and sitemaps. The unreleased checkout also includes
+React Router pages and preview, and sitemaps. The alpha.6 release candidate also includes
 Studio Pages navigation, URL editing, collection settings, and redirects.
 
 Use individual helpers or combine them into a React Router integration. The kit
@@ -13,7 +13,7 @@ Start with the [quick start](#quick-start) for the setup sequence. Use the
 and detailed subsystem guides. The [extraction record](docs/extraction-provenance.md)
 explains where the package came from and what changed during extraction.
 
-For the unreleased Studio and routing APIs, see [Pages](docs/pages.md), the
+For the candidate Studio and routing APIs, see [Pages](docs/pages.md), the
 [URL field](docs/url-field.md), [collection routing](docs/collection-routing-api.md),
 and [redirect handling](docs/redirects.md). These are implemented in this checkout
 and checked from compiled tarballs; they are not in npm alpha.5. Consumers own
@@ -38,6 +38,10 @@ not a Studio application or hosting service.
 - [License](#license)
 
 ## Installation and release status
+
+This checkout prepares **0.1.0-alpha.6**, adding Pages and routing tools. It is
+not yet published. See the [alpha.5 upgrade guide](docs/prerelease.md#upgrading-from-alpha5)
+for how to adopt the candidate; the published version below remains alpha.5.
 
 [`@standard-design/sanity-kit@0.1.0-alpha.5`](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.5)
 is published on npm, with matching assets in the
@@ -96,7 +100,7 @@ context naming and loader validation. Historical artifacts remain unchanged.
   require React Router 8.4+ within the declared range.
 - Your own Sanity project, dataset, and explicit API date when fetching content.
 
-The [peer dependency table](docs/prerelease.md#supported-peers) lists requirements
+The [peer dependency table](docs/prerelease.md#peer-dependencies) lists requirements
 by entry point, including image, preview, Visual Editing, and Zod dependencies.
 The [package manifest](package.json) is the authority for supported ranges.
 Package development uses Node 24 and pnpm 11.26.0.
@@ -118,7 +122,8 @@ Your application owns:
 The kit never reads application environment variables for you. Its server adapter
 uses standard `Request`/`Response` objects and React Router sessions, not platform
 bindings. Runtime validation is independent of a schema library; Zod is optional.
-The kit does not generate Studio schemas or your application's route table.
+Your application owns its content schemas and route table. Studio installers add
+collection-settings and redirect schemas and manage private folder metadata.
 
 ### Browser and server boundaries
 

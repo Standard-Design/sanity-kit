@@ -11,11 +11,15 @@ the approval handoff. Remove finished work from the remaining list; retain its
 commit in the progress record below. A completed implementation remains separate
 from a reviewed, committed slice and from live acceptance.
 
-Last approved slice: navigator performance (November 11, 2026), committed and
-pushed as `9b7d64a`. The preceding native concurrency and release-progress
-documentation commit (`945e22f`) is also pushed. The separate page URL workflow
-report is staged for review; it records tests using an installed package in a
-consumer-owned Studio and website.
+Last approved slice: alpha.6 release preparation (November 12, 2026), covering
+the version, release notes, upgrade guide, and this checklist. The preceding
+page URL workflow report is committed and pushed as `1c480e9`. Navigator
+performance (`9b7d64a`) and the
+preceding concurrency report (`945e22f`) are also committed and pushed.
+Performance CI passed verification, coverage, and packaging
+([run 43144841318](https://github.com/Standard-Design/sanity-kit/actions/runs/43144841318)).
+Documentation CI also passed verification, coverage, and packaging
+([run 43145785766](https://github.com/Standard-Design/sanity-kit/actions/runs/43145785766)).
 
 The packaging fix (`acd0a6f`, November 11, 2026) is committed and pushed.
 The earlier live acceptance documentation
@@ -34,10 +38,20 @@ and native write/schema authorization (`dd1b9ee`) are also approved, committed,
 and pushed. First and later publishing retain the shared prepare-and-recheck
 pattern.
 
-| Slice                            | What remains                                                                                   | Status                                                                                                                                                           |
-| -------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Page URL workflow test report | Review and commit the completed installed-package test evidence and updated release checklist. | Staged documentation only. Native draft editing, published/preview separation, publishing with a redirect, browser navigation, and guarded cleanup passed.       |
-| 2. Release preparation           | Final verification, version/release notes, artifact review, CI, and explicit release approval. | Performance implementation is committed and pushed. No separate restricted test account is available; disclose that live-check limitation in the release review. |
+| Slice           | What remains                                                                                                                             | Status                                                                                    |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------- |
+| Release handoff | Move the approved alpha.6 commit to `main`, pass CI, pack from the clean commit, review checksums, then obtain tag/publication approval. | Release preparation approved November 12. No tag or publication has occurred for alpha.6. |
+
+The alpha.6 preparation check passed from an isolated working-tree snapshot:
+304 packed files, six application profiles, installed Studio integrations, and
+TypeGen. Subsequent changes only corrected two documentation links and clarified
+that folder metadata has no Studio schema. This test tarball is not the final
+release artifact; that must be packed from the clean, approved release commit.
+
+The initial release keeps these explicit limits: no restricted-account live test
+was possible; deployed cache refresh belongs to the consuming application;
+release-aware URL moves and wildcard redirects remain deferred. The existing
+acceptance record distinguishes automated coverage from live evidence.
 
 The navigator row improvement is committed. A separate virtualization slice now
 addresses the measured cost of mounting and searching 1,000 ordinary pages.

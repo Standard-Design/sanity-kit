@@ -44,9 +44,13 @@ Published tarballs, their bundled documentation, and their checksums are unchang
 The registry and GitHub release records establish publication; a source version
 bump or successful dry-run alone does not.
 
-## Unreleased checkout APIs
+## Alpha.6 release candidate
 
-This checkout now exports Pages and Studio installers through `/studio`, pure
+This checkout prepares `0.1.0-alpha.6`; it has not been tagged or published.
+The npm registry still lists alpha.5 under `alpha` and alpha.4 under `latest`
+(checked November 11, 2026). Alpha.6 is not present in the registry.
+
+This candidate exports Pages and Studio installers through `/studio`, pure
 URL/collection resolution through `/url`, settings reads through `/url/settings`,
 HTTP redirects through `/redirect`, and additive import synchronization through
 `/folders/server`. `/react-router/server` additionally
@@ -65,13 +69,50 @@ Native first-settings publication, unchanged-prefix saves, repeated prefix moves
 redirect opt-out/retargeting, and the proof website's published HTTP redirects
 have live acceptance records. Installed-package tests cover both Pages and
 standalone Structure composition, as well as real React Router document and data
-responses. Broader custom-role, concurrency, lost-response recovery, and deployed
-cache behavior remain acceptance work. The [Pages release checklist](pages-release-plan.md)
-is the source of current remaining gates.
+responses. Installed consumers also passed native uncertain-write recovery,
+two-tab stale-review handling, and a page URL change from draft editing through
+publishing and browser redirect delivery. Navigator performance and interaction
+checks passed with the measured list renderer.
+
+No separate restricted account was available, so its live permission behavior
+remains unverified despite automated coverage. Deployed cache behavior belongs
+to the consuming application and must be verified there. The
+[Pages release checklist](pages-release-plan.md) records the remaining release gates.
 
 A successful local build or package check does not publish these APIs. The next
 version, tag, release notes, and artifact still require the normal review and
 release workflow. No historical alpha artifact is replaced.
+
+## Upgrading from alpha.5
+
+Alpha.6 keeps the existing package name and application entry points. Pages and
+its routing tools are additions you install explicitly; upgrading does not
+replace your Studio or rewrite existing documents.
+
+1. After release approval, install the exact alpha.6 artifact in the frontend
+   and Studio/codegen workspaces that use the kit. Until it is published, use the
+   reviewed compiled tarball rather than an npm install command for alpha.6.
+2. Keep the existing Node 24+ and client `^7.27.0 || ^8.6.1` requirements. A Studio
+   using `/studio` must use the tested Sanity **6.17.0** version and install its
+   optional peers, including `@tanstack/react-virtual` (`^3.14.22`). See the
+   [Studio compatibility and installation guide](pages.md#dependencies-and-package-isolation)
+   and the [peer table](#peer-dependencies). Application-only consumers do not need
+   Studio peers.
+3. Follow the [Pages guide](pages.md) to register page types and collections, or
+   install the [URL field](url-field.md) in Structure without Pages. Keep your
+   application's schemas and routes; the kit supplies collection-settings and
+   redirect schemas and manages private folder metadata through its installers.
+4. If adopting editable collection prefixes, connect the
+   [settings loader](collection-routing-api.md) to the matching published or
+   preview perspective in the website. Saving a prefix in Studio alone does not
+   reconfigure application routes.
+5. If adopting redirects, wire [redirect handling](redirects.md) into the
+   request path. Saving redirect documents does not by itself make the website
+   follow them. Connect cache refresh only if the application uses a cache.
+6. Run application typechecks, TypeGen, and builds. Test draft preview separately
+   from published routing and verify an old URL reaches its new destination.
+   Existing alpha.5 consumers do not need a stored-data migration merely to
+   update the package. Adopting the new tools requires explicit configuration.
 
 ## Upgrading from alpha.4
 
