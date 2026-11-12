@@ -11,11 +11,11 @@ the approval handoff. Remove finished work from the remaining list; retain its
 commit in the progress record below. A completed implementation remains separate
 from a reviewed, committed slice and from live acceptance.
 
-Last approved slice: native concurrency acceptance and release-progress
-documentation (November 11, 2026). This approval covers the acceptance record and
-this checklist; the navigator performance slice now has live acceptance evidence
-and remains uncommitted for review. The documentation commit is `945e22f` (not
-yet pushed).
+Last approved slice: navigator performance (November 11, 2026), committed and
+pushed as `9b7d64a`. The preceding native concurrency and release-progress
+documentation commit (`945e22f`) is also pushed. The separate page URL workflow
+report is staged for review; it records tests using an installed package in a
+consumer-owned Studio and website.
 
 The packaging fix (`acd0a6f`, November 11, 2026) is committed and pushed.
 The earlier live acceptance documentation
@@ -34,10 +34,10 @@ and native write/schema authorization (`dd1b9ee`) are also approved, committed,
 and pushed. First and later publishing retain the shared prepare-and-recheck
 pattern.
 
-| Slice                                         | What remains                                                                                            | Status                                                                                                                                                                                                                                                                                                      |
-| --------------------------------------------- | ------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| 1. Navigator performance and final acceptance | Review and commit the measured virtualization slice; disclose the unavailable restricted-account check. | Live initial-load/search timings improved. Keyboard traversal, sidebar/picker scroll restoration, collapse/expand, mixed-height rows, and collection pagination/search passed. Installed page URL publishing, redirects, perspectives, and guarded cleanup also passed. No restricted account is available. |
-| 2. Release preparation                        | Final verification, version/release notes, artifact review, CI, and explicit release approval.          | Pending acceptance approval.                                                                                                                                                                                                                                                                                |
+| Slice                            | What remains                                                                                   | Status                                                                                                                                                           |
+| -------------------------------- | ---------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 1. Page URL workflow test report | Review and commit the completed installed-package test evidence and updated release checklist. | Staged documentation only. Native draft editing, published/preview separation, publishing with a redirect, browser navigation, and guarded cleanup passed.       |
+| 2. Release preparation           | Final verification, version/release notes, artifact review, CI, and explicit release approval. | Performance implementation is committed and pushed. No separate restricted test account is available; disclose that live-check limitation in the release review. |
 
 The navigator row improvement is committed. A separate virtualization slice now
 addresses the measured cost of mounting and searching 1,000 ordinary pages.
@@ -60,8 +60,7 @@ The final source passes build, lint, type checking, formatting, and all 2,811 te
 in 104 files. Coverage and the installed-package check passed before the small
 scroll-restoration follow-ups. The final installed-package check also passes against the updated source
 (304 packed files, application and Studio profiles, dependency isolation, and TypeGen). The renderer, measurement harness, dependency boundary,
-regressions, and performance record form one review slice; no commit is approved
-yet for that slice.
+regressions, and performance record are approved and committed as `9b7d64a`.
 
 The full installed-tarball check passed for `d5b9dbf`: 299 files, six application
 profiles, SDK 7/8, Studio with Pages and standalone fields/settings, redirect

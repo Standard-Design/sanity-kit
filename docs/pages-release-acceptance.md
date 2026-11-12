@@ -165,10 +165,9 @@ cross-tab lock or recovery after closing the tab.
 
 The public APIs are now checked from installed tarballs. The native settings
 edit/publish/recovery workflow above used the installed package, as did the
-website HTTP checks below. These establish the settings integration and saved
-redirect delivery separately. A newly edited page URL published and followed
-end-to-end in the installed consumer remains a separate check; it is not implied
-by these results.
+website HTTP checks below. The installed page URL workflow also passed: a native
+draft edit stayed out of published routing, then its reviewed publication created
+a redirect that the installed website followed to the new page.
 
 Keep the consumer-owned Studio, standalone URL-field configuration, and optional
 React Router integration explicit. The package does not provide the application's
@@ -217,16 +216,23 @@ browser-rendering checks were performed for this installed website run. The
 consumer intentionally uses fresh reads without a cache backend. Native Studio
 workflow acceptance and controlled response-loss recovery are recorded separately.
 
-#### Installed page URL workflow — in progress, November 11, 2026
+#### Page URL workflow using an installed package — passed, November 11, 2026
 
-A later run restarted the installed Studio on port 3000 and installed website
-on ports 3334/3335, using the same verified tarball. This is separate from the
-completed run above, after which the source servers were restored. The installed
-servers remain running while this page workflow is unfinished.
+This check used a consumer-owned Studio and website with SanityKit installed
+from its packed release artifact, rather than importing the repository source.
+It verifies the complete editor-to-website workflow through the public package.
+The page itself is an ordinary Sanity page document; it is not something installed.
+
+A later run restarted that Studio on port 3000 and website on ports 3334/3335,
+using the same verified tarball. This is separate from the completed HTTP run
+above. After this page test and cleanup, the source Studio and website servers
+were restored. Studio and preview requests returned **200**, and the
+existing published article redirect still returned **301** to
+`/stories-tester/routing-proof`.
 
 The temporary concurrency collection and schema were removed from the installed
 configuration after their test records were cleaned up. The ordinary fixture
-routing and public URL-field setup are restored, without the temporary recovery
+routing and public URL-field setup were restored, without the temporary recovery
 transport or layout. A baseline confirmed the disposable page ID and both test
 paths were unused and captured existing fixture content, redirects, and the
 folder registry before editing.
@@ -234,24 +240,46 @@ folder registry before editing.
 Native Studio created and published `kitProofPageAcceptance-20261111c`, titled
 **Packed page acceptance 20261111c**, at
 `/packed-page-acceptance-20261111-c-before`. The editor showed Published and a
-disabled Publish action. Read-only HTTP checks then confirmed that the published
-website returned status **200** and the exact page title, ID, and pathname;
-preview draft reads returned the same page. The intended new path,
-`/packed-page-acceptance-20261111-c-after`, had no published page.
+disabled Publish action. The published website returned status **200** and the
+exact page title, ID, and pathname; preview draft reads returned the same page.
+The intended new path, `/packed-page-acceptance-20261111-c-after`, had no
+published page.
 
-The computer locked during the next attempted edit. A fresh raw read found only
-the published page at the original path, with revision
-`Nmh64LTSf28NqZjKcmBL3F`; no changed draft or URL-change receipt existed. Existing
-fixture content and the folder registry still matched the baseline. No root
-folder record was added for this page.
+The native URL field then saved the new path as a draft. Seven HTTP checks
+confirmed that preview draft reads used the new URL and no longer resolved the
+old one, while preview published reads still used the old URL. The published
+server also kept the old URL and did not expose the draft page at the new URL,
+even when sent a draft-perspective parameter. Raw reads confirmed that the
+published revision was unchanged and no redirect receipt existed yet.
 
-**Still pending:** save the changed URL as a draft, verify differing draft and
-published page routes, publish the reviewed URL change with its redirect, follow
-the redirect on the installed website, and remove only the reviewed disposable
-page/redirect/receipt with revision guards. The first publish does not establish
-those remaining steps. Local HTTP evidence is
-`/tmp/sanitykit-packed-page-http-first.json`; the baseline and current raw
-snapshots remain local acceptance artifacts, not packaged data.
+The editor reviewed the URL change and published with redirect creation enabled.
+The dialog closed, the native editor showed Published, and Publish became
+disabled. Eight final HTTP checks confirmed:
+
+- Published GET and HEAD requests to the old URL returned **301**, pointing
+  directly to the new URL. HEAD returned no body, and responses used
+  `Cache-Control: no-store`.
+- Following that redirect returned **200** at the new URL. The published data
+  endpoint returned the exact page title and ID there, and no page at the old URL.
+- Preview draft reads resolved the new URL, while the preview server continued
+  bypassing redirects.
+
+A separate browser tab requested the old published URL, landed at the new URL,
+and rendered **Packed page acceptance 20261111c**. This verifies browser rendering
+as well as the HTTP and data endpoints.
+
+Cleanup reviewed exactly the disposable page, its enabled 301 redirect, and its
+URL-change receipt. All three shared the same transaction revision. After native
+and HTTP completion were confirmed, cleanup reread those records, required their
+contents to match the review, and deleted only those three records with revision
+guards. Direct reads confirmed their absence, and the full captured baseline
+content, redirects, and folder registry were unchanged. No root folder record was
+added for this page.
+
+Local HTTP evidence is in `/tmp/sanitykit-packed-page-http-first.json`,
+`/tmp/sanitykit-packed-page-http-draft.json`, and
+`/tmp/sanitykit-packed-page-http-final.json`. The baseline and cleanup review
+remain local acceptance artifacts, not packaged data.
 
 ## Cache acceptance depends on the consumer
 
