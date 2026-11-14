@@ -1,6 +1,6 @@
 # Shared URL resolution
 
-Import from `@standard-design/sanity-kit/url`, introduced in alpha.6.
+Import from `@standard-design/sanity-kit/url`.
 The authoring, conflict-checking, and native validation helpers described below
 support the Studio integrations internally.
 

@@ -2,7 +2,7 @@
 
 The public `/redirect` entry handles website requests and optional consumer-owned
 caching. The `/react-router/server` entry also exports the React Router middleware
-adapter. Both ship in alpha.6. Your application connects them to its own routes
+adapter. Your application connects these helpers to its own routes
 and, if needed, a cache backend.
 
 The snapshot compiler and Sanity loader described below remain internal stages,
@@ -576,8 +576,9 @@ The kit wraps only the native dialog wording; permissions, reference and version
 warnings, buttons, and the delete operation remain Sanity’s. The wrapper forks
 the dialog’s translation resources using `i18next` and `react-i18next`, the same
 libraries used by Studio. It does not change translations for other dialogs or
-use private Sanity components. These libraries are optional Studio peers, not
-frontend dependencies.
+use private Sanity components. See the
+[Studio dependency guide](pages.md#dependencies-and-package-isolation) for how to
+share Studio's installed copies.
 
 Deleting an active published redirect removes that rule; the website stops using
 it when its redirect data refreshes. Existing browser-cached permanent redirects

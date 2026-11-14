@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.1.0-alpha.7
+
+- Bundle the corrected installation and upgrade guides for Pages, URL fields,
+  collection routing, redirects, and folder imports.
+- Include the workflow for reviewing the bundled guides before publication.
+- Accept the translation library versions that Sanity Studio 6.17.0 uses,
+  so the active redirect warning can share Studio's translation context.
+- Upgrade from alpha.6 by updating the package pin and lockfile. See the
+  [upgrade guide](docs/prerelease.md#upgrading-from-alpha6).
+
 ## 0.1.0-alpha.6 — November 12, 2026
 
 Published on [npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.6)

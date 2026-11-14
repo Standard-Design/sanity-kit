@@ -4,7 +4,7 @@ Pages is a page-browser plugin for an application's existing Sanity Studio. It h
 page, preview it, and open its document without leaving Sanity's native
 Presentation tool.
 
-Alpha.6 exports `pagesTool()` and the companion Studio installers from
+Import `pagesTool()` and the companion Studio installers from
 `@standard-design/sanity-kit/studio`. Editors can browse pages and collections,
 create pages from registered templates, manage saved folders, and review folder
 renames. The [URL field](url-field.md) supports draft editing and checked
@@ -183,13 +183,29 @@ before adoption by an existing Studio.
 
 Sanity, Sanity UI, styled-components, react-focus-lock,
 `@tanstack/react-virtual` (`^3.14.22`), `@sanity/icons`,
-`i18next` (`^26.5.10`), `react-i18next` (`^17.1.8`), and `rxjs` (`^7.8.2`)
+`i18next` (`^26.4.2`), `react-i18next` (`^17.0.15`), and `rxjs` (`^7.8.2`)
 are optional peers. RxJS implements the native Presentation location resolver
 subscription for settings-backed routes. TanStack React Virtual provides measured
 row virtualization in the navigator; install it in the Studio package, not a
 frontend or server package that only imports the routing or folder helpers.
 The translation libraries scope active-redirect deletion wording to its native
-confirmation dialog.
+confirmation dialog. Studio already depends on both libraries. The kit and Studio
+must resolve the same copies so the native dialog receives the scoped warning.
+With pnpm, if your lockfile resolves two copies, align them with workspace
+overrides. For example, this matches the Studio 6.17.0 versions verified in
+Standard Stack. Add the entries to your existing `overrides` in
+`pnpm-workspace.yaml`.
+
+```yaml
+overrides:
+  i18next: 26.4.2
+  react-i18next: 17.0.15
+```
+
+With these overrides, the Studio package can omit both direct dependencies.
+After updating the lockfile, open Delete on a published, enabled redirect and
+check that the live redirect warning appears.
+
 The consuming Studio supplies them; the kit does not bundle another Sanity
 runtime. They are optional for the package as a whole, but required when using
 `/studio`. Frontend consumers do not need them. React remains a shared peer,
@@ -207,7 +223,7 @@ in the fixture; this does not claim all upstream declarations pass strict librar
 checking. The repository still has one development-only peer warning:
 `@sanity/workflow-blueprint` requests TypeScript 6 or 7, while this repository uses
 5.9.3. That is not a reason to require TypeScript in every consuming application;
-the alpha.6 peer requirements are listed in the package manifest.
+the package manifest lists the supported peer ranges.
 
 ## What each part owns
 
@@ -1160,7 +1176,7 @@ operation; collection settings have their own checked publishing workflow.
 
 ### Remaining scope and release checks
 
-Alpha.6 includes collection settings publishing, folder rename and removal,
+The kit includes collection settings publishing, folder rename and removal,
 redirect management, and public imports for applications and Studio.
 The [release plan](pages-release-plan.md) records the completed checks and what
 still needs testing in a consuming app.

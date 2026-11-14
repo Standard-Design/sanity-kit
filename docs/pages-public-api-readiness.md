@@ -1,7 +1,7 @@
 # Pages public API readiness
 
 This audit records the state before alpha.6 shipped. For current imports and
-installation steps, see the [alpha.6 API guide](prerelease.md#alpha6-apis).
+installation steps, see the [routing API overview](prerelease.md#pages-and-routing-apis).
 
 This is a source and packaging audit, not an installation guide or a claim that
 Pages is release-ready. It was checked against commit `77b0fa2` on November 10, 2026.

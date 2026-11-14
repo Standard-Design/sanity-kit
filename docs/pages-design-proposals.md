@@ -1,7 +1,7 @@
 # Pages: approved contracts and remaining proposals
 
 This page records the design decisions as they stood during development. See
-the [Pages guide](pages.md) and [alpha.6 API guide](prerelease.md#alpha6-apis)
+the [Pages guide](pages.md) and [routing API overview](prerelease.md#pages-and-routing-apis)
 for the released behavior and imports.
 
 Prepared October 30, 2026; approvals updated October 31. The folder-storage and

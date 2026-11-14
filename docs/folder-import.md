@@ -11,7 +11,7 @@ need to install or run Sanity Studio to use it.
 
 ## Run synchronization explicitly
 
-Import from `@standard-design/sanity-kit/folders/server`, introduced in alpha.6.
+Import from `@standard-design/sanity-kit/folders/server`.
 It requires the supported Sanity client and `groq` peers, but no Studio or React
 installation.
 

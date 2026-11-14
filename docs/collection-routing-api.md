@@ -5,7 +5,7 @@ They let an application use published settings for visitors and draft settings
 for an authorized preview. They do not change documents, publish settings,
 register frontend routes, or install a Studio.
 
-These APIs ship in alpha.6. To edit and publish the settings in Studio, install
+To edit and publish the settings in Studio, install
 the separate [collection settings wrapper](collection-settings-publication.md).
 
 ## Choose the right entry

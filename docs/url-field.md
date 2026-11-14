@@ -6,7 +6,7 @@ preparation, generation, uniqueness checks, and folder writer to a native Sanity
 slug field.
 
 Import `defineSanityUrlField` and `withUrlPublication` from
-`@standard-design/sanity-kit/studio` in alpha.6. They support fixed collection
+`@standard-design/sanity-kit/studio`. They support fixed collection
 prefixes, settings-backed prefixes, and draft URL editing. The publication wrapper
 allows draft URL edits on published pages and checks redirects when publishing.
 Documents with release versions and `liveEdit` schemas remain protected. Without

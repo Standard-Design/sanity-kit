@@ -1,7 +1,7 @@
 # Documentation
 
-These guides cover `@standard-design/sanity-kit@0.1.0-alpha.6`, the prerelease
-that adds Pages, URL fields, collection routing, and redirects.
+These guides cover `@standard-design/sanity-kit@0.1.0-alpha.7`, including the
+Pages, URL field, collection routing, and redirect APIs introduced in alpha.6.
 
 Start with the [README quick start](../README.md#quick-start) and
 [entry-point map](../README.md#package-entry-points-and-subsystem-guides).
@@ -34,8 +34,7 @@ can use the framework-independent helpers without adopting the router adapter.
 
 ## Pages and routing integrations
 
-These APIs ship in alpha.6. Consumers keep their own Studio, website routes, and
-infrastructure.
+Consumers keep their own Studio, website routes, and infrastructure.
 
 | Guide                                                     | What it explains                                                                                                       |
 | --------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |

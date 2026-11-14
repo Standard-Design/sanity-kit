@@ -6,13 +6,9 @@ the earlier implementation plan.
 
 ## Remaining release checklist
 
-The alpha.6 handoff is complete. The approved commit, `ca1c65f`, is on `main`
-and tagged `v0.1.0-alpha.6`. Main and release-tag CI passed. The 304-file
-GitHub tarball matches the public npm download, and a clean registry install
-passed the TypeScript and runtime checks. Both `latest` and `alpha` point to
-alpha.6. See the [release record](prerelease.md#release-status).
-
-Before the next prerelease:
+Alpha.7 bundles the corrected guides for the Pages and routing APIs. See the
+[release record](prerelease.md#release-status) for the package and verification.
+Before beta:
 
 - Integrate the published package into Standard Stack. Check the Studio and
   website together, including page creation, URL changes, collection settings,
@@ -24,6 +20,10 @@ Before the next prerelease:
   publish a beta. Release-aware URL moves and wildcard redirects remain deferred.
 
 ## Alpha.6 implementation and acceptance record
+
+The approved commit, `ca1c65f`, was tagged `v0.1.0-alpha.6`. Main and release-tag
+CI passed. The GitHub tarball matched the public npm download, and a clean
+registry install passed the TypeScript and runtime checks.
 
 The alpha.6 release preparation slice was approved November 12, 2026. It covered
 the version, release notes, upgrade guide, and this checklist. The preceding

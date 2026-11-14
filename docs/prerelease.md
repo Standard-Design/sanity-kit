@@ -1,17 +1,23 @@
 # Prerelease integration
 
-Version `0.1.0-alpha.6` of `@standard-design/sanity-kit` is published on npm
-and GitHub. It adds Pages, URL editing, collection routing, and redirects.
+This guide covers `@standard-design/sanity-kit@0.1.0-alpha.7`. Alpha.7 bundles
+the corrected guides for Pages, URL editing, collection routing, and redirects.
 Original code uses the [MIT license](../LICENSE);
 [third-party notices](../THIRD_PARTY_NOTICES.md) describe adapted code and
 Standard Design's MIT interpretation of conflicting Tinloof license declarations.
 Upstream confirmation remains a follow-up, not a release prerequisite.
 
-Follow the [alpha.5 upgrade guide](#upgrading-from-alpha5) to install alpha.6
-and adopt the new features. Use the checklists below if upgrading from an
-earlier release.
+Follow the [alpha.6 upgrade guide](#upgrading-from-alpha6) to update an existing
+installation or the [alpha.5 upgrade guide](#upgrading-from-alpha5) to adopt
+Pages and the routing tools.
 
 ## Release status
+
+See the [alpha.7 GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.7)
+for the verified artifact and npm tags, and the [npm version page](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.7)
+for registry metadata. Use an exact version for repeatable installs.
+
+### Alpha.6
 
 Alpha.6 was published on November 12, 2026, to
 [npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.6)
@@ -25,10 +31,7 @@ installing Studio, React, or React Router. The
 passed verification, coverage, and packaging. GitHub assets include the tarball,
 `manifest.json`, and `SHA256SUMS`.
 
-Both `alpha` and `latest` point to alpha.6 as of November 12, 2026.
-The release is still a prerelease. Pin an exact version for repeatable installs.
-Inspect both tags after future releases; publishing under `alpha` does not
-automatically move an existing `latest` tag.
+Both `alpha` and `latest` pointed to alpha.6 at the end of its release handoff.
 
 ### Earlier releases
 
@@ -53,13 +56,13 @@ updated only `alpha`, leaving `latest` at alpha.4 until it was moved separately
 after alpha.6 was verified. Each published tarball contains the documentation
 from its own release commit.
 
-## Alpha.6 APIs
+## Pages and routing APIs
 
-Alpha.6 exports Pages and Studio installers through `/studio`, pure
+The kit exports Pages and Studio installers through `/studio`, pure
 URL/collection resolution through `/url`, settings reads through `/url/settings`,
 HTTP redirects through `/redirect`, and additive import synchronization through
 `/folders/server`. `/react-router/server` additionally
-exports redirect middleware. These APIs require alpha.6.
+exports redirect middleware.
 
 Consumers own the Studio configuration, schemas, application routes, credentials,
 and cache backend. Start with [Pages](pages.md), [standalone URL fields](url-field.md),
@@ -82,13 +85,19 @@ remains unverified despite automated coverage. Deployed cache behavior belongs
 to the consuming application and must be verified there. The
 [Pages release plan](pages-release-plan.md) records acceptance and follow-up work.
 
+## Upgrading from alpha.6
+
+Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.7` in each workspace
+that uses the kit, then commit the updated lockfile. If you use redirect
+management in Studio, check that Studio and the kit share the same
+[translation libraries](pages.md#dependencies-and-package-isolation).
+
 ## Upgrading from alpha.5
 
-Alpha.6 keeps the existing package name and application entry points. Pages and
-its routing tools are additions you install explicitly; upgrading does not
-replace your Studio or rewrite existing documents.
+You can update the package in your existing Studio and website. To adopt Pages
+and its routing tools, follow the configuration steps below.
 
-1. Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.6` in the frontend
+1. Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.7` in the frontend
    and Studio/codegen workspaces that use the kit.
 2. Keep the existing Node 24+ and client `^7.27.0 || ^8.6.1` requirements. A Studio
    using `/studio` must use the tested Sanity **6.17.0** version and install its
@@ -209,7 +218,7 @@ does not disable strict checking of application code. It may download dependenci
 Temporary consumers are retained
 under the system temporary directory and their location is printed for inspection.
 
-For the APIs introduced in alpha.6, package checks also install `/url/settings` and
+Package checks also install `/url/settings` and
 `/redirect` without Studio or React Router. Folder-import checks install
 `/folders/server` with supported client 7 and 8 versions, exercise access checks
 and explicit reruns after an uncertain result, and execute a server bundle
@@ -261,7 +270,7 @@ Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
 
 ```sh
-pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.6.tgz
+pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.7.tgz
 ```
 
 Keep that exact file accessible to CI and other developers and commit the
@@ -305,10 +314,10 @@ For each future publication:
    package in a clean consumer before handing it off. Record the actual
    publication date, tags, and verification results in the GitHub release notes.
 
-Consumers can install the published alpha.6 version:
+To install alpha.7 from npm, pin the version:
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.6
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.7
 ```
 
 The checked-in CI workflow does not publish, manage npm credentials, or configure
@@ -381,7 +390,7 @@ Node 24+ is required. This prerelease targets ESM, React 19.2.7+ and React Route
 | `/react-router/visual-editing`     | React, React DOM, React Router, `@sanity/visual-editing` and its peers |
 | `/validation/zod`                  | Zod                                                                    |
 
-Additional entries introduced in alpha.6 require:
+Pages and routing entries require the following peers:
 
 | Import                                          | Required peers in addition to `@sanity/client`                                                                                                             |
 | ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |

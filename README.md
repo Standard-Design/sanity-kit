@@ -1,7 +1,7 @@
 # `@standard-design/sanity-kit`
 
 Reusable Sanity tools for public configuration, data validation, images, links,
-React Router pages and preview, and sitemaps. Alpha.6 also includes
+React Router pages and preview, and sitemaps. The kit also includes
 Studio Pages navigation, URL editing, collection settings, and redirects.
 
 Use individual helpers or combine them into a React Router integration. The kit
@@ -38,22 +38,20 @@ not a Studio application or hosting service.
 
 ## Installation and release status
 
-[`@standard-design/sanity-kit@0.1.0-alpha.6`](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.6)
-is published on npm, with matching assets in the
-[GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.6).
-See the [alpha.5 upgrade guide](docs/prerelease.md#upgrading-from-alpha5) to adopt
-Pages or the new routing tools.
+Alpha.7 bundles the corrected setup and upgrade guides for the Pages and routing
+tools introduced in alpha.6. See [Upgrading from alpha.6](docs/prerelease.md#upgrading-from-alpha6)
+for an existing installation, or [Upgrading from alpha.5](docs/prerelease.md#upgrading-from-alpha5)
+to adopt the tools.
 
 Pin the exact version when integrating:
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.6
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.7
 ```
 
-Both npm tags, `latest` and `alpha`, point to alpha.6 as of November 12, 2026.
-An unqualified install gets alpha.6, which is still a prerelease. Pin the exact
-version for reproducible installs. See the [release status](docs/prerelease.md#release-status)
-for verification and earlier releases.
+See the [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.7)
+for the tarball, npm tag assignments, and verification results. The
+[release guide](docs/prerelease.md#release-status) links to the release records.
 
 You can also install the reviewed compiled tarball from the release assets;
 see [artifact verification and handoff](docs/prerelease.md#verification-and-handoff).
@@ -235,7 +233,7 @@ internal compiled paths are not public APIs.
 The [documentation index](docs/README.md) explains shared terms and application
 ownership. Each subsystem guide covers its options, failure behavior, and tests.
 
-Alpha.6 adds these capabilities:
+The Pages and routing integrations use these entry points:
 
 | Entry point            | Added capabilities                                                                                                                                                                                                                                     |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
