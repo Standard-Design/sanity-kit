@@ -5,7 +5,7 @@
  */
 import { useState } from 'react'
 import { Button, Card, Dialog, Flex, Spinner, Stack, Text } from '@sanity/ui'
-import { CheckmarkCircleIcon } from '@sanity/icons/CheckmarkCircle'
+import { useToast } from '@sanity/ui/toast'
 import type { createFolderSyncController } from '../folders/sync-controller.js'
 import type { FolderSyncResult } from '../folders/synchronize.js'
 import { folderOperationExplanation } from './folder-feedback.js'
@@ -19,10 +19,10 @@ export function FolderRemoveDialog({
 	folderSync: ReturnType<typeof createFolderSyncController>
 	onClose: () => void
 }) {
+	const toast = useToast()
 	const [busy, setBusy] = useState(false)
-	const [result, setResult] = useState<FolderSyncResult>()
-	const done = result?.status === 'synced'
-	const blocked = result?.status === 'blocked' ? result : undefined
+	const [blocked, setBlocked] =
+		useState<Extract<FolderSyncResult, { status: 'blocked' }>>()
 	const noRetry =
 		blocked?.reason === 'folder-not-empty' ||
 		blocked?.reason === 'folder-not-found' ||
@@ -31,7 +31,17 @@ export function FolderRemoveDialog({
 		if (busy) return
 		setBusy(true)
 		try {
-			setResult(await folderSync.remove(pathname))
+			const result = await folderSync.remove(pathname)
+			if (result.status === 'synced') {
+				toast.push({
+					status: 'success',
+					title: 'Folder removed',
+					description: pathname,
+				})
+				onClose()
+			} else {
+				setBlocked(result)
+			}
 		} finally {
 			setBusy(false)
 		}
@@ -46,11 +56,11 @@ export function FolderRemoveDialog({
 				<Flex justify="flex-end" gap={2} padding={3}>
 					<Button
 						mode="bleed"
-						text={done || noRetry ? 'Close' : 'Cancel'}
+						text={noRetry ? 'Close' : 'Cancel'}
 						disabled={busy}
 						onClick={onClose}
 					/>
-					{!done && !noRetry && (
+					{!noRetry && (
 						<Button
 							tone={
 								blocked?.reason === 'outcome-unknown' ? 'default' : 'critical'
@@ -74,17 +84,6 @@ export function FolderRemoveDialog({
 					<Flex justify="center" align="center" gap={3} role="status">
 						<Spinner muted />
 						<Text size={1}>Checking and removing folder…</Text>
-					</Flex>
-				) : done ? (
-					<Flex justify="center" align="center" gap={3} role="status">
-						<Card tone="positive" style={{ background: 'transparent' }}>
-							<Text size={3}>
-								<CheckmarkCircleIcon aria-hidden />
-							</Text>
-						</Card>
-						<Text size={2} weight="semibold">
-							Folder removed
-						</Text>
 					</Flex>
 				) : (
 					<>

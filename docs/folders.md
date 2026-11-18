@@ -429,8 +429,9 @@ refreshes saved-folder display without resetting the navigator's scroll or selec
 If folders are already saved, the check writes nothing. Automatic success is
 silent. A failed check pauses automatic synchronization for that tool instance;
 page browsing remains available. Editors can use **Pages → … → Sync folders**
-to run a fresh check and see the result. The feedback identifies missing or
-unverified access, connection trouble, changed records, or unsupported data.
+to run a fresh check. On success, the dialog closes and a Studio toast shows
+how many folders were saved or says **Folders are up to date**. The dialog
+stays open when an editor needs to review an error or check an unconfirmed save.
 Closing the dialog does not cancel the shared operation. The action only adds
 missing folder records; it never changes page content or URLs, publishes,
 renames, or removes anything.
@@ -474,7 +475,8 @@ removed this way.
 
 After the checks, one revision-guarded patch removes only the selected folder
 record. It does not delete documents, change URLs, publish anything, or create
-redirects. Successful removal refreshes the navigator and shows **Folder removed**.
+redirects. When removal is confirmed, the navigator refreshes, the dialog closes,
+and Studio shows a **Folder removed** toast with the folder path.
 If contents were found, the dialog explains why removal was blocked. Permission,
 connection, and changed-registry notices explain how to try again safely.
 
@@ -623,8 +625,9 @@ destination. A notice makes immediate changes to published URLs explicit.
 Changing the name or redirect choice clears the review. **Apply URL changes**
 then checks the reviewed proposal again before saving it.
 
-Saving disables the dialog's controls. A confirmed save shows **Folder renamed**
-and refreshes the navigator. If the response is uncertain, a warning offers
+Saving disables the dialog's controls. A confirmed save refreshes the
+navigator, closes the dialog, and shows a **Folder renamed** toast with the old
+and new paths. If the response is uncertain, a warning offers
 **Check rename status**, which checks the receipt without repeating the write.
 The editor can close that warning and reopen it through **Check folder rename
 status** in the Pages `…` menu. A fresh review is required when data changed;

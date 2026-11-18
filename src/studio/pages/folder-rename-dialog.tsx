@@ -17,7 +17,7 @@ import {
 	Text,
 	TextInput,
 } from '@sanity/ui'
-import { CheckmarkCircleIcon } from '@sanity/icons/CheckmarkCircle'
+import { useToast } from '@sanity/ui/toast'
 import type {
 	createFolderRenameController,
 	FolderRenameReview,
@@ -146,6 +146,7 @@ function FolderRenameDialogSession({
 	onClose,
 	onSettled,
 }: FolderRenameDialogProps) {
+	const toast = useToast()
 	const [name, setName] = useState(pathname?.split('/').at(-1) ?? '')
 	const [redirects, setRedirects] = useState(true)
 	const [review, setReview] = useState<FolderRenameReview>()
@@ -176,7 +177,6 @@ function FolderRenameDialogSession({
 		}
 	}, [controller])
 	const unknown = result?.status === 'unknown' || !!pending
-	const done = result?.status === 'renamed'
 	const blocked = result?.status === 'blocked' ? result : undefined
 	const reason =
 		blocked?.reason ??
@@ -225,8 +225,21 @@ function FolderRenameDialogSession({
 						isCurrent: () => mounted.current && epoch.current === version,
 					})
 			if (!mounted.current || epoch.current !== version) return
+			if (next.status === 'renamed') {
+				const paths = reconcile ? pending : accepted?.plan
+				onSettled()
+				toast.push({
+					status: 'success',
+					title: 'Folder renamed',
+					...(paths
+						? { description: `${paths.oldPathname} → ${paths.newPathname}` }
+						: {}),
+				})
+				onClose()
+				return
+			}
 			setResult(next)
-			if (next.status === 'renamed' || next.status === 'rejected') {
+			if (next.status === 'rejected') {
 				setPending(null)
 				setReview(undefined)
 				onSettled()
@@ -269,31 +282,30 @@ function FolderRenameDialogSession({
 				<Flex justify="flex-end" gap={2} padding={3}>
 					<Button
 						mode="bleed"
-						text={done || unknown ? 'Close' : 'Cancel'}
+						text={unknown ? 'Close' : 'Cancel'}
 						disabled={!!busy}
 						onClick={onClose}
 					/>
-					{!done &&
-						(unknown ? (
-							<Button
-								text="Check rename status"
-								disabled={!!busy}
-								onClick={() => void save(true)}
-							/>
-						) : review ? (
-							<Button
-								text="Apply URL changes"
-								tone="primary"
-								disabled={!!busy}
-								onClick={() => void save()}
-							/>
-						) : (
-							<Button
-								text="Review URL changes"
-								disabled={!!busy || !pathname || !name.trim()}
-								onClick={() => void check()}
-							/>
-						))}
+					{unknown ? (
+						<Button
+							text="Check rename status"
+							disabled={!!busy}
+							onClick={() => void save(true)}
+						/>
+					) : review ? (
+						<Button
+							text="Apply URL changes"
+							tone="primary"
+							disabled={!!busy}
+							onClick={() => void save()}
+						/>
+					) : (
+						<Button
+							text="Review URL changes"
+							disabled={!!busy || !pathname || !name.trim()}
+							onClick={() => void check()}
+						/>
+					)}
 				</Flex>
 			}
 		>
@@ -376,169 +388,156 @@ function FolderRenameDialogSession({
 						</Text>
 					</Flex>
 				)}
-				{done ? (
-					<Flex justify="center" align="center" gap={3} role="status">
-						<Card tone="positive" style={{ background: 'transparent' }}>
-							<Text size={3}>
-								<CheckmarkCircleIcon aria-hidden />
+				{!unknown && (
+					<>
+						<Card border muted padding={3} radius={2}>
+							<Text
+								size={2}
+								weight="semibold"
+								style={{ overflowWrap: 'anywhere' }}
+							>
+								{pathname}
 							</Text>
 						</Card>
-						<Text size={2} weight="semibold">
-							Folder renamed
-						</Text>
-					</Flex>
-				) : (
-					!unknown && (
-						<>
-							<Card border muted padding={3} radius={2}>
-								<Text
-									size={2}
-									weight="semibold"
-									style={{ overflowWrap: 'anywhere' }}
-								>
-									{pathname}
-								</Text>
-							</Card>
-							<Stack gap={3}>
-								<Text
-									as="label"
-									htmlFor="folder-rename-name"
-									size={1}
-									weight="medium"
-								>
-									New folder name
-								</Text>
-								<TextInput
-									id="folder-rename-name"
-									value={name}
-									readOnly={!!busy}
-									onChange={(event) => {
-										invalidate()
-										setName(event.currentTarget.value)
-									}}
-								/>
-							</Stack>
-							<Text size={1} muted>
-								Rename this folder and update the URLs beneath it. Its parent
-								folder stays the same.
+						<Stack gap={3}>
+							<Text
+								as="label"
+								htmlFor="folder-rename-name"
+								size={1}
+								weight="medium"
+							>
+								New folder name
 							</Text>
-							<Flex align="center" gap={3}>
-								<Checkbox
-									id="folder-rename-redirects"
-									checked={redirects}
-									disabled={!!busy}
-									onChange={(event) => {
-										invalidate()
-										setRedirects(event.currentTarget.checked)
-									}}
-								/>
-								<Box flex={1}>
-									<Text as="label" htmlFor="folder-rename-redirects" size={1}>
-										Create redirects from old URLs
-									</Text>
-								</Box>
-							</Flex>
-							{!redirects && (
-								<Text size={1} muted>
-									Old page URLs will stop working unless another app rule
-									handles them. Existing redirects to these pages still follow
-									the new URLs.
+							<TextInput
+								id="folder-rename-name"
+								value={name}
+								readOnly={!!busy}
+								onChange={(event) => {
+									invalidate()
+									setName(event.currentTarget.value)
+								}}
+							/>
+						</Stack>
+						<Text size={1} muted>
+							Rename this folder and update the URLs beneath it. Its parent
+							folder stays the same.
+						</Text>
+						<Flex align="center" gap={3}>
+							<Checkbox
+								id="folder-rename-redirects"
+								checked={redirects}
+								disabled={!!busy}
+								onChange={(event) => {
+									invalidate()
+									setRedirects(event.currentTarget.checked)
+								}}
+							/>
+							<Box flex={1}>
+								<Text as="label" htmlFor="folder-rename-redirects" size={1}>
+									Create redirects from old URLs
 								</Text>
-							)}
-							{plan && (
-								<>
-									<UrlChange
-										label="Folder location"
-										before={plan.oldPathname}
-										after={plan.newPathname}
-									/>
-									<Card
-										tone={liveCount ? 'caution' : 'transparent'}
-										padding={3}
-										radius={2}
-									>
-										<Text size={1}>
-											{liveCount
-												? `${liveCount} published page${liveCount === 1 ? '' : 's'} will use the new URLs immediately. Only URL fields change; unrelated draft edits stay unpublished.`
-												: 'No published page URLs will change. Draft pages remain unpublished.'}
+							</Box>
+						</Flex>
+						{!redirects && (
+							<Text size={1} muted>
+								Old page URLs will stop working unless another app rule handles
+								them. Existing redirects to these pages still follow the new
+								URLs.
+							</Text>
+						)}
+						{plan && (
+							<>
+								<UrlChange
+									label="Folder location"
+									before={plan.oldPathname}
+									after={plan.newPathname}
+								/>
+								<Card
+									tone={liveCount ? 'caution' : 'transparent'}
+									padding={3}
+									radius={2}
+								>
+									<Text size={1}>
+										{liveCount
+											? `${liveCount} published page${liveCount === 1 ? '' : 's'} will use the new URLs immediately. Only URL fields change; unrelated draft edits stay unpublished.`
+											: 'No published page URLs will change. Draft pages remain unpublished.'}
+									</Text>
+								</Card>
+								{plan.pageChanges.length > 0 && (
+									<Stack gap={3}>
+										<Text size={1} weight="semibold">
+											Affected page URLs
 										</Text>
-									</Card>
-									{plan.pageChanges.length > 0 && (
-										<Stack gap={3}>
-											<Text size={1} weight="semibold">
-												Affected page URLs
-											</Text>
-											{plan.pageChanges.map((change) => (
+										{plan.pageChanges.map((change) => (
+											<UrlChange
+												key={change.id}
+												label={
+													change.version === 'published'
+														? 'Published page'
+														: 'Draft page'
+												}
+												before={change.oldPathname}
+												after={change.newPathname}
+											/>
+										))}
+									</Stack>
+								)}
+								{plan.folderChanges.length > 1 && (
+									<Stack gap={3}>
+										<Text size={1} weight="semibold">
+											Nested folders
+										</Text>
+										{plan.folderChanges
+											.filter(
+												(change) => change.oldPathname !== plan.oldPathname,
+											)
+											.map((change) => (
 												<UrlChange
-													key={change.id}
-													label={
-														change.version === 'published'
-															? 'Published page'
-															: 'Draft page'
-													}
+													key={change.key}
+													label="Folder"
 													before={change.oldPathname}
 													after={change.newPathname}
 												/>
 											))}
-										</Stack>
-									)}
-									{plan.folderChanges.length > 1 && (
-										<Stack gap={3}>
-											<Text size={1} weight="semibold">
-												Nested folders
-											</Text>
-											{plan.folderChanges
-												.filter(
-													(change) => change.oldPathname !== plan.oldPathname,
-												)
-												.map((change) => (
-													<UrlChange
-														key={change.key}
-														label="Folder"
-														before={change.oldPathname}
-														after={change.newPathname}
-													/>
-												))}
-										</Stack>
-									)}
-									{plan.redirects.creates.length > 0 && (
-										<Stack gap={3}>
-											<Text size={1} weight="semibold">
-												New redirects
-											</Text>
-											{plan.redirects.creates.map((change) => (
-												<Card key={change.source} border padding={3} radius={2}>
-													<Text size={1} style={{ overflowWrap: 'anywhere' }}>
-														{change.source} → {change.destination}
-													</Text>
-												</Card>
-											))}
-										</Stack>
-									)}
-									{plan.redirects.updates.length > 0 && (
-										<Stack gap={3}>
-											<Text size={1} weight="semibold">
-												Existing redirects
-											</Text>
-											<Text size={1} muted>
-												These redirects will point directly to the new URLs,
-												even when creating new redirects is turned off.
-											</Text>
-											{plan.redirects.updates.map((change) => (
-												<UrlChange
-													key={change.id}
-													redirect
-													label={change.source}
-													before={change.oldDestination}
-													after={change.newDestination}
-												/>
-											))}
-										</Stack>
-									)}
-								</>
-							)}
-						</>
-					)
+									</Stack>
+								)}
+								{plan.redirects.creates.length > 0 && (
+									<Stack gap={3}>
+										<Text size={1} weight="semibold">
+											New redirects
+										</Text>
+										{plan.redirects.creates.map((change) => (
+											<Card key={change.source} border padding={3} radius={2}>
+												<Text size={1} style={{ overflowWrap: 'anywhere' }}>
+													{change.source} → {change.destination}
+												</Text>
+											</Card>
+										))}
+									</Stack>
+								)}
+								{plan.redirects.updates.length > 0 && (
+									<Stack gap={3}>
+										<Text size={1} weight="semibold">
+											Existing redirects
+										</Text>
+										<Text size={1} muted>
+											These redirects will point directly to the new URLs, even
+											when creating new redirects is turned off.
+										</Text>
+										{plan.redirects.updates.map((change) => (
+											<UrlChange
+												key={change.id}
+												redirect
+												label={change.source}
+												before={change.oldDestination}
+												after={change.newDestination}
+											/>
+										))}
+									</Stack>
+								)}
+							</>
+						)}
+					</>
 				)}
 			</Stack>
 		</Dialog>

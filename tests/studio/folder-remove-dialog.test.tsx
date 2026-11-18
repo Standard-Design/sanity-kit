@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { act } from 'react'
+import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { ThemeProvider } from '@sanity/ui'
 import { buildTheme } from '@sanity/ui/theme'
+import { ToastProvider } from '@sanity/ui/toast'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FolderRemoveDialog } from '../../src/studio/pages/folder-remove-dialog.js'
 import { createFolderSyncController } from '../../src/studio/folders/sync-controller.js'
@@ -56,14 +57,27 @@ async function render(
 	)
 	controller.start()
 	const close = vi.fn()
+	function Fixture() {
+		const [open, setOpen] = useState(true)
+		return (
+			<ToastProvider>
+				{open && (
+					<FolderRemoveDialog
+						pathname="/empty"
+						folderSync={controller}
+						onClose={() => {
+							close()
+							setOpen(false)
+						}}
+					/>
+				)}
+			</ToastProvider>
+		)
+	}
 	await flush(() =>
 		root.render(
 			<ThemeProvider theme={buildTheme()}>
-				<FolderRemoveDialog
-					pathname="/empty"
-					folderSync={controller}
-					onClose={close}
-				/>
+				<Fixture />
 			</ThemeProvider>,
 		),
 	)
@@ -73,8 +87,16 @@ async function click(text: string) {
 	await flush(() => button(text).click())
 }
 
+function expectRemovalToast() {
+	const toasts = [...document.querySelectorAll('[data-ui="Toast"]')]
+	expect(toasts).toHaveLength(1)
+	expect(toasts[0]?.textContent).toContain('Folder removed')
+	expect(toasts[0]?.textContent).toContain('/empty')
+	expect(document.getElementById('pages-folder-remove')).toBeNull()
+}
+
 describe('empty-folder removal confirmation', () => {
-	it('does not write on open; confirmation shows progress, then success', async () => {
+	it('closes after confirmation and shows a toast with the removed path', async () => {
 		let finish!: (value: FolderSyncResult) => void
 		const remove = vi.fn(
 			() =>
@@ -82,7 +104,7 @@ describe('empty-folder removal confirmation', () => {
 					finish = resolve
 				}),
 		)
-		const { controller } = await render(remove)
+		const { controller, close } = await render(remove)
 		expect(remove).not.toHaveBeenCalled()
 		expect(document.body.textContent).toContain('/empty')
 		await click('Remove folder')
@@ -92,12 +114,12 @@ describe('empty-folder removal confirmation', () => {
 		)
 		expect(button('Cancel').disabled).toBe(true)
 		await flush(() => finish({ status: 'synced', count: 1 }))
-		expect(document.body.textContent).toContain('Folder removed')
-		expect(button('Remove folder')).toBeUndefined()
+		expect(close).toHaveBeenCalledOnce()
+		expectRemovalToast()
 		controller.stop()
 	})
 	it('shows an actionable occupied-folder error without offering to retry removal', async () => {
-		const { controller } = await render(
+		const { controller, close } = await render(
 			vi
 				.fn()
 				.mockResolvedValue({ status: 'blocked', reason: 'folder-not-empty' }),
@@ -108,6 +130,8 @@ describe('empty-folder removal confirmation', () => {
 		)
 		expect(button('Remove folder')).toBeUndefined()
 		expect(button('Close')).toBeDefined()
+		expect(close).not.toHaveBeenCalled()
+		expect(document.querySelector('[data-ui="Toast"]')).toBeNull()
 		controller.stop()
 	})
 	it('offers a read-only recheck after an uncertain result', async () => {
@@ -115,14 +139,17 @@ describe('empty-folder removal confirmation', () => {
 			.fn()
 			.mockResolvedValueOnce({ status: 'blocked', reason: 'outcome-unknown' })
 			.mockResolvedValueOnce({ status: 'synced', count: 1 })
-		const { controller } = await render(remove)
+		const { controller, close } = await render(remove)
 		await click('Remove folder')
 		expect(document.querySelector('[role="alert"]')?.textContent).toContain(
 			'Checking does not repeat the removal',
 		)
 		expect(button('Remove folder')).toBeUndefined()
+		expect(close).not.toHaveBeenCalled()
+		expect(document.querySelector('[data-ui="Toast"]')).toBeNull()
 		await click('Check again')
-		expect(document.body.textContent).toContain('Folder removed')
+		expect(close).toHaveBeenCalledOnce()
+		expectRemovalToast()
 		controller.stop()
 	})
 	it('lists missing access instead of implying an invisible folder is empty', async () => {

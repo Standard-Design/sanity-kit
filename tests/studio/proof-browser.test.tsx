@@ -5,6 +5,7 @@ import { evaluate, parse } from 'groq-js'
 import { createRoot, type Root } from 'react-dom/client'
 import { ThemeProvider } from '@sanity/ui'
 import { buildTheme } from '@sanity/ui/theme'
+import { ToastProvider } from '@sanity/ui/toast'
 import type { PreviewHeaderProps } from 'sanity/presentation'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -283,9 +284,11 @@ describe('Pages Presentation adapter lifecycle', () => {
 		await act(async () => {
 			root.render(
 				<ThemeProvider theme={theme}>
-					<BrowserStateProvider>
-						<NativeShell />
-					</BrowserStateProvider>
+					<ToastProvider>
+						<BrowserStateProvider>
+							<NativeShell />
+						</BrowserStateProvider>
+					</ToastProvider>
 				</ThemeProvider>,
 			)
 			await Promise.resolve()
@@ -384,6 +387,12 @@ describe('Pages Presentation adapter lifecycle', () => {
 				element.textContent?.includes('Sync folders'),
 			)
 		)
+	}
+	function expectFolderSyncToast(title: string) {
+		const toasts = document.querySelectorAll('[data-ui="Toast"]')
+		expect(toasts).toHaveLength(1)
+		expect(toasts[0]?.textContent).toContain(title)
+		expect(syncDialog()).toBeUndefined()
 	}
 	function readableFolderFixture() {
 		const fixture = savedFolderFixture(['/about'])
@@ -549,16 +558,14 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(native.intent).not.toHaveBeenCalled()
 	})
 
-	it('runs Sync folders from the navigator and reports an up-to-date list without a mutation', async () => {
+	it('runs Sync folders from the navigator and confirms an up-to-date list with a toast', async () => {
 		readableFolderFixture()
 		await render()
 		await openFolderSync()
-		expect(syncDialog()?.textContent).toContain('Folders are up to date.')
+		expectFolderSyncToast('Folders are up to date')
 		expect(native.request).toHaveBeenCalledOnce()
 		expect(native.request.mock.calls[0]![0].url).toContain('/acl')
 		expect(native.mutate).not.toHaveBeenCalled()
-		await click('Close')
-		expect(syncDialog()).toBeUndefined()
 		expect(button('About · /about').disabled).toBe(false)
 	})
 
@@ -581,7 +588,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 			allowAccess([{ filter: 'true', permissions: ['read'] }])
 			await Promise.resolve()
 		})
-		expect(syncDialog()?.textContent).toContain('Folders are up to date.')
+		expectFolderSyncToast('Folders are up to date')
 		expect(native.request).toHaveBeenCalledOnce()
 		expect(native.navigate).not.toHaveBeenCalled()
 	})
@@ -595,13 +602,14 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(syncDialog()?.textContent).toContain(
 			'Read the folder registry (not granted)',
 		)
+		expect(document.querySelector('[data-ui="Toast"]')).toBeNull()
 		expect(native.request).toHaveBeenCalledOnce()
 		expect(
 			native.request.mock.calls.every(([options]) => options.method !== 'POST'),
 		).toBe(true)
 		expect(native.mutate).not.toHaveBeenCalled()
 		await click('Retry')
-		expect(syncDialog()?.textContent).toContain('Folders are up to date.')
+		expectFolderSyncToast('Folders are up to date')
 		expect(native.request).toHaveBeenCalledTimes(2)
 		expect(
 			native.request.mock.calls.every(([options]) => options.method !== 'POST'),
@@ -626,41 +634,55 @@ describe('Pages Presentation adapter lifecycle', () => {
 			allowAccess([{ filter: 'true', permissions: ['read'] }])
 			await Promise.resolve()
 		})
-		expect(syncDialog()?.textContent).toContain('Folders are up to date.')
+		expectFolderSyncToast('Folders are up to date')
 		expect(native.request).toHaveBeenCalledOnce()
 	})
 
-	it('reports saved folders and refreshes the navigator after an explicit sync', async () => {
-		const fixture = readableFolderFixture()
-		fixture.dataset.push({
-			_id: 'new-page',
-			_type: 'kitProofPage',
-			_rev: 'new-revision',
-			title: 'New page',
-			pathname: { current: '/new-folder/child' },
-		})
-		native.request.mockImplementation((options) => {
-			if (options.url.endsWith('/acl'))
-				return Promise.resolve([{ filter: 'true', permissions: ['read'] }])
-			const patch = options.body!.mutations[0]!.patch
-			fixture.folders.folders.push(...patch.insert.items)
-			fixture.folders._rev = 'saved-revision'
-			return Promise.resolve({
-				transactionId: 'saved-folders',
-				results: [{ id: 'sanityKit.folders', operation: 'update' }],
+	it.each(['acknowledged', 'unconfirmed'])(
+		'refreshes the navigator after an explicit sync (%s write)',
+		async (outcome) => {
+			const fixture = readableFolderFixture()
+			fixture.dataset.push({
+				_id: 'new-page',
+				_type: 'kitProofPage',
+				_rev: 'new-revision',
+				title: 'New page',
+				pathname: { current: '/new-folder/child' },
 			})
-		})
-		await render()
-		await openFolderSync()
-		expect(syncDialog()?.textContent).toContain('1 folder saved.')
-		expect(button('Collapse New-folder')).toBeTruthy()
-		expect(
-			native.request.mock.calls.filter(
-				([options]) => options.method === 'POST',
-			),
-		).toHaveLength(1)
-		expect(native.mutate).not.toHaveBeenCalled()
-	})
+			native.request.mockImplementation((options) => {
+				if (options.url.endsWith('/acl'))
+					return Promise.resolve([{ filter: 'true', permissions: ['read'] }])
+				const patch = options.body!.mutations[0]!.patch
+				fixture.folders.folders.push(...patch.insert.items)
+				fixture.folders._rev = 'saved-revision'
+				if (outcome === 'unconfirmed')
+					return Promise.reject(new Error('Connection lost after saving'))
+				return Promise.resolve({
+					transactionId: 'saved-folders',
+					results: [{ id: 'sanityKit.folders', operation: 'update' }],
+				})
+			})
+			await render()
+			await openFolderSync()
+			if (outcome === 'unconfirmed') {
+				expect(syncDialog()?.textContent).toContain(
+					'We could not confirm whether the last folder save finished.',
+				)
+				expect(document.querySelector('[data-ui="Toast"]')).toBeNull()
+				await click('Check again')
+				expectFolderSyncToast('Folders are up to date')
+			} else {
+				expectFolderSyncToast('1 folder saved')
+			}
+			expect(button('Collapse New-folder')).toBeTruthy()
+			expect(
+				native.request.mock.calls.filter(
+					([options]) => options.method === 'POST',
+				),
+			).toHaveLength(1)
+			expect(native.mutate).not.toHaveBeenCalled()
+		},
+	)
 
 	it('checks folders after startup even when the navigator and picker are closed', async () => {
 		readableFolderFixture()
@@ -673,6 +695,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(native.request).toHaveBeenCalledOnce()
 		expect(native.request.mock.calls[0]![0].url).toContain('/acl')
 		expect(syncDialog()).toBeUndefined()
+		expect(document.querySelector('[data-ui="Toast"]')).toBeNull()
 		expect(native.mutate).not.toHaveBeenCalled()
 		expect(
 			native.request.mock.calls.every(([options]) => options.method !== 'POST'),
@@ -700,9 +723,11 @@ describe('Pages Presentation adapter lifecycle', () => {
 		await act(async () => {
 			root.render(
 				<ThemeProvider theme={theme}>
-					<ConfiguredProvider runtime={runtime}>
-						<NativeShell />
-					</ConfiguredProvider>
+					<ToastProvider>
+						<ConfiguredProvider runtime={runtime}>
+							<NativeShell />
+						</ConfiguredProvider>
+					</ToastProvider>
 				</ThemeProvider>,
 			)
 			await Promise.resolve()

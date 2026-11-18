@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
-import { act } from 'react'
+import { act, useState } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { ThemeProvider } from '@sanity/ui'
 import { buildTheme } from '@sanity/ui/theme'
+import { ToastProvider } from '@sanity/ui/toast'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { FolderRenameDialog } from '../../src/studio/pages/folder-rename-dialog.js'
 import type {
@@ -150,6 +151,41 @@ async function click(label: string) {
 	expect(button(label), `Missing ${label} button`).toBeDefined()
 	await flush(() => button(label)!.click())
 }
+function RenameFixture({
+	controller,
+	pathname,
+	onClose,
+	onSettled,
+}: {
+	controller: Controller
+	pathname: string | null
+	onClose: () => void
+	onSettled: () => void
+}) {
+	const [open, setOpen] = useState(true)
+	return (
+		<ToastProvider>
+			{open && (
+				<FolderRenameDialog
+					{...(pathname ? { pathname } : {})}
+					controller={controller}
+					onClose={() => {
+						onClose()
+						setOpen(false)
+					}}
+					onSettled={onSettled}
+				/>
+			)}
+		</ToastProvider>
+	)
+}
+function expectRenameToast() {
+	const toasts = document.querySelectorAll('[data-ui="Toast"]')
+	expect(toasts).toHaveLength(1)
+	expect(toasts[0]?.textContent).toContain('Folder renamed')
+	expect(toasts[0]?.textContent).toContain('/about/company → /about/business')
+	expect(document.querySelector('[role="dialog"]')).toBeNull()
+}
 async function render(
 	service = controller(),
 	pathname: string | null = '/about/company',
@@ -159,8 +195,8 @@ async function render(
 	await flush(() =>
 		root.render(
 			<ThemeProvider theme={buildTheme()}>
-				<FolderRenameDialog
-					{...(pathname ? { pathname } : {})}
+				<RenameFixture
+					pathname={pathname}
 					controller={service}
 					onClose={onClose}
 					onSettled={onSettled}
@@ -173,7 +209,7 @@ async function render(
 
 describe('reviewed folder rename dialog', () => {
 	it('opens without a write, then reviews the name and explicitly applies the exact proposal', async () => {
-		const { service, onSettled } = await render()
+		const { service, onClose, onSettled } = await render()
 		expect(input().value).toBe('company')
 		expect(service.review).not.toHaveBeenCalled()
 		expect(service.apply).not.toHaveBeenCalled()
@@ -196,7 +232,8 @@ describe('reviewed folder rename dialog', () => {
 		expect(service.apply.mock.calls[0]?.[1].isCurrent).toEqual(
 			expect.any(Function),
 		)
-		expect(document.body.textContent).toContain('Folder renamed')
+		expectRenameToast()
+		expect(onClose).toHaveBeenCalledOnce()
 		expect(onSettled).toHaveBeenCalledTimes(1)
 	})
 	it('invalidates the review when the redirect choice changes', async () => {
@@ -226,11 +263,13 @@ describe('reviewed folder rename dialog', () => {
 			status: 'blocked',
 			reason: 'review-stale',
 		})
-		await render(service)
+		const { onClose } = await render(service)
 		await typeName('business')
 		await click('Review URL changes')
 		await click('Apply URL changes')
 		expect(document.querySelector('[role="alert"]')).not.toBeNull()
+		expect(document.querySelector('[data-ui="Toast"]')).toBeNull()
+		expect(onClose).not.toHaveBeenCalled()
 		expect(button('Apply URL changes')).toBeUndefined()
 		expect(button('Review URL changes')).toBeDefined()
 		expect(service.apply).toHaveBeenCalledTimes(1)
@@ -255,11 +294,14 @@ describe('reviewed folder rename dialog', () => {
 			finish({ status: 'unknown', operationId: review.operationId }),
 		)
 		expect(document.querySelector('[role="alert"]')).not.toBeNull()
+		expect(document.querySelector('[data-ui="Toast"]')).toBeNull()
+		expect(onClose).not.toHaveBeenCalled()
 		expect(button('Apply URL changes')).toBeUndefined()
 		await click('Check rename status')
 		expect(service.reconcile).toHaveBeenCalledTimes(1)
 		expect(service.apply).toHaveBeenCalledTimes(1)
-		expect(document.body.textContent).toContain('Folder renamed')
+		expectRenameToast()
+		expect(onClose).toHaveBeenCalledOnce()
 		expect(onSettled).toHaveBeenCalledTimes(1)
 	})
 	it('lists missing access requirements without offering an Apply action', async () => {
@@ -367,5 +409,6 @@ describe('reviewed folder rename dialog', () => {
 		await click('Check rename status')
 		expect(service.reconcile).toHaveBeenCalledTimes(1)
 		expect(onSettled).toHaveBeenCalledTimes(1)
+		expectRenameToast()
 	})
 })
