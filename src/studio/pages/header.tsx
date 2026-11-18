@@ -30,11 +30,7 @@ export function PagesHeader(props: PreviewHeaderProps) {
 	const panel = useRef<HTMLDivElement>(null)
 	const wasOpen = useRef(false)
 	const params = usePresentationParams()
-	const { current, edited } = usePageIdentity(
-		params.preview,
-		params.id,
-		params.type,
-	)
+	const { current, edited } = usePageIdentity(params)
 	const { documentPath } = runtime.model
 	const pageTitle = current?.title || params.preview || 'Choose page'
 	const open = pickerOpen && !props.navigatorEnabled

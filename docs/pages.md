@@ -368,6 +368,15 @@ perspective determines which version is returned. Shared content types that are
 not registered as pages are not queried and do not show a missing-preview notice.
 Editing a shared footer therefore does not change the previewed page's title.
 
+When an ordinary page's saved URL changes, Pages follows it if the editor is
+open on that page and the iframe is at its previous URL. The preview keeps its
+query parameters and fragment. Pages waits for the new URL to appear in a query
+in the current perspective, so a draft move leaves the Published preview where
+it is. Collection items, release and scheduled versions, and historical
+revisions keep their current preview URL. If an old URL briefly renders a 404,
+the website must keep its Visual Editing connection alive so Studio can move
+the iframe. See [React Router preview error handling](react-router.md#keep-preview-connected-on-a-cms-404).
+
 Both reads use the existing session's listener, cancellation, refresh, and
 perspective isolation. A new URL or edited ID selects a separate resource
 immediately, so the old title or notice does not flash while the new read loads.

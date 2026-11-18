@@ -6,7 +6,10 @@ import { createRoot, type Root } from 'react-dom/client'
 import { ThemeProvider } from '@sanity/ui'
 import { buildTheme } from '@sanity/ui/theme'
 import { ToastProvider } from '@sanity/ui/toast'
-import type { PreviewHeaderProps } from 'sanity/presentation'
+import type {
+	PresentationParams,
+	PreviewHeaderProps,
+} from 'sanity/presentation'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 interface TestRequest {
@@ -18,6 +21,12 @@ interface TestRequest {
 		}[]
 	}
 }
+
+const initialPresentationParams = vi.hoisted((): PresentationParams => ({
+	preview: '/about',
+	id: 'shared',
+	type: 'kitProofShared',
+}))
 
 const native = vi.hoisted(() => ({
 	navigate: vi.fn(),
@@ -41,7 +50,7 @@ const native = vi.hoisted(() => ({
 	perspective: ['drafts'],
 	observer: undefined as
 		{ next(event: { type: string }): void; error(): void } | undefined,
-	params: { preview: '/about', id: 'shared', type: 'kitProofShared' },
+	params: initialPresentationParams,
 }))
 
 vi.mock('sanity', () => {
@@ -280,14 +289,20 @@ describe('Pages Presentation adapter lifecycle', () => {
 		vi.restoreAllMocks()
 		vi.unstubAllGlobals()
 	})
-	async function render() {
+	async function render(runtime?: ReturnType<typeof createPagesRuntime>) {
 		await act(async () => {
 			root.render(
 				<ThemeProvider theme={theme}>
 					<ToastProvider>
-						<BrowserStateProvider>
-							<NativeShell />
-						</BrowserStateProvider>
+						{runtime ? (
+							<ConfiguredProvider runtime={runtime}>
+								<NativeShell />
+							</ConfiguredProvider>
+						) : (
+							<BrowserStateProvider>
+								<NativeShell />
+							</BrowserStateProvider>
+						)}
 					</ToastProvider>
 				</ThemeProvider>,
 			)
@@ -402,6 +417,40 @@ describe('Pages Presentation adapter lifecycle', () => {
 			{ filter: 'true', permissions: ['read'] },
 		])
 		return fixture
+	}
+
+	function pageMoveFixture() {
+		const published = {
+			_id: 'sample',
+			_type: 'kitProofPage',
+			_rev: 'published-revision',
+			title: 'Sample page',
+			pathname: { current: '/sample' },
+		}
+		const draft = { ...published, pathname: { ...published.pathname } }
+		const post = {
+			...draft,
+			_id: 'post',
+			_type: 'kitProofPost',
+			pathname: { current: '/journal/sample' },
+		}
+		native.params = { preview: '/sample', id: 'sample', type: 'kitProofPage' }
+		native.fetch.mockImplementation(async (query, params, options) => {
+			const dataset = [
+				(options.perspective as string[] | undefined)?.includes('drafts')
+					? draft
+					: published,
+				post,
+			]
+			return (await evaluate(parse(query), { dataset, params })).get()
+		})
+		return { draft, published, post }
+	}
+	async function refreshSavedPages() {
+		await act(async () => {
+			native.observer!.next({ type: 'mutation' })
+			await new Promise((resolve) => setTimeout(resolve, 180))
+		})
 	}
 
 	async function openFolderCreate(menu = 'Pages options') {
@@ -965,6 +1014,104 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(container.textContent).not.toContain(
 			'Preview unavailable for this document',
 		)
+	})
+
+	it('follows the saved draft URL in both directions with the navigator hidden', async () => {
+		const { draft } = pageMoveFixture()
+		native.params.preview = 'https://preview.test/sample?view=full#intro'
+		await render()
+		await click('Toggle navigator')
+		expect(button('Choose page: Sample page')).toBeTruthy()
+		await refreshSavedPages()
+		expect(native.navigate).not.toHaveBeenCalled()
+		draft.pathname.current = '/about/sample'
+		await refreshSavedPages()
+		expect(native.navigate).toHaveBeenCalledExactlyOnceWith(
+			'https://preview.test/about/sample?view=full#intro',
+		)
+		native.params.preview = '/about/sample?view=full#intro'
+		await render()
+		draft.pathname.current = '/sample'
+		await refreshSavedPages()
+		expect(native.navigate).toHaveBeenCalledTimes(2)
+		expect(native.navigate).toHaveBeenLastCalledWith('/sample?view=full#intro')
+		expect(native.listen).toHaveBeenCalledTimes(1)
+	})
+
+	it('follows only the published pathname while previewing Published', async () => {
+		const { draft, published } = pageMoveFixture()
+		native.perspective = ['published']
+		await render()
+		draft.pathname.current = '/draft-only'
+		await refreshSavedPages()
+		expect(native.navigate).not.toHaveBeenCalled()
+		published.pathname.current = '/about/sample'
+		await refreshSavedPages()
+		expect(native.navigate).toHaveBeenCalledExactlyOnceWith('/about/sample')
+	})
+
+	it.each([
+		['another preview route', { preview: '/unrelated' }],
+		['a shared document', { id: 'shared', type: 'kitProofShared' }],
+		['a historical revision', { rev: 'previous' }],
+		['a scheduled draft', { scheduledDraft: 'scheduled' }],
+		['a release version', { id: 'versions.release.sample' }],
+	])('keeps the existing URL for %s', async (_scenario, params) => {
+		const { draft } = pageMoveFixture()
+		native.params = { ...native.params, ...params }
+		await render()
+		draft.pathname.current = '/about/sample'
+		await refreshSavedPages()
+		expect(native.navigate).not.toHaveBeenCalled()
+	})
+
+	it('establishes a new baseline on perspective changes and leaves collection and release URLs alone', async () => {
+		const { draft, post } = pageMoveFixture()
+		await render()
+		native.perspective = ['published']
+		await render()
+		draft.pathname.current = '/about/sample'
+		native.perspective = ['drafts']
+		await render()
+		expect(native.navigate).not.toHaveBeenCalled()
+		native.perspective = ['release', 'drafts']
+		native.params.preview = '/about/sample'
+		await render()
+		draft.pathname.current = '/release/sample'
+		await refreshSavedPages()
+		expect(native.navigate).not.toHaveBeenCalled()
+		native.perspective = ['drafts']
+		native.params = {
+			preview: '/journal/sample',
+			id: 'post',
+			type: 'kitProofPost',
+		}
+		await render()
+		post.pathname.current = '/journal/renamed'
+		await refreshSavedPages()
+		expect(native.navigate).not.toHaveBeenCalled()
+	})
+
+	it('keeps the preview in place for invalid and reserved destinations', async () => {
+		const { draft } = pageMoveFixture()
+		const runtime = createPagesRuntime({
+			...proofRoutes,
+			previewUrl: 'https://preview.test',
+			reservedPathPrefixes: ['/account'],
+		})
+		await render(runtime)
+		for (const invalid of [
+			'/about//sample',
+			'/about/sample/',
+			'/account/sample',
+		]) {
+			draft.pathname.current = invalid
+			await refreshSavedPages()
+			expect(native.navigate).not.toHaveBeenCalled()
+		}
+		draft.pathname.current = '/about/sample'
+		await refreshSavedPages()
+		expect(native.navigate).toHaveBeenCalledExactlyOnceWith('/about/sample')
 	})
 
 	it('shows folders separately from named index pages without Index badges', async () => {

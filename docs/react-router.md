@@ -93,6 +93,29 @@ This second example replaces the direct component/meta exports; it assumes the
 `Route` from the generated types for your route module. Display diagnostics
 separately only when appropriate for authenticated preview.
 
+### Keep preview connected on a CMS 404
+
+After a page moves, its old URL can return a 404 before Studio sends the iframe
+to the saved URL. Mount the [Visual Editing bridge](visual-editing.md) above the
+CMS catch-all, such as in the root route. Give the catch-all its own
+`ErrorBoundary` so the loader's 404 renders inside the existing layout and the
+bridge can still receive navigation from Studio. If the error reaches the root
+boundary and replaces the bridge, the iframe can get stuck on the old URL.
+
+```tsx
+import { isRouteErrorResponse } from 'react-router'
+import type { Route } from './+types/cms'
+
+export function ErrorBoundary({ error }: Route.ErrorBoundaryProps) {
+	if (isRouteErrorResponse(error) && error.status === 404) {
+		return <h1>Page not found</h1>
+	}
+	return <h1>Unable to load this page</h1>
+}
+```
+
+Use your application's error UI here and keep the loader's HTTP 404 status.
+
 ## Registry settings and returned values
 
 | Setting                      | Behavior                                                                        |
