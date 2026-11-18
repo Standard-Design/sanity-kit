@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.1.0-alpha.8
+
+- Follow an ordinary page's saved URL change in Pages when the preview is still
+  showing its previous URL. Preserve query parameters and fragments, wait for
+  query-visible saved data, and respect the active Drafts or Published perspective.
+  Collection items, release versions, scheduled drafts, and historical revisions
+  retain their existing preview behavior.
+- Show native Studio success toasts after empty-folder removal, folder rename,
+  and manual folder synchronization. Keep errors and unconfirmed results in
+  their dialogs, with retry and recovery controls. Background sync stays silent.
+- Document a React Router route error boundary that keeps the Visual Editing
+  bridge mounted when a CMS URL returns a 404.
+- Upgrade from alpha.7 by updating the package pin and lockfile. See the
+  [upgrade guide](docs/prerelease.md#upgrading-from-alpha7).
+
 ## 0.1.0-alpha.7
 
 - Bundle the corrected installation and upgrade guides for Pages, URL fields,

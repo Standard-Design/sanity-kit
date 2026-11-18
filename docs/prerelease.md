@@ -1,21 +1,32 @@
 # Prerelease integration
 
-This guide covers `@standard-design/sanity-kit@0.1.0-alpha.7`. Alpha.7 bundles
-the corrected guides for Pages, URL editing, collection routing, and redirects.
+This guide covers `@standard-design/sanity-kit@0.1.0-alpha.8`. Alpha.8 follows
+saved page URL changes in preview and shows native Studio success toasts for
+folder removal, rename, and manual sync. It includes the updated guides.
 Original code uses the [MIT license](../LICENSE);
 [third-party notices](../THIRD_PARTY_NOTICES.md) describe adapted code and
 Standard Design's MIT interpretation of conflicting Tinloof license declarations.
 Upstream confirmation remains a follow-up, not a release prerequisite.
 
-Follow the [alpha.6 upgrade guide](#upgrading-from-alpha6) to update an existing
+Follow the [alpha.7 upgrade guide](#upgrading-from-alpha7) to update an existing
 installation or the [alpha.5 upgrade guide](#upgrading-from-alpha5) to adopt
 Pages and the routing tools.
 
 ## Release status
 
-See the [alpha.7 GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.7)
-for the verified artifact and npm tags, and the [npm version page](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.7)
-for registry metadata. Use an exact version for repeatable installs.
+Release artifacts, npm tags, and verification results are recorded in the
+[GitHub releases](https://github.com/Standard-Design/sanity-kit/releases) and
+[npm version history](https://www.npmjs.com/package/@standard-design/sanity-kit?activeTab=versions).
+Use an exact version for repeatable installs.
+
+### Alpha.7
+
+Alpha.7 was published on November 15, 2026, to
+[npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.7)
+and [GitHub](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.7).
+It bundles the corrected setup and upgrade guides and accepts Studio's translation
+library versions. Both `alpha` and `latest` pointed to alpha.7 at the end of its
+release handoff.
 
 ### Alpha.6
 
@@ -85,9 +96,30 @@ remains unverified despite automated coverage. Deployed cache behavior belongs
 to the consuming application and must be verified there. The
 [Pages release plan](pages-release-plan.md) records acceptance and follow-up work.
 
+## Upgrading from alpha.7
+
+Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.8` in each workspace
+that uses the kit, then commit the updated lockfile. Public APIs, dependency
+ranges, and stored data formats remain compatible.
+
+Pages now follows saved URL changes for an ordinary page open in the editor
+when the preview is showing its previous URL. It waits for query-visible saved
+data in the selected Drafts or Published perspective and preserves query
+parameters and fragments. A draft URL edit does not move Published preview.
+Collection, release, scheduled, and historical preview behavior remains as before.
+
+Consumers with a custom URL-field wrapper that follows ordinary page moves can
+remove that wrapper after adopting this release, while retaining other custom
+field behavior. React Router applications should keep their Visual Editing
+bridge mounted when a CMS route returns a 404. See the
+[route error boundary example](react-router.md#keep-preview-connected-on-a-cms-404).
+
+Folder removal, rename, and manual sync now close on confirmed success and show
+a native Studio toast. Errors and unconfirmed results remain in the dialog.
+
 ## Upgrading from alpha.6
 
-Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.7` in each workspace
+Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.8` in each workspace
 that uses the kit, then commit the updated lockfile. If you use redirect
 management in Studio, check that Studio and the kit share the same
 [translation libraries](pages.md#dependencies-and-package-isolation).
@@ -97,7 +129,7 @@ management in Studio, check that Studio and the kit share the same
 You can update the package in your existing Studio and website. To adopt Pages
 and its routing tools, follow the configuration steps below.
 
-1. Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.7` in the frontend
+1. Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.8` in the frontend
    and Studio/codegen workspaces that use the kit.
 2. Keep the existing Node 24+ and client `^7.27.0 || ^8.6.1` requirements. A Studio
    using `/studio` must use the tested Sanity **6.17.0** version and install its
@@ -270,7 +302,7 @@ Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
 
 ```sh
-pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.7.tgz
+pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.8.tgz
 ```
 
 Keep that exact file accessible to CI and other developers and commit the
@@ -314,10 +346,10 @@ For each future publication:
    package in a clean consumer before handing it off. Record the actual
    publication date, tags, and verification results in the GitHub release notes.
 
-To install alpha.7 from npm, pin the version:
+To install alpha.8 from npm, pin the version:
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.7
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.8
 ```
 
 The checked-in CI workflow does not publish, manage npm credentials, or configure

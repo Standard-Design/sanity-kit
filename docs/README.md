@@ -1,6 +1,6 @@
 # Documentation
 
-These guides cover `@standard-design/sanity-kit@0.1.0-alpha.7`, including the
+These guides cover `@standard-design/sanity-kit@0.1.0-alpha.8`, including the
 Pages, URL field, collection routing, and redirect APIs introduced in alpha.6.
 
 Start with the [README quick start](../README.md#quick-start) and

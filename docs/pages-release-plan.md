@@ -6,7 +6,8 @@ the earlier implementation plan.
 
 ## Remaining release checklist
 
-Alpha.7 bundles the corrected guides for the Pages and routing APIs. See the
+Alpha.8 adds saved page URL following in preview and success toasts for folder
+actions, with updated guides included in the package. See the
 [release record](prerelease.md#release-status) for the package and verification.
 Before beta:
 

@@ -38,18 +38,18 @@ not a Studio application or hosting service.
 
 ## Installation and release status
 
-Alpha.7 bundles the corrected setup and upgrade guides for the Pages and routing
-tools introduced in alpha.6. See [Upgrading from alpha.6](docs/prerelease.md#upgrading-from-alpha6)
+Alpha.8 keeps Pages preview in sync with saved page URL changes and uses native
+Studio toasts for successful folder actions. See [Upgrading from alpha.7](docs/prerelease.md#upgrading-from-alpha7)
 for an existing installation, or [Upgrading from alpha.5](docs/prerelease.md#upgrading-from-alpha5)
 to adopt the tools.
 
 Pin the exact version when integrating:
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.7
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.8
 ```
 
-See the [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.7)
+See the [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.8)
 for the tarball, npm tag assignments, and verification results. The
 [release guide](docs/prerelease.md#release-status) links to the release records.
 
