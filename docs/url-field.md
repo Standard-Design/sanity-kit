@@ -311,11 +311,12 @@ automatically expire or delete older rules: a URL's age alone cannot tell us
 whether people still use it. General redirect management and deliberate cleanup
 remain separate work.
 
-The pure redirect helper builds a lookup table once per loaded snapshot, so it
-does not scan every rule for each match. The planned cache adapter lets consuming
-apps reuse that snapshot. HTTP delivery and caching are not implemented in this
-slice. Studio publication deliberately reloads current routing evidence for its
-review and final checks; larger inventories increase that work.
+The website request helper checks only the requested source and its destination
+dependency. Its optional consumer-owned cache stores pathname results, with
+bounded outage fallback to a known good matching rule. Studio publication still
+reloads broad routing evidence for its review and final checks; larger
+inventories increase that work. See [website redirects and caching](redirects.md#handling-a-website-request)
+for setup, failure behavior, and the alpha.8 adapter migration.
 
 ## What an editor does
 

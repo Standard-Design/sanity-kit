@@ -15,6 +15,10 @@ export type {
 	RedirectRequestResult,
 	RedirectCache,
 	RedirectCacheContext,
+	RedirectCacheEntry,
+	RedirectCacheLoadOptions,
+	RedirectDiagnostic,
+	RedirectFailurePolicy,
 } from './request.js'
 export type {
 	RedirectSnapshotOptions,

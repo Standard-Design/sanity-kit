@@ -1,5 +1,11 @@
 # Redirect subsystem — design proposal
 
+> **Current runtime decision (approved November 19, 2026):** website routing now
+> uses request-specific lookups and pathname-result caching, with normal routing
+> on unresolved failures by default. The earlier complete-snapshot cache and
+> default-503 proposals below are superseded for website requests. Studio's broad
+> checks remain. See [the approved policy](#approved-request-specific-runtime-policy).
+
 This proposal records the redirect design as it stood during development. For
 the APIs that shipped in alpha.6, use the [redirect guide](redirects.md).
 
@@ -512,3 +518,39 @@ unrelated invalid records still block it. See
 boundaries. This is not completed manual publishing or retirement. The following
 service slice must add fresh evidence, permissions, version/revision checks, a
 reviewed write, and uncertain-result recovery before those actions are enabled.
+
+## Approved request-specific runtime policy
+
+Agreed November 19, 2026, following the Pages comparison audit:
+
+- Website requests load only published rules for the requested pathname and
+  check the destination dependency. Fetch two matches to detect ambiguity;
+  never silently pick one. Unrelated broken rules and the whole-inventory count
+  limit do not block unrelated requests. Global review remains in Studio.
+- A valid rule redirects. A confirmed miss continues normal application routing.
+  Matching invalid/duplicate rules and unresolved read failures also continue
+  routing by default, with structured diagnostics. Strict non-cacheable 503
+  handling is an explicit consumer choice. Invalid request paths return 400.
+- Cache only successful request-specific results, including genuine misses.
+  Do not additionally cache the full validated list. Errors remain distinct
+  results and never become cached misses.
+- The consumer owns the optional cache backend. Default freshness is 60 seconds.
+  A transient Sanity request failure can use a previously validated matching
+  entry for up to five minutes total from successful validation. Both ages are
+  configurable; failed refreshes never renew the original validation time.
+- Stale misses, corrupt entries, and known-invalid authoritative results are
+  ineligible for fallback. Observed deletions/retirements replace old matches.
+  Whole-namespace invalidation clears retained entries and fences earlier loads.
+  Cache failures attempt Sanity; failures of the consumer's invalidation hook
+  must be reported and retried rather than claimed as successful activation.
+- Keys isolate project/dataset, API/schema/query versions, validation policy,
+  and canonical pathname. Request query values are excluded. Only allowlisted
+  query values are added when constructing the individual response.
+- Any published redirect change invalidates the whole namespace, because rules
+  depend on their destinations. Selective invalidation is deferred.
+- Preview, reserved paths, unsupported methods, and cancellation retain their
+  existing boundaries. Studio publication reads fresh evidence independently.
+
+The [consumer guide](redirects.md#handling-a-website-request) records the concrete
+API, adapter example, alpha.8 migration, long-path GROQ fallback, and integration
+responsibilities. Wildcard matching and provider-specific backends remain deferred.

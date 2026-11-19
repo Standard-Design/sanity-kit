@@ -23,6 +23,12 @@ const config: CreateSanityRedirectMiddlewareConfig = {
 	kit,
 	destinations: 'unverified',
 	cache,
+	failurePolicy: 'continue',
+	freshForMs: 60_000,
+	maxAgeMs: 300_000,
+	onDiagnostic: (issue) => {
+		void issue.pathname
+	},
 	reservedPathPrefixes: ['/account'],
 }
 const middleware: MiddlewareFunction<Response>[] =

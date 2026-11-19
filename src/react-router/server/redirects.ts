@@ -10,6 +10,8 @@ import {
 	redirectResponse,
 	resolveRedirectRequest,
 	type RedirectRequestOptions,
+	type RedirectFailurePolicy,
+	type RedirectRequestClient,
 } from '../../redirect/request.js'
 import type { SanityKit } from './index.js'
 
@@ -17,8 +19,12 @@ export interface CreateSanityRedirectMiddlewareConfig extends Omit<
 	RedirectRequestOptions,
 	'preview'
 > {
+	/** Continue normal routing on redirect failures by default; opt into strict 503s. */
+	readonly failurePolicy?: RedirectFailurePolicy
 	/** The same server kit used by content loaders and preview resource routes. */
-	readonly kit: Pick<SanityKit, 'getContext' | 'publishedClient'>
+	readonly kit: Pick<SanityKit, 'getContext'> & {
+		readonly publishedClient: RedirectRequestClient
+	}
 }
 
 /**
@@ -32,7 +38,14 @@ export interface CreateSanityRedirectMiddlewareConfig extends Omit<
 export function createSanityRedirectMiddleware(
 	config: CreateSanityRedirectMiddlewareConfig,
 ): MiddlewareFunction<Response>[] {
-	const { kit, cache } = config
+	const { kit, cache, freshForMs, maxAgeMs, onDiagnostic, failurePolicy } =
+		config
+	if (
+		failurePolicy !== undefined &&
+		failurePolicy !== 'continue' &&
+		failurePolicy !== 'strict'
+	)
+		throw new Error('Invalid redirect failure policy')
 	const policy = captureRedirectPolicy(config)
 	const queryParameterAllowlist = [...(config.queryParameterAllowlist ?? [])]
 	const failedCheck = createContext(false)
@@ -58,6 +71,9 @@ export function createSanityRedirectMiddleware(
 				preview,
 				...(cache ? { cache } : {}),
 				queryParameterAllowlist,
+				...(freshForMs === undefined ? {} : { freshForMs }),
+				...(maxAgeMs === undefined ? {} : { maxAgeMs }),
+				...(onDiagnostic ? { onDiagnostic } : {}),
 			},
 		)
 		request.signal.throwIfAborted()
@@ -69,7 +85,9 @@ export function createSanityRedirectMiddleware(
 				headers: { 'Cache-Control': 'no-store' },
 			})
 		}
-		const failure = redirectResponse(result)
+		// A temporary lookup failure must not turn a fallback 404 into a cached miss.
+		if (result.kind === 'error') context.set(failedCheck, true)
+		const failure = redirectResponse(result, failurePolicy)
 		if (failure) {
 			context.set(failedCheck, true)
 			// eslint-disable-next-line @typescript-eslint/only-throw-error
@@ -79,7 +97,8 @@ export function createSanityRedirectMiddleware(
 	}
 	// React Router renders thrown middleware errors before next() resolves, but
 	// does not preserve their headers. Apply no-store to that finished response,
-	// while retaining the router's own document/data error encoding.
+	// while retaining the router's own document/data error encoding. Apply the
+	// same protection when the default failure policy continues to app routing.
 	return [
 		async ({ context }, next) => {
 			const response = await next()

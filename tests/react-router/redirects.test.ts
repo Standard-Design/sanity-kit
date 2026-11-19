@@ -1,5 +1,6 @@
 import { createRequestHandler, type ServerBuild } from 'react-router'
 import { describe, expect, it, vi } from 'vitest'
+import { redirectQuery } from '../redirect/query-fixture.js'
 import { createSanityKit } from '../../src/react-router/server/index.js'
 import { createSanityRedirectMiddleware } from '../../src/react-router/server/redirects.js'
 import {
@@ -17,7 +18,10 @@ const rule = {
 }
 const policy = { destinations: 'unverified' as const }
 
-function setup(cache?: RedirectCache) {
+function setup(
+	cache?: RedirectCache,
+	failurePolicy: 'continue' | 'strict' = 'continue',
+) {
 	const kit = createSanityKit({
 		projectId: 'project123',
 		dataset: 'test',
@@ -34,11 +38,18 @@ function setup(cache?: RedirectCache) {
 		},
 	})
 	const fetch = vi.fn((): Promise<unknown> => Promise.resolve([{ ...rule }]))
-	// Keep the real server kit and its signed preview sessions. Only the network
-	// boundary is replaced; all HTTP routing below uses React Router itself.
-	kit.publishedClient.config({
-		requestHandler: async () => ({ result: await fetch() }),
-	})
+	// Keep real signed sessions and router transport. Execute the actual GROQ
+	// query against fixture records at the structural network boundary.
+	const middlewareKit = {
+		...kit,
+		publishedClient: {
+			config: () => kit.publishedClient.config(),
+			withConfig: () => ({
+				fetch: async (query: string, params: Record<string, unknown>) =>
+					redirectQuery(query, params, (await fetch()) as unknown[]),
+			}),
+		},
+	}
 	const loader = vi.fn(() => ({ page: true }))
 	const action = vi.fn(() => ({ saved: true }))
 	const build: ServerBuild = {
@@ -59,7 +70,8 @@ function setup(cache?: RedirectCache) {
 				module: {
 					default: () => null,
 					middleware: createSanityRedirectMiddleware({
-						kit,
+						kit: middlewareKit,
+						failurePolicy,
 						...policy,
 						reservedPathPrefixes: ['/account'],
 						queryParameterAllowlist: ['lang'],
@@ -166,9 +178,9 @@ describe('private React Router redirect middleware', () => {
 	})
 
 	it.each(['/old', '/old.data'])(
-		'reports failed rule loading through the router for %s',
+		'supports strict failure responses through the router for %s',
 		async (path) => {
-			const io = setup()
+			const io = setup(undefined, 'strict')
 			io.fetch.mockRejectedValue(new Error('private transport details'))
 			const response = await io.request(path)
 			expect(response.status).toBe(503)
@@ -180,8 +192,20 @@ describe('private React Router redirect middleware', () => {
 		},
 	)
 
+	it.each(['/old', '/old.data'])(
+		'continues content routing by default when %s redirect loading fails',
+		async (path) => {
+			const io = setup()
+			io.fetch.mockRejectedValue(new Error('offline'))
+			const response = await io.request(path)
+			expect(response.status).toBe(200)
+			expect(response.headers.get('Cache-Control')).toBe('no-store')
+			expect(io.loader).toHaveBeenCalledOnce()
+		},
+	)
+
 	it('isolates failed-check headers between simultaneous requests and preserves app caching', async () => {
-		const io = setup()
+		const io = setup(undefined, 'strict')
 		io.build.routes.page!.module.headers = {
 			'Cache-Control': 'public, max-age=60',
 		}
@@ -211,16 +235,16 @@ describe('private React Router redirect middleware', () => {
 		expect(io.loader).toHaveBeenCalledTimes(2)
 	})
 
-	it('reports corrupt cache data without running content loaders or fetching a replacement', async () => {
+	it('replaces corrupt cache data with a fresh published lookup', async () => {
 		const io = setup({
 			getOrLoad: () => Promise.resolve({}),
 			invalidate: () => Promise.resolve(),
 		})
 		const response = await io.request('/old.data')
-		expect(response.status).toBe(503)
-		expect(response.headers.get('Cache-Control')).toBe('no-store')
+		expect(response.status).toBe(202)
+		expect(await response.text()).toContain('/new')
 		expect(io.loader).not.toHaveBeenCalled()
-		expect(io.fetch).not.toHaveBeenCalled()
+		expect(io.fetch).toHaveBeenCalledOnce()
 	})
 
 	it('uses consumer storage across requests and refreshes after invalidation', async () => {
@@ -230,8 +254,9 @@ describe('private React Router redirect middleware', () => {
 				if (!entries.has(key)) entries.set(key, await load())
 				return entries.get(key)
 			},
-			invalidate: (key) => {
-				entries.delete(key)
+			invalidate: (namespace) => {
+				for (const key of entries.keys())
+					if (key.startsWith(`${namespace}.`)) entries.delete(key)
 				return Promise.resolve()
 			},
 		}

@@ -1,18 +1,19 @@
 /**
- * Public request boundary for the redirect subsystem. snapshot.ts decides
- * whether data is safe; load.ts supplies published data; this module decides
- * whether a request may use it. See docs/redirects.md for the cache contract.
+ * Request-specific redirects and failure handling. Studio publication retains
+ * separate global checks. See docs/redirects.md for the consumer cache contract.
  * This is plain HTTP handling, not a React Router data-request adapter.
  */
 import type { ClientConfig } from '@sanity/client'
 import {
 	captureRedirectPolicy,
-	loadRedirectData,
 	REDIRECT_API_VERSION,
-	type RedirectLoadFailure,
 	type RedirectReadClient,
-	type RedirectSnapshotData,
 } from './load.js'
+import {
+	loadRedirectLookup,
+	validateLookup,
+	type LookupFailure,
+} from './lookup.js'
 import {
 	compileRedirectSnapshot,
 	type RedirectMatch,
@@ -34,28 +35,67 @@ export interface RedirectCacheContext {
 	readonly dataset: string
 	readonly apiVersion: string
 	readonly schemaVersion: 1
-	readonly queryVersion: 1
+	readonly queryVersion: 2
 	/** SHA-256 identity covers all fields above and the captured validation policy. */
 	readonly key: string
+}
+
+export interface RedirectCacheLoadOptions {
+	/** Invalidation removes every pathname in this namespace, including in-flight loads. */
+	readonly namespace: string
+	readonly freshForMs: number
+	/** Maximum total age from successful validation, including outage fallback. */
+	readonly maxAgeMs: number
 }
 
 export interface RedirectCache {
 	/** Optional partition/bypass hook. Returning null skips this adapter entirely. */
 	key?(context: RedirectCacheContext): string | null
 	/**
-	 * Store only the callback's returned JSON value, with a finite lifetime.
-	 * This callback is deliberately independent of any one HTTP request's abort
-	 * signal: deduplicated callers must not cancel each other's shared refresh.
+	 * Return a fresh entry or run load(previous) with the retained previous entry.
+	 * Deduplicate by key. Store successful returns only. Use validatedAt, never
+	 * the time a fallback is returned, to calculate age. Refresh is independent
+	 * of any one waiting request's cancellation. See the adapter example in docs.
 	 */
-	getOrLoad: (key: string, load: () => Promise<unknown>) => Promise<unknown>
-	/** Must prevent an older in-flight load from repopulating the invalidated key. */
-	invalidate: (key: string) => Promise<void>
+	getOrLoad: (
+		key: string,
+		load: (previous?: unknown) => Promise<RedirectCacheEntry>,
+		options: RedirectCacheLoadOptions,
+	) => Promise<unknown>
+	/** Fence older loads and clear ALL pathname entries in this namespace. */
+	invalidate: (namespace: string) => Promise<void>
 }
+
+/** JSON only; data is revalidated on every hit. Never store an error as a miss. */
+export interface RedirectCacheEntry {
+	readonly namespace: string
+	readonly pathname: string
+	readonly validatedAt: number
+	readonly data: unknown
+}
+
+export interface RedirectDiagnostic {
+	readonly pathname: string
+	readonly reason: LookupFailure['reason'] | 'cache-failed' | 'invalid-cache'
+	readonly snapshotReason?: RedirectSnapshotReason
+	readonly recordId?: string
+	/** 'application' leaves the caller to apply its continue/strict response policy. */
+	readonly fallback: 'origin' | 'stale' | 'application'
+}
+
+export type RedirectFailurePolicy = 'continue' | 'strict'
 
 export interface RedirectRequestOptions extends RedirectSnapshotOptions {
 	/** Trusted app preview/session decision; never inferred from a URL parameter. */
 	readonly preview: boolean
 	readonly cache?: RedirectCache
+	/** Defaults: fresh for 60 seconds, last good match usable for 5 minutes total. */
+	readonly freshForMs?: number
+	readonly maxAgeMs?: number
+	/** Operational diagnostics only; thrown/rejected handlers never affect routing. */
+	readonly onDiagnostic?: (
+		diagnostic: RedirectDiagnostic,
+	) => void | Promise<void>
 	/** Explicit safe names only. Empty/omitted drops all incoming query parameters. */
 	readonly queryParameterAllowlist?: readonly string[]
 }
@@ -104,12 +144,6 @@ function emptyLookup(policy: RedirectSnapshotOptions) {
 	return result.value
 }
 
-function failure(result: RedirectLoadFailure): RedirectRequestResult {
-	const { ok: _ok, ...details } = result
-	void _ok
-	return { kind: 'error', ...details }
-}
-
 /** Stable policy identity: ordering/duplicates of set-like lists do not matter. */
 async function cacheContext(
 	client: RedirectRequestClient,
@@ -130,7 +164,7 @@ async function cacheContext(
 		dataset,
 		apiVersion: REDIRECT_API_VERSION,
 		schemaVersion: 1 as const,
-		queryVersion: 1 as const,
+		queryVersion: 2 as const,
 	}
 	const sorted = (values: readonly string[] = []) => [...new Set(values)].sort()
 	const identity = JSON.stringify({
@@ -150,7 +184,7 @@ async function cacheContext(
 	const digest = [...new Uint8Array(hash)]
 		.map((value) => value.toString(16).padStart(2, '0'))
 		.join('')
-	return Object.freeze({ ...fields, key: `sanity-kit.redirects.v1.${digest}` })
+	return Object.freeze({ ...fields, key: `sanity-kit.redirects.v2.${digest}` })
 }
 
 function adapterKey(
@@ -171,13 +205,62 @@ function adapterKey(
 		: context.key
 }
 
-interface CacheEntry {
-	readonly scope: string
-	readonly snapshot: RedirectSnapshotData
-}
 class OriginFailure extends Error {
-	constructor(readonly result: RedirectLoadFailure) {
+	constructor(readonly result: LookupFailure) {
 		super(result.reason)
+	}
+}
+
+function lifetime(options: RedirectRequestOptions) {
+	const freshForMs = options.freshForMs ?? 60_000
+	const maxAgeMs = options.maxAgeMs ?? 300_000
+	if (
+		![freshForMs, maxAgeMs].every(
+			(value) => Number.isSafeInteger(value) && value >= 0,
+		) ||
+		maxAgeMs < freshForMs
+	)
+		throw new Error(
+			'Redirect cache ages must be nonnegative safe integers; maxAgeMs must be at least freshForMs',
+		)
+	return { freshForMs, maxAgeMs }
+}
+
+function cachedEntry(
+	value: unknown,
+	namespace: string,
+	pathname: string,
+	policy: RedirectSnapshotOptions,
+): RedirectCacheEntry | undefined {
+	if (!value || typeof value !== 'object' || Array.isArray(value))
+		return undefined
+	const entry = value as RedirectCacheEntry
+	if (
+		Object.keys(entry).length !== 4 ||
+		!['namespace', 'pathname', 'validatedAt', 'data'].every((key) =>
+			Object.hasOwn(entry, key),
+		) ||
+		entry.namespace !== namespace ||
+		entry.pathname !== pathname ||
+		!Number.isSafeInteger(entry.validatedAt) ||
+		entry.validatedAt < 0 ||
+		entry.validatedAt > Date.now() ||
+		validateLookup(entry.data, pathname, policy).kind === 'error'
+	)
+		return undefined
+	return entry
+}
+
+function diagnose(
+	options: RedirectRequestOptions,
+	diagnostic: RedirectDiagnostic,
+) {
+	try {
+		void Promise.resolve(
+			options.onDiagnostic?.(Object.freeze(diagnostic)),
+		).catch(() => undefined)
+	} catch {
+		/* Diagnostics must not change routing. */
 	}
 }
 
@@ -221,76 +304,166 @@ export async function resolveRedirectRequest(
 	const preliminary = emptyLookup(policy).match(url.pathname)
 	if (preliminary.kind !== 'none') return preliminary
 	if (request.signal.aborted) return { kind: 'error', reason: 'aborted' }
+	const ages = lifetime(options)
 	const { cache } = options
-	let raw: unknown
-	let usedCache = false
+	const pathname = url.pathname
+	let namespace: string | null = null
+	let context: RedirectCacheContext | undefined
+	let result: Awaited<ReturnType<typeof loadRedirectLookup>> | undefined
+	let entry: RedirectCacheEntry | undefined
+	let loadedEntry: RedirectCacheEntry | undefined
+	const report = ({
+		reason,
+		snapshotReason,
+		recordId,
+		fallback,
+	}: Omit<RedirectDiagnostic, 'pathname'>) =>
+		diagnose(options, {
+			pathname,
+			reason,
+			fallback,
+			...(snapshotReason ? { snapshotReason } : {}),
+			...(recordId ? { recordId } : {}),
+		})
+	// Capture the cache tenant before awaiting a consumer's partition hook.
 	if (cache) {
-		const context = await cacheContext(client, policy)
-		if (request.signal.aborted) return { kind: 'error', reason: 'aborted' }
+		context = await cacheContext(client, policy)
 		try {
-			const key = adapterKey(cache, context)
-			if (key !== null) {
-				usedCache = true
-				const entry = await waitForRequest(
-					cache.getOrLoad(key, async (): Promise<CacheEntry> => {
-						// Shared refresh lives independently of the first waiting request. The
-						// loader still checks every rule before this callback permits storage.
-						const loaded = await loadRedirectData(
-							{
-								withConfig: (config) =>
-									client.withConfig({
-										...config,
-										projectId: context.projectId,
-										dataset: context.dataset,
-									}),
-							},
-							policy,
-						)
-						if (!loaded.ok) throw new OriginFailure(loaded)
-						return { scope: context.key, snapshot: loaded.value }
+			namespace = adapterKey(cache, context)
+		} catch {
+			report({ reason: 'cache-failed', fallback: 'origin' })
+		}
+	}
+	const readClient = context
+		? {
+				withConfig: (config: Parameters<RedirectReadClient['withConfig']>[0]) =>
+					client.withConfig({
+						...config,
+						projectId: context.projectId,
+						dataset: context.dataset,
 					}),
-					request.signal,
-				)
-				if (entry === 'aborted' || request.signal.aborted)
-					return { kind: 'error', reason: 'aborted' }
-				if (
-					!entry ||
-					typeof entry !== 'object' ||
-					Array.isArray(entry) ||
-					Object.keys(entry).length !== 2 ||
-					!Object.hasOwn(entry, 'scope') ||
-					!Object.hasOwn(entry, 'snapshot') ||
-					(entry as CacheEntry).scope !== context.key
-				)
-					return { kind: 'error', reason: 'invalid-cache' }
-				raw = (entry as CacheEntry).snapshot
 			}
-		} catch (error) {
-			if (request.signal.aborted) return { kind: 'error', reason: 'aborted' }
-			if (error instanceof OriginFailure) return failure(error.result)
-			return { kind: 'error', reason: 'cache-failed' }
-		}
-	}
-	if (!usedCache) {
-		const result = await waitForRequest(
-			loadRedirectData(client, { ...policy, signal: request.signal }),
-			request.signal,
+		: client
+	let attemptedOrigin = false
+	const load = async (previous?: unknown): Promise<RedirectCacheEntry> => {
+		attemptedOrigin = true
+		const loaded = await loadRedirectLookup(
+			readClient,
+			pathname,
+			policy,
+			namespace === null ? request.signal : undefined,
 		)
-		if (result === 'aborted' || request.signal.aborted)
-			return { kind: 'error', reason: 'aborted' }
-		if (!result.ok) return failure(result)
-		raw = result.value
-	}
-	// Storage is untrusted: even a hit must pass current graph/path/size policy.
-	const compiled = compileRedirectSnapshot(raw, policy)
-	if (!compiled.ok)
-		return {
-			kind: 'error',
-			reason: 'invalid-cache',
-			snapshotReason: compiled.reason,
-			...(compiled.recordId ? { recordId: compiled.recordId } : {}),
+		result = loaded
+		if (loaded.result.kind === 'error') {
+			const prior =
+				namespace === null
+					? undefined
+					: cachedEntry(previous, namespace, pathname, policy)
+			if (
+				loaded.result.reason === 'request-failed' &&
+				prior &&
+				Date.now() - prior.validatedAt < ages.maxAgeMs &&
+				validateLookup(prior.data, pathname, policy).kind === 'redirect'
+			) {
+				report({ ...loaded.result, fallback: 'stale' })
+				loadedEntry = prior
+				return prior
+			}
+			// An authoritative bad response supersedes old entries. Never resurrect
+			// a previously valid rule on a later outage after this known failure.
+			if (
+				loaded.result.reason !== 'request-failed' &&
+				loaded.result.reason !== 'aborted' &&
+				cache &&
+				namespace !== null
+			) {
+				try {
+					await cache.invalidate(namespace)
+				} catch {
+					report({ reason: 'cache-failed', fallback: 'application' })
+				}
+			}
+			throw new OriginFailure(loaded.result)
 		}
-	const match = compiled.value.match(url.pathname)
+		loadedEntry = {
+			namespace: namespace ?? '',
+			pathname,
+			validatedAt: Date.now(),
+			data: loaded.rows,
+		}
+		return loadedEntry
+	}
+	const operation = async () => {
+		if (cache && namespace !== null) {
+			try {
+				const pathHash = await crypto.subtle.digest(
+					'SHA-256',
+					new TextEncoder().encode(pathname),
+				)
+				const digest = [...new Uint8Array(pathHash)]
+					.map((value) => value.toString(16).padStart(2, '0'))
+					.join('')
+				const raw = await cache.getOrLoad(`${namespace}.${digest}`, load, {
+					namespace,
+					...ages,
+				})
+				// A backend must not hide an authoritative rejection by returning its
+				// previous hit after load() throws. Prefer the result just checked.
+				if (result?.result.kind === 'error' && !loadedEntry)
+					return result.result
+				entry = cachedEntry(raw, namespace, pathname, policy)
+				if (!entry) report({ reason: 'invalid-cache', fallback: 'origin' })
+				if (loadedEntry) entry = loadedEntry
+				// Enforce freshness even if an adapter mistakenly returns an expired hit.
+				if (
+					entry &&
+					Date.now() - entry.validatedAt >= ages.freshForMs &&
+					!attemptedOrigin
+				)
+					entry = await load(entry)
+				if (entry) return validateLookup(entry.data, pathname, policy)
+			} catch (error) {
+				if (error instanceof OriginFailure) return error.result
+				report({ reason: 'cache-failed', fallback: 'origin' })
+				if (result && namespace !== null) {
+					// A failed cache write must not leave an older match available for
+					// outage fallback after an authoritative miss or correction.
+					try {
+						await cache.invalidate(namespace)
+					} catch {
+						report({ reason: 'cache-failed', fallback: 'origin' })
+					}
+				}
+				// A successful read still counts if only the cache write failed.
+				if (loadedEntry)
+					return validateLookup(loadedEntry.data, pathname, policy)
+				if (result) return result.result
+			}
+		}
+		try {
+			entry = await load()
+			return validateLookup(entry.data, pathname, policy)
+		} catch (error) {
+			if (error instanceof OriginFailure) return error.result
+			throw error
+		}
+	}
+	let match = await waitForRequest(operation(), request.signal)
+	if (match === 'aborted' || request.signal.aborted)
+		return { kind: 'error', reason: 'aborted' }
+	// Cache write/read latency must not extend the permitted outage window.
+	if (
+		match.kind === 'redirect' &&
+		result?.result.kind === 'error' &&
+		loadedEntry &&
+		Date.now() - loadedEntry.validatedAt >= ages.maxAgeMs
+	)
+		match = result.result
+	if (match.kind === 'error') {
+		if (match.reason !== 'aborted')
+			report({ ...match, fallback: 'application' })
+		return match
+	}
 	if (match.kind !== 'redirect') return match
 	const query = new URLSearchParams()
 	for (const [name, value] of url.searchParams)
@@ -302,13 +475,21 @@ export async function resolveRedirectRequest(
 }
 
 /**
- * Optional plain-HTTP conversion. Errors remain visible as a non-cacheable 503
- * (400 for invalid paths); bypass/miss leaves routing to the application.
+ * Optional plain-HTTP conversion. Failures continue application routing by
+ * default; strict mode returns a non-cacheable 503. Invalid paths return 400.
  * Framework adapters must use their own redirect/data-response conventions.
  */
 export function redirectResponse(
 	result: RedirectRequestResult,
+	failurePolicy: RedirectFailurePolicy = 'continue',
 ): Response | undefined {
+	if (failurePolicy !== 'continue' && failurePolicy !== 'strict')
+		throw new Error('Invalid redirect failure policy')
+	if (
+		result.kind === 'error' &&
+		(failurePolicy === 'continue' || result.reason === 'aborted')
+	)
+		return undefined
 	if (result.kind === 'none' || result.kind === 'bypass') return undefined
 	if (result.kind === 'error' || result.kind === 'invalid-path')
 		return new Response(

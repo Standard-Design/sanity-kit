@@ -27,6 +27,22 @@ acceptance, documentation clarity, read performance, richer row previews,
 and an optional collection index association. Those recommendations are available
 for prioritization alongside the existing consumer acceptance work.
 
+## Approved redirect follow-up
+
+The request-specific redirect lookup and failure-policy slice was approved on
+November 19, 2026. Website requests check their own source and destination dependency;
+normal routing continues on unresolved redirect failures by default. Optional
+caching holds only pathname results, with 60-second freshness and a five-minute
+maximum age for outage fallback to a known good matching rule. The
+[approved policy](redirects-design.md#approved-request-specific-runtime-policy)
+and [adapter migration](redirects.md#migration-from-alpha8-caching-and-failure-behavior)
+record the decisions. This work has not yet been released.
+
+Still remaining before beta: consume the revised API in Standard Stack, test
+its deployed cache refresh/failure behavior, run restricted-editor live
+acceptance when an account becomes available, and settle the public API from
+those results. Release-aware moves and wildcard rules remain deferred.
+
 ## Alpha.6 implementation and acceptance record
 
 The approved commit, `ca1c65f`, was tagged `v0.1.0-alpha.6`. Main and release-tag

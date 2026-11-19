@@ -9,6 +9,10 @@ import {
 	type RedirectRequestResult,
 	type RedirectCache,
 	type RedirectCacheContext,
+	type RedirectCacheEntry,
+	type RedirectCacheLoadOptions,
+	type RedirectDiagnostic,
+	type RedirectFailurePolicy,
 	type RedirectSnapshotOptions,
 	type RedirectSnapshotReason,
 	type RedirectMatch,
@@ -21,17 +25,38 @@ const client: RedirectRequestClient = createClient({
 })
 const cache: RedirectCache = {
 	key: (context: RedirectCacheContext) => context.key,
-	getOrLoad: (_key, load) => load(),
+	getOrLoad: (
+		_key,
+		load,
+		context: RedirectCacheLoadOptions,
+	): Promise<RedirectCacheEntry> => {
+		void context.namespace
+		void context.freshForMs
+		void context.maxAgeMs
+		return load()
+	},
 	invalidate: () => Promise.resolve(),
 }
 const policy: RedirectSnapshotOptions = { destinations: 'unverified' }
-const options: RedirectRequestOptions = { ...policy, preview: false, cache }
+const onDiagnostic = (issue: RedirectDiagnostic) => {
+	void issue.pathname
+	void issue.fallback
+}
+const options: RedirectRequestOptions = {
+	...policy,
+	preview: false,
+	cache,
+	onDiagnostic,
+	freshForMs: 60_000,
+	maxAgeMs: 300_000,
+}
 const result: RedirectRequestResult = await resolveRedirectRequest(
 	client,
 	new Request('https://example.com/old'),
 	options,
 )
-const response: Response | undefined = redirectResponse(result)
+const failurePolicy: RedirectFailurePolicy = 'continue'
+const response: Response | undefined = redirectResponse(result, failurePolicy)
 if (result.kind === 'error') {
 	const reason: RedirectSnapshotReason | undefined = result.snapshotReason
 	void reason

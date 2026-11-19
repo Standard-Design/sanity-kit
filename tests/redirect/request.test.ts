@@ -1,14 +1,15 @@
 import { createClient } from '@sanity/client'
 import { build } from 'esbuild'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
 	invalidateRedirectCache,
 	redirectResponse,
 	resolveRedirectRequest,
 	type RedirectCache,
+	type RedirectCacheEntry,
 	type RedirectRequestOptions,
 } from '../../src/redirect/request.js'
-import { REDIRECT_MAX_RECORDS } from '../../src/redirect/snapshot.js'
+import { redirectQuery } from './query-fixture.js'
 
 const options: RedirectRequestOptions = {
 	preview: false,
@@ -22,34 +23,60 @@ const rule = {
 	destination: '/new',
 	status: 301,
 }
+const wire = { ...rule, destinationIsRedirect: false }
+const request = (path = '/old', init?: RequestInit) =>
+	new Request(`https://app.example${path}`, init)
 function setup() {
 	const scope = { projectId: 'project123', dataset: 'test' }
-	const fetch = vi.fn((): Promise<unknown> => Promise.resolve([{ ...rule }]))
+	let rows: unknown[] = [{ ...rule }]
+	const fetch = vi.fn(
+		(query: string, params: Record<string, unknown>): Promise<unknown> =>
+			redirectQuery(query, params, rows),
+	)
 	const client = { config: () => scope, withConfig: vi.fn(() => ({ fetch })) }
 	const entries = new Map<string, unknown>()
+	// Reference semantics: freshness follows successful validation, not refresh time.
+	// Namespace generations prevent pre-invalidation loads from being stored later.
+	const generations = new Map<string, number>()
 	const cache: RedirectCache = {
-		getOrLoad: vi.fn(async (key: string, load: () => Promise<unknown>) => {
-			if (!entries.has(key)) entries.set(key, await load())
-			return entries.get(key)
+		getOrLoad: vi.fn<RedirectCache['getOrLoad']>(async (key, load, context) => {
+			const generation = generations.get(context.namespace) ?? 0
+			const prior = entries.get(key) as RedirectCacheEntry | undefined
+			if (prior && Date.now() - prior.validatedAt < context.freshForMs)
+				return prior
+			const value = await load(prior)
+			if ((generations.get(context.namespace) ?? 0) === generation)
+				entries.set(key, value)
+			return value
 		}),
-		invalidate: vi.fn((key: string) => {
-			entries.delete(key)
+		invalidate: vi.fn<RedirectCache['invalidate']>((namespace) => {
+			generations.set(namespace, (generations.get(namespace) ?? 0) + 1)
+			for (const key of entries.keys())
+				if (key.startsWith(`${namespace}.`)) entries.delete(key)
 			return Promise.resolve()
 		}),
 	}
-	return { scope, fetch, client, cache, entries }
+	return {
+		scope,
+		fetch,
+		client,
+		cache,
+		entries,
+		setRows: (value: unknown[]) => {
+			rows = value
+		},
+	}
 }
-const request = (url = '/old', init?: RequestInit) =>
-	new Request(`https://app.example${url}`, init)
+afterEach(() => vi.useRealTimers())
 
-describe('private frontend redirect requests', () => {
+describe('request-specific published redirects', () => {
 	it.each(['GET', 'HEAD'])(
-		'resolves %s with a non-cacheable empty HTTP response',
+		'resolves %s with bounded exact-source and dependency reads',
 		async (method) => {
-			const io = setup()
+			const t = setup()
 			const result = await resolveRedirectRequest(
-				io.client,
-				request('/old?token=secret#fragment', { method }),
+				t.client,
+				request('/old?token=private', { method }),
 				options,
 			)
 			expect(result).toEqual({
@@ -57,6 +84,16 @@ describe('private frontend redirect requests', () => {
 				location: '/new',
 				status: 301,
 			})
+			expect(t.fetch).toHaveBeenCalledOnce()
+			expect(t.fetch.mock.calls[0]![0]).toContain('source == $pathname][0...2]')
+			expect(t.fetch.mock.calls[0]![1]).toEqual({ pathname: '/old' })
+			expect(t.client.withConfig).toHaveBeenCalledWith(
+				expect.objectContaining({
+					perspective: 'published',
+					useCdn: false,
+					stega: false,
+				}),
+			)
 			const response = redirectResponse(result)!
 			expect(response.status).toBe(301)
 			expect(response.headers.get('location')).toBe('/new')
@@ -64,144 +101,647 @@ describe('private frontend redirect requests', () => {
 			expect(await response.text()).toBe('')
 		},
 	)
-
-	it.each([
-		{ method: 'POST', reason: 'method' },
-		{ method: 'PUT', reason: 'method' },
-		{ method: 'DELETE', reason: 'method' },
-		{ method: 'GET', preview: true, reason: 'preview' },
-		{ method: 'HEAD', preview: true, reason: 'preview' },
-	])(
-		'bypasses $reason before any load or cache access',
-		async ({ method, preview = false, reason }) => {
-			const io = setup()
-			const config = vi.spyOn(io.client, 'config')
-			const result = await resolveRedirectRequest(
-				io.client,
-				request('/old', { method }),
-				{ ...options, preview, cache: io.cache },
-			)
-			expect(result).toEqual({ kind: 'bypass', reason })
-			expect(config).not.toHaveBeenCalled()
-			expect(io.client.withConfig).not.toHaveBeenCalled()
-			expect(io.cache.getOrLoad).not.toHaveBeenCalled()
-			expect(redirectResponse(result)).toBeUndefined()
-		},
-	)
-
-	it.each(['/old', '/account', '/account/profile'])(
-		'bypasses reserved %s before cache access',
+	it.each(['/OLD', '/old.data', '/old/child', '/missing'])(
+		'keeps %s distinct and caches a genuine miss',
 		async (path) => {
-			const io = setup()
-			const result = await resolveRedirectRequest(io.client, request(path), {
-				...options,
-				cache: io.cache,
-				reservedPaths: ['/old'],
-				reservedPathPrefixes: ['/account'],
-			})
-			expect(result).toEqual({ kind: 'bypass', reason: 'reserved-path' })
-			expect(io.cache.getOrLoad).not.toHaveBeenCalled()
-			expect(io.fetch).not.toHaveBeenCalled()
-		},
-	)
-
-	it('preserves exact matching and does not reinterpret data endpoint paths', async () => {
-		const io = setup()
-		for (const path of ['/OLD', '/old.data', '/old/child', '/accounting'])
+			const t = setup()
+			const config = { ...options, cache: t.cache }
 			expect(
-				await resolveRedirectRequest(io.client, request(path), {
-					...options,
-					reservedPathPrefixes: ['/account'],
-				}),
+				await resolveRedirectRequest(t.client, request(path), config),
 			).toEqual({ kind: 'none' })
-		expect(redirectResponse({ kind: 'none' })).toBeUndefined()
-	})
-
-	it.each(['/old/', '/old//child', '/old%2fchild'])(
-		'rejects noncanonical %s without fetching',
-		async (path) => {
-			const io = setup()
 			expect(
-				await resolveRedirectRequest(io.client, request(path), options),
-			).toEqual({ kind: 'invalid-path' })
-			expect(io.fetch).not.toHaveBeenCalled()
+				await resolveRedirectRequest(t.client, request(path), config),
+			).toEqual({ kind: 'none' })
+			expect(t.fetch).toHaveBeenCalledOnce()
 		},
 	)
-
-	it('copies only explicitly allowed query values using safe URL encoding', async () => {
-		const io = setup()
+	it('ignores unrelated malformed rules and more than 1,000 unrelated records', async () => {
+		const t = setup()
+		t.setRows([
+			rule,
+			...Array.from({ length: 1200 }, (_, i) => ({
+				...rule,
+				_id: `r${i}`,
+				source: `/other-${i}`,
+				destination: 'bad',
+			})),
+		])
 		expect(
-			await resolveRedirectRequest(
-				io.client,
-				request(
-					'/old?utm_source=one&token=secret&utm_source=two&lang=en%0D%0ALocation%3Aevil&other=hidden',
-				),
-				{ ...options, queryParameterAllowlist: ['utm_source', 'lang'] },
-			),
-		).toEqual({
-			kind: 'redirect',
-			location:
-				'/new?utm_source=one&utm_source=two&lang=en%0D%0ALocation%3Aevil',
-			status: 301,
+			await resolveRedirectRequest(t.client, request(), options),
+		).toMatchObject({ kind: 'redirect' })
+	})
+	it.each([
+		{ extra: { ...rule, _id: 'duplicate' }, reason: 'duplicate-source' },
+		{
+			extra: { ...rule, _id: 'target', source: '/new', destination: '/final' },
+			reason: 'redirect-chain',
+		},
+		{
+			extra: { ...rule, _id: 'cycle', source: '/new', destination: '/old' },
+			reason: 'redirect-chain',
+		},
+	])('refuses $reason affecting this request', async ({ extra, reason }) => {
+		const t = setup()
+		t.setRows([rule, extra])
+		expect(
+			await resolveRedirectRequest(t.client, request(), options),
+		).toMatchObject({ kind: 'error', snapshotReason: reason })
+	})
+	it.each([
+		{
+			patch: { destination: 'https://evil.example' },
+			reason: 'invalid-destination',
+		},
+		{ patch: { destination: '/old' }, reason: 'self-redirect' },
+		{ patch: { status: 307 }, reason: 'unsupported-status' },
+		{ patch: { enabled: 'yes' }, reason: 'invalid-record' },
+	])('rejects matching malformed data: $reason', async ({ patch, reason }) => {
+		const t = setup()
+		t.setRows([{ ...rule, ...patch }])
+		expect(
+			await resolveRedirectRequest(t.client, request(), options),
+		).toMatchObject({ kind: 'error', snapshotReason: reason })
+	})
+	it.each([
+		{ config: { occupiedPaths: ['/old'] }, reason: 'occupied-source' },
+		{ config: { destinations: ['/other'] }, reason: 'unknown-destination' },
+	])('checks supplied $reason policy', async ({ config, reason }) => {
+		const t = setup()
+		expect(
+			await resolveRedirectRequest(t.client, request(), {
+				...options,
+				...config,
+			}),
+		).toMatchObject({ kind: 'error', snapshotReason: reason })
+	})
+	it('ignores disabled, draft and release rules, including destination history', async () => {
+		const t = setup()
+		t.setRows([
+			rule,
+			{ ...rule, _id: 'drafts.other' },
+			{ ...rule, _id: 'versions.release.other' },
+			{ ...rule, _id: 'disabled', source: '/new', enabled: false },
+		])
+		expect(
+			await resolveRedirectRequest(t.client, request(), options),
+		).toMatchObject({ kind: 'redirect' })
+		t.setRows([{ ...rule, enabled: false }])
+		expect(await resolveRedirectRequest(t.client, request(), options)).toEqual({
+			kind: 'none',
 		})
 	})
-
+	it('supports exact long source and destination-dependency paths', async () => {
+		const t = setup()
+		const long = '/' + 'a'.repeat(1100)
+		t.setRows([{ ...rule, source: long }])
+		expect(
+			await resolveRedirectRequest(t.client, request(long), options),
+		).toMatchObject({ kind: 'redirect' })
+		t.setRows([
+			{ ...rule, destination: long },
+			{ ...rule, _id: 'target', source: long },
+		])
+		expect(
+			await resolveRedirectRequest(t.client, request(), {
+				...options,
+				destinations: 'unverified',
+			}),
+		).toMatchObject({ kind: 'error', snapshotReason: 'redirect-chain' })
+	})
+	it.each([
+		{ path: '/old', init: { method: 'POST' }, config: {}, reason: 'method' },
+		{ path: '/old', config: { preview: true }, reason: 'preview' },
+		{
+			path: '/account/me',
+			config: { reservedPathPrefixes: ['/account'] },
+			reason: 'reserved-path',
+		},
+		{
+			path: '/old',
+			config: { reservedPaths: ['/old'] },
+			reason: 'reserved-path',
+		},
+	])('bypasses $reason without IO', async ({ path, init, config, reason }) => {
+		const t = setup()
+		expect(
+			await resolveRedirectRequest(t.client, request(path, init), {
+				...options,
+				cache: t.cache,
+				...config,
+			}),
+		).toEqual({ kind: 'bypass', reason })
+		expect(t.fetch).not.toHaveBeenCalled()
+		expect(t.cache.getOrLoad).not.toHaveBeenCalled()
+	})
+	it.each(['/old/', '/old//child', '/old%2fchild'])(
+		'rejects noncanonical %s before IO',
+		async (path) => {
+			const t = setup()
+			expect(
+				await resolveRedirectRequest(t.client, request(path), options),
+			).toEqual({ kind: 'invalid-path' })
+			expect(t.fetch).not.toHaveBeenCalled()
+		},
+	)
+	it('adds allowlisted query parameters after cache lookup and never leaks them across callers', async () => {
+		const t = setup()
+		const config = {
+			...options,
+			cache: t.cache,
+			queryParameterAllowlist: ['lang'],
+		}
+		for (const lang of ['en', 'fr'])
+			expect(
+				await resolveRedirectRequest(
+					t.client,
+					request(`/old?lang=${lang}&token=private`),
+					config,
+				),
+			).toMatchObject({ location: `/new?lang=${lang}` })
+		expect(t.fetch).toHaveBeenCalledOnce()
+		expect(JSON.stringify([...t.entries])).not.toContain('private')
+	})
 	it.each([
 		'token',
-		'access_token',
 		'AUTH',
 		'sanity-preview-secret',
 		'session',
 		'code',
 		'state',
 		'api_key',
-		'cookie',
 		'x signature',
-	])('rejects sensitive or malformed query policy %s', async (name) => {
-		const io = setup()
+	])('rejects unsafe query name %s', async (name) => {
+		const t = setup()
 		await expect(
-			resolveRedirectRequest(io.client, request(), {
+			resolveRedirectRequest(t.client, request(), {
 				...options,
 				queryParameterAllowlist: [name],
 			}),
 		).rejects.toThrow('non-sensitive')
-		expect(io.fetch).not.toHaveBeenCalled()
+		expect(t.fetch).not.toHaveBeenCalled()
 	})
-
-	it('returns explicit origin failures and safe HTTP service errors', async () => {
-		const io = setup()
-		io.fetch.mockRejectedValue(
-			new Error('private token and diagnostic details'),
-		)
-		const result = await resolveRedirectRequest(io.client, request(), options)
-		expect(result).toEqual({ kind: 'error', reason: 'request-failed' })
-		const response = redirectResponse(result)!
-		expect(response.status).toBe(503)
-		expect(response.headers.get('cache-control')).toBe('no-store')
-		expect(await response.text()).not.toContain('private token')
-	})
-
-	it('supports the real client and preserves its inherited draft/CDN settings', async () => {
-		const io = setup()
+	it('preserves the SDK client settings and uses a real published transport', async () => {
 		const client = createClient({
 			projectId: 'project123',
 			dataset: 'test',
 			apiVersion: '2025-01-01',
 			perspective: 'drafts',
 			useCdn: true,
-			requestHandler: () => Promise.resolve({ result: [rule] }),
+			requestHandler: () => Promise.resolve({ result: [wire] }),
 		})
-		const config = client.config()
+		const before = client.config()
 		expect(
-			await resolveRedirectRequest(client, request(), {
-				...options,
-				cache: io.cache,
+			await resolveRedirectRequest(client, request(), options),
+		).toMatchObject({ kind: 'redirect' })
+		expect(client.config()).toEqual(before)
+	})
+})
+
+describe('failure policy and diagnostics', () => {
+	it('keeps errors distinct from misses, continues by default and offers strict 503', async () => {
+		const t = setup()
+		const onDiagnostic = vi.fn()
+		t.fetch.mockRejectedValue(new Error('private credentials'))
+		const result = await resolveRedirectRequest(t.client, request(), {
+			...options,
+			onDiagnostic,
+		})
+		expect(result).toEqual({ kind: 'error', reason: 'request-failed' })
+		expect(redirectResponse(result)).toBeUndefined()
+		const strict = redirectResponse(result, 'strict')!
+		expect(strict.status).toBe(503)
+		expect(strict.headers.get('cache-control')).toBe('no-store')
+		expect(await strict.text()).not.toContain('private')
+		expect(onDiagnostic).toHaveBeenCalledWith({
+			pathname: '/old',
+			reason: 'request-failed',
+			fallback: 'application',
+		})
+	})
+	it('reports malformed matching rules with document identity without caching them', async () => {
+		const t = setup()
+		t.setRows([{ ...rule, destination: '/old' }])
+		const onDiagnostic = vi.fn()
+		await resolveRedirectRequest(t.client, request(), {
+			...options,
+			cache: t.cache,
+			onDiagnostic,
+		})
+		expect(t.entries.size).toBe(0)
+		expect(onDiagnostic).toHaveBeenCalledWith(
+			expect.objectContaining({
+				pathname: '/old',
+				snapshotReason: 'self-redirect',
+				recordId: 'rule',
 			}),
-		).toMatchObject({ kind: 'redirect', location: '/new' })
-		expect(client.config()).toEqual(config)
+		)
+	})
+	it.each([
+		() => {
+			throw new Error('diagnostic handler')
+		},
+		() => Promise.reject(new Error('diagnostic handler')),
+	])('isolates diagnostic failures', async (onDiagnostic) => {
+		const t = setup()
+		t.fetch.mockRejectedValue(new Error('offline'))
+		expect(
+			await resolveRedirectRequest(t.client, request(), {
+				...options,
+				onDiagnostic,
+			}),
+		).toMatchObject({ kind: 'error' })
+	})
+	it.each([
+		null,
+		{},
+		[wire, wire, wire],
+		[{ ...wire, destinationIsRedirect: undefined }],
+		[{ ...wire, source: '/wrong' }],
+	])('rejects incomplete or unexpected responses', async (value) => {
+		const t = setup()
+		t.fetch.mockResolvedValue(value)
+		expect(
+			await resolveRedirectRequest(t.client, request(), options),
+		).toMatchObject({ kind: 'error', reason: 'invalid-response' })
+	})
+})
+
+describe('pathname cache and bounded outage fallback', () => {
+	it('isolates pathnames and invalidates the whole namespace', async () => {
+		const t = setup()
+		const config = { ...options, cache: t.cache }
+		await resolveRedirectRequest(t.client, request(), config)
+		await resolveRedirectRequest(t.client, request('/missing'), config)
+		expect(t.entries.size).toBe(2)
+		expect([...t.entries.values()][0]).toMatchObject({
+			pathname: '/old',
+			data: [wire],
+		})
+		expect(JSON.parse(JSON.stringify([...t.entries.values()]))).toEqual([
+			...t.entries.values(),
+		])
+		expect(await invalidateRedirectCache(t.client, options, t.cache)).toEqual({
+			ok: true,
+		})
+		expect(t.entries.size).toBe(0)
+	})
+	it('refreshes after 60 seconds, serves a last good match only until 5 minutes total, and does not renew its age', async () => {
+		vi.useFakeTimers()
+		vi.setSystemTime(1_000_000)
+		const t = setup()
+		const config = { ...options, cache: t.cache }
+		const onDiagnostic = vi.fn()
+		await resolveRedirectRequest(t.client, request(), config)
+		vi.setSystemTime(1_059_999)
+		await resolveRedirectRequest(t.client, request(), config)
+		expect(t.fetch).toHaveBeenCalledOnce()
+		t.fetch.mockRejectedValue(new Error('offline'))
+		for (const time of [1_060_000, 1_240_000, 1_299_999]) {
+			vi.setSystemTime(time)
+			expect(
+				await resolveRedirectRequest(t.client, request(), {
+					...config,
+					onDiagnostic,
+				}),
+			).toMatchObject({ kind: 'redirect' })
+			expect([...t.entries.values()][0]).toMatchObject({
+				validatedAt: 1_000_000,
+			})
+		}
+		expect(onDiagnostic).toHaveBeenCalledWith(
+			expect.objectContaining({ fallback: 'stale' }),
+		)
+		vi.setSystemTime(1_300_000)
+		expect(await resolveRedirectRequest(t.client, request(), config)).toEqual({
+			kind: 'error',
+			reason: 'request-failed',
+		})
+	})
+	it('does not extend fallback age while waiting for a slow cache write', async () => {
+		vi.useFakeTimers()
+		vi.setSystemTime(1000)
+		const t = setup()
+		const config = { ...options, cache: t.cache }
+		await resolveRedirectRequest(t.client, request(), config)
+		const prior = [...t.entries.values()][0]
+		vi.setSystemTime(61_000)
+		t.fetch.mockRejectedValue(new Error('offline'))
+		t.cache.getOrLoad = async (_key, load) => {
+			const value = await load(prior)
+			vi.setSystemTime(301_000)
+			return value
+		}
+		expect(await resolveRedirectRequest(t.client, request(), config)).toEqual({
+			kind: 'error',
+			reason: 'request-failed',
+		})
 	})
 
-	it('keeps the runtime dependency graph free of Studio/framework/cache SDKs', async () => {
+	it('does not use a stale miss to conceal a failed read', async () => {
+		vi.useFakeTimers()
+		vi.setSystemTime(1000)
+		const t = setup()
+		const config = { ...options, cache: t.cache }
+		await resolveRedirectRequest(t.client, request('/missing'), config)
+		vi.setSystemTime(61_000)
+		t.fetch.mockRejectedValue(new Error('offline'))
+		expect(
+			await resolveRedirectRequest(t.client, request('/missing'), config),
+		).toEqual({ kind: 'error', reason: 'request-failed' })
+	})
+	it.each(['retired', 'deleted', 'invalid', 'incomplete', 'invalidated'])(
+		'never resurrects a rule after it was %s',
+		async (state) => {
+			vi.useFakeTimers()
+			vi.setSystemTime(1000)
+			const t = setup()
+			const config = { ...options, cache: t.cache }
+			await resolveRedirectRequest(t.client, request(), config)
+			vi.setSystemTime(61_000)
+			if (state === 'invalidated')
+				await invalidateRedirectCache(t.client, options, t.cache)
+			else {
+				t.setRows(
+					state === 'retired'
+						? [{ ...rule, enabled: false }]
+						: state === 'invalid'
+							? [{ ...rule, destination: '/old' }]
+							: [],
+				)
+				if (state === 'incomplete') t.fetch.mockResolvedValueOnce(null)
+				await resolveRedirectRequest(t.client, request(), config)
+			}
+			vi.setSystemTime(121_000)
+			t.fetch.mockRejectedValue(new Error('offline'))
+			expect(
+				await resolveRedirectRequest(t.client, request(), config),
+			).toMatchObject({ kind: 'error', reason: 'request-failed' })
+		},
+	)
+	it('falls back to Sanity on failed or corrupt cache access and diagnoses it', async () => {
+		const t = setup()
+		const onDiagnostic = vi.fn()
+		t.cache.getOrLoad = () => Promise.reject(new Error('offline'))
+		expect(
+			await resolveRedirectRequest(t.client, request(), {
+				...options,
+				cache: t.cache,
+				onDiagnostic,
+			}),
+		).toMatchObject({ kind: 'redirect' })
+		expect(onDiagnostic).toHaveBeenCalledWith(
+			expect.objectContaining({ reason: 'cache-failed', fallback: 'origin' }),
+		)
+		t.cache.getOrLoad = () => Promise.resolve({ namespace: 'wrong', data: [] })
+		expect(
+			await resolveRedirectRequest(t.client, request(), {
+				...options,
+				cache: t.cache,
+				onDiagnostic,
+			}),
+		).toMatchObject({ kind: 'redirect' })
+		expect(onDiagnostic).toHaveBeenCalledWith(
+			expect.objectContaining({ reason: 'invalid-cache' }),
+		)
+	})
+	it('retains a successful origin result when only the cache write fails', async () => {
+		const t = setup()
+		t.cache.getOrLoad = async (_key, load) => {
+			await load()
+			throw new Error('write failed')
+		}
+		expect(
+			await resolveRedirectRequest(t.client, request(), {
+				...options,
+				cache: t.cache,
+			}),
+		).toMatchObject({ kind: 'redirect' })
+		expect(t.fetch).toHaveBeenCalledOnce()
+	})
+	it('enforces age and revalidates data even for adapters that return stale or forged hits', async () => {
+		vi.useFakeTimers()
+		vi.setSystemTime(1000)
+		const t = setup()
+		const config = { ...options, cache: t.cache }
+		await resolveRedirectRequest(t.client, request(), config)
+		const prior = [...t.entries.values()][0]
+		t.cache.getOrLoad = () => Promise.resolve(prior)
+		vi.setSystemTime(61_000)
+		t.fetch.mockRejectedValue(new Error('offline'))
+		expect(
+			await resolveRedirectRequest(t.client, request(), config),
+		).toMatchObject({ kind: 'redirect' })
+		vi.setSystemTime(301_000)
+		expect(
+			await resolveRedirectRequest(t.client, request(), config),
+		).toMatchObject({ kind: 'error' })
+	})
+	it('isolates tenant, policy and custom partitions; captures the tenant before a custom hook mutates it', async () => {
+		const t = setup()
+		const config = { ...options, cache: t.cache }
+		await resolveRedirectRequest(t.client, request(), config)
+		t.scope.dataset = 'other'
+		await resolveRedirectRequest(t.client, request(), config)
+		t.scope.projectId = 'other123'
+		await resolveRedirectRequest(t.client, request(), config)
+		await resolveRedirectRequest(t.client, request(), {
+			...config,
+			reservedPaths: ['/api'],
+		})
+		t.cache.key = () => 'partition'
+		await resolveRedirectRequest(t.client, request(), config)
+		expect(t.entries.size).toBe(5)
+		t.cache.key = () => {
+			t.scope.dataset = 'mutated'
+			return 'second'
+		}
+		await resolveRedirectRequest(t.client, request(), config)
+		expect(t.client.withConfig).toHaveBeenLastCalledWith(
+			expect.objectContaining({ dataset: 'other' }),
+		)
+	})
+	it('uses deterministic policy identity and permits an explicit cache bypass', async () => {
+		const t = setup()
+		for (const reservedPaths of [
+			['/a', '/b', '/a'],
+			['/b', '/a'],
+		])
+			await resolveRedirectRequest(t.client, request(), {
+				...options,
+				cache: t.cache,
+				reservedPaths,
+			})
+		expect(t.fetch).toHaveBeenCalledOnce()
+		t.cache.key = () => null
+		await resolveRedirectRequest(t.client, request(), {
+			...options,
+			cache: t.cache,
+		})
+		expect(t.fetch).toHaveBeenCalledTimes(2)
+	})
+	it('fences in-flight loads across namespace invalidation', async () => {
+		const t = setup()
+		const pending = Promise.withResolvers<unknown>()
+		t.fetch.mockReturnValueOnce(pending.promise)
+		const config = {
+			...options,
+			destinations: 'unverified' as const,
+			cache: t.cache,
+		}
+		const old = resolveRedirectRequest(t.client, request(), config)
+		await vi.waitFor(() => expect(t.fetch).toHaveBeenCalledOnce())
+		await invalidateRedirectCache(t.client, options, t.cache) // different policy: must not clear this namespace
+		await invalidateRedirectCache(t.client, config, t.cache)
+		t.setRows([{ ...rule, destination: '/changed' }])
+		expect(
+			await resolveRedirectRequest(t.client, request(), config),
+		).toMatchObject({ location: '/changed' })
+		pending.resolve([wire])
+		await old
+		expect(
+			await resolveRedirectRequest(t.client, request(), config),
+		).toMatchObject({ location: '/changed' })
+	})
+	it('ignores an old entry if an adapter swallows an authoritative invalid-data failure', async () => {
+		vi.useFakeTimers()
+		vi.setSystemTime(1000)
+		const t = setup()
+		const config = { ...options, cache: t.cache }
+		await resolveRedirectRequest(t.client, request(), config)
+		const prior = [...t.entries.values()][0]
+		vi.setSystemTime(61_000)
+		t.setRows([{ ...rule, destination: '/old' }])
+		t.cache.getOrLoad = async (_key, load) => {
+			try {
+				return await load(prior)
+			} catch {
+				return prior
+			}
+		}
+		expect(
+			await resolveRedirectRequest(t.client, request(), config),
+		).toMatchObject({ kind: 'error', snapshotReason: 'self-redirect' })
+	})
+	it('clears an old rule when a confirmed miss cannot be saved to the cache', async () => {
+		vi.useFakeTimers()
+		vi.setSystemTime(1000)
+		const t = setup()
+		const config = { ...options, cache: t.cache }
+		await resolveRedirectRequest(t.client, request(), config)
+		const prior = [...t.entries.values()][0]
+		vi.setSystemTime(61_000)
+		t.setRows([])
+		t.cache.getOrLoad = async (_key, load) => {
+			await load(prior)
+			throw new Error('write failed')
+		}
+		expect(await resolveRedirectRequest(t.client, request(), config)).toEqual({
+			kind: 'none',
+		})
+		expect(t.entries.size).toBe(0)
+	})
+	it('does not use a retained entry from another namespace as outage fallback', async () => {
+		const t = setup()
+		const config = { ...options, cache: t.cache }
+		await resolveRedirectRequest(t.client, request(), config)
+		const prior = [...t.entries.values()][0]
+		t.scope.dataset = 'another'
+		t.cache.getOrLoad = (_key, load) => load(prior)
+		t.fetch.mockRejectedValue(new Error('offline'))
+		expect(await resolveRedirectRequest(t.client, request(), config)).toEqual({
+			kind: 'error',
+			reason: 'request-failed',
+		})
+	})
+
+	it('reports failed invalidation explicitly', async () => {
+		const t = setup()
+		t.cache.invalidate = () => Promise.reject(new Error('offline'))
+		expect(await invalidateRedirectCache(t.client, options, t.cache)).toEqual({
+			ok: false,
+			reason: 'cache-failed',
+		})
+	})
+	it.each([
+		{ freshForMs: -1 },
+		{ freshForMs: 100, maxAgeMs: 99 },
+		{ maxAgeMs: Infinity },
+	])('rejects invalid age configuration', async (config) => {
+		const t = setup()
+		await expect(
+			resolveRedirectRequest(t.client, request(), { ...options, ...config }),
+		).rejects.toThrow('ages')
+		expect(t.fetch).not.toHaveBeenCalled()
+	})
+})
+
+describe('cancellation and safe HTTP boundary', () => {
+	it('does no IO when already aborted and stops waiting for uncancellable work', async () => {
+		const t = setup()
+		const controller = new AbortController()
+		controller.abort()
+		expect(
+			await resolveRedirectRequest(
+				t.client,
+				request('/old', { signal: controller.signal }),
+				options,
+			),
+		).toEqual({ kind: 'error', reason: 'aborted' })
+		expect(t.fetch).not.toHaveBeenCalled()
+		const next = new AbortController()
+		const pending = Promise.withResolvers<unknown>()
+		t.fetch.mockReturnValue(pending.promise)
+		const operation = resolveRedirectRequest(
+			t.client,
+			request('/old', { signal: next.signal }),
+			options,
+		)
+		next.abort()
+		expect(await operation).toEqual({ kind: 'error', reason: 'aborted' })
+		pending.resolve([wire])
+	})
+	it('does not let a cancelled waiter cancel a shared cache refresh', async () => {
+		const t = setup()
+		let shared: Promise<unknown> | undefined
+		t.cache.getOrLoad = (_key, load) => (shared ??= load())
+		const pending = Promise.withResolvers<unknown>()
+		t.fetch.mockReturnValue(pending.promise)
+		const controller = new AbortController()
+		const config = { ...options, cache: t.cache }
+		const first = resolveRedirectRequest(
+			t.client,
+			request('/old', { signal: controller.signal }),
+			config,
+		)
+		const second = resolveRedirectRequest(t.client, request(), config)
+		await vi.waitFor(() => expect(t.fetch).toHaveBeenCalledOnce())
+		controller.abort()
+		expect(await first).toEqual({ kind: 'error', reason: 'aborted' })
+		pending.resolve([wire])
+		expect(await second).toMatchObject({ kind: 'redirect' })
+	})
+	it.each([
+		'https://evil.example',
+		'//evil.example',
+		'/old#fragment',
+		'/old\\path',
+		'/old\nLocation: evil',
+	])('rejects unsafe HTTP Location %s', (location) => {
+		expect(() =>
+			redirectResponse({ kind: 'redirect', location, status: 301 }),
+		).toThrow('Unsafe')
+	})
+	it('keeps temporary status, invalid path and cancellation behavior explicit', () => {
+		expect(
+			redirectResponse({ kind: 'redirect', location: '/new', status: 302 })!
+				.status,
+		).toBe(302)
+		expect(redirectResponse({ kind: 'invalid-path' })!.status).toBe(400)
+		expect(
+			redirectResponse({ kind: 'error', reason: 'aborted' }, 'strict'),
+		).toBeUndefined()
+	})
+	it('keeps Studio, router and cache SDKs outside the generic dependency graph', async () => {
 		const output = await build({
 			entryPoints: ['src/redirect/request.ts'],
 			bundle: true,
@@ -216,358 +756,5 @@ describe('private frontend redirect requests', () => {
 				/node_modules\/(?:sanity|react|react-router|@sanity\/ui|cloudflare)\//u,
 			)
 		}
-	})
-})
-
-describe('plain HTTP response boundary', () => {
-	it('keeps temporary redirects temporary', () => {
-		const response = redirectResponse({
-			kind: 'redirect',
-			location: '/new',
-			status: 302,
-		})!
-		expect(response.status).toBe(302)
-		expect(response.headers.get('cache-control')).toBe('no-store')
-	})
-	it.each([
-		'https://evil.example',
-		'//evil.example',
-		'/old#fragment',
-		'/old\\path',
-		'/old\nLocation: https://evil.example',
-	])('rejects a forged unsafe location %s', (location) => {
-		expect(() =>
-			redirectResponse({ kind: 'redirect', location, status: 301 }),
-		).toThrow('Unsafe')
-	})
-	it('keeps invalid-path errors non-cacheable', () => {
-		const response = redirectResponse({ kind: 'invalid-path' })!
-		expect(response.status).toBe(400)
-		expect(response.headers.get('cache-control')).toBe('no-store')
-	})
-})
-
-describe('consumer-owned redirect cache', () => {
-	it('stores bounded JSON data, reuses a hit, and invalidates the same key', async () => {
-		const io = setup()
-		const config = { ...options, cache: io.cache }
-		await resolveRedirectRequest(io.client, request(), config)
-		const entry = [...io.entries.values()][0]
-		expect(JSON.parse(JSON.stringify(entry))).toEqual(entry)
-		expect(entry).toMatchObject({
-			snapshot: { perspective: 'published', complete: true, records: [rule] },
-		})
-		await resolveRedirectRequest(io.client, request(), config)
-		expect(io.fetch).toHaveBeenCalledTimes(1)
-		expect(await invalidateRedirectCache(io.client, options, io.cache)).toEqual(
-			{ ok: true },
-		)
-		expect(io.entries.size).toBe(0)
-		await resolveRedirectRequest(io.client, request(), config)
-		expect(io.fetch).toHaveBeenCalledTimes(2)
-	})
-
-	it('supports a consumer generation barrier and finite TTL without a kit-owned cache', async () => {
-		const io = setup()
-		let now = 0
-		let generation = 0
-		const entries = new Map<string, { value: unknown; expiresAt: number }>()
-		// Test-only storage illustrates the adapter contract. Production adapters
-		// own equivalent coordination across their actual processes and storage.
-		const cache: RedirectCache = {
-			getOrLoad: async (key, load) => {
-				const hit = entries.get(key)
-				if (hit && hit.expiresAt > now) return hit.value
-				const startedAtGeneration = generation
-				const value = await load()
-				if (generation === startedAtGeneration)
-					entries.set(key, { value, expiresAt: now + 60_000 })
-				return value
-			},
-			invalidate: (key) => {
-				generation += 1
-				entries.delete(key)
-				return Promise.resolve()
-			},
-		}
-		let finishOldRead: (rows: unknown) => void = () => undefined
-		let readStarted: () => void = () => undefined
-		const started = new Promise<void>((resolve) => {
-			readStarted = resolve
-		})
-		io.fetch.mockImplementationOnce(
-			() =>
-				new Promise((resolve) => {
-					finishOldRead = resolve
-					readStarted()
-				}),
-		)
-		const config = {
-			preview: false,
-			destinations: 'unverified' as const,
-			cache,
-		}
-		const oldRequest = resolveRedirectRequest(io.client, request(), config)
-		await started
-		await invalidateRedirectCache(io.client, config, cache)
-		io.fetch.mockResolvedValue([{ ...rule, destination: '/updated' }])
-		expect(
-			await resolveRedirectRequest(io.client, request(), config),
-		).toMatchObject({ location: '/updated' })
-		finishOldRead([rule])
-		// An already-running caller may finish with its old read. The barrier
-		// protects later calls from that read overwriting the new cache value.
-		expect(await oldRequest).toMatchObject({ location: '/new' })
-		expect(
-			await resolveRedirectRequest(io.client, request(), config),
-		).toMatchObject({ location: '/updated' })
-		expect(io.fetch).toHaveBeenCalledTimes(2)
-		now = 60_000
-		await resolveRedirectRequest(io.client, request(), config)
-		expect(io.fetch).toHaveBeenCalledTimes(3)
-	})
-
-	it('isolates project, dataset, and every validation policy even with identical custom keys', async () => {
-		const io = setup()
-		io.cache.key = () => 'shared'
-		const base = { ...options, cache: io.cache }
-		await resolveRedirectRequest(io.client, request(), base)
-		io.scope.projectId = 'other123'
-		await resolveRedirectRequest(io.client, request(), base)
-		io.scope.dataset = 'other'
-		await resolveRedirectRequest(io.client, request(), base)
-		await resolveRedirectRequest(io.client, request(), {
-			...base,
-			destinations: 'unverified',
-		})
-		await resolveRedirectRequest(io.client, request(), {
-			...base,
-			reservedPaths: ['/api'],
-		})
-		await resolveRedirectRequest(io.client, request(), {
-			...base,
-			reservedPathPrefixes: ['/account'],
-		})
-		await resolveRedirectRequest(io.client, request(), {
-			...base,
-			occupiedPaths: ['/page'],
-		})
-		expect(io.entries.size).toBe(7)
-		expect(io.fetch).toHaveBeenCalledTimes(7)
-	})
-
-	it('uses a deterministic identity for equivalent set-like policy lists', async () => {
-		const io = setup()
-		await resolveRedirectRequest(io.client, request(), {
-			...options,
-			cache: io.cache,
-			reservedPaths: ['/a', '/b', '/a'],
-		})
-		await resolveRedirectRequest(io.client, request(), {
-			...options,
-			cache: io.cache,
-			reservedPaths: ['/b', '/a'],
-		})
-		expect(io.fetch).toHaveBeenCalledTimes(1)
-	})
-
-	it('rejects a cache entry returned under the wrong scope instead of fetching a fallback', async () => {
-		const io = setup()
-		await resolveRedirectRequest(io.client, request(), {
-			...options,
-			cache: io.cache,
-		})
-		const entry = [...io.entries.values()][0]
-		io.scope.dataset = 'another'
-		io.cache.getOrLoad = vi.fn(() => Promise.resolve(entry))
-		expect(
-			await resolveRedirectRequest(io.client, request(), {
-				...options,
-				cache: io.cache,
-			}),
-		).toEqual({ kind: 'error', reason: 'invalid-cache' })
-		expect(io.fetch).toHaveBeenCalledTimes(1)
-	})
-
-	it.each([
-		{ snapshot: undefined },
-		{ snapshot: { perspective: 'drafts', complete: true, records: [rule] } },
-		{
-			snapshot: {
-				perspective: 'published',
-				complete: true,
-				records: [{ ...rule, destination: 'https://evil.example' }],
-			},
-		},
-		{
-			snapshot: {
-				perspective: 'published',
-				complete: true,
-				records: Array.from({ length: REDIRECT_MAX_RECORDS + 1 }, () => rule),
-			},
-		},
-	])('revalidates corrupt storage on every hit', async (replacement) => {
-		const io = setup()
-		await resolveRedirectRequest(io.client, request(), {
-			...options,
-			cache: io.cache,
-		})
-		const [key, entry] = [...io.entries][0]! as [string, object]
-		io.entries.set(key, { ...entry, ...replacement })
-		expect(
-			await resolveRedirectRequest(io.client, request(), {
-				...options,
-				cache: io.cache,
-			}),
-		).toMatchObject({ kind: 'error', reason: 'invalid-cache' })
-		expect(io.fetch).toHaveBeenCalledTimes(1)
-	})
-
-	it.each([
-		null,
-		{},
-		[],
-		{ perspective: 'published', complete: true, records: [rule] },
-	])('rejects an adapter returning unvalidated/raw data', async (value) => {
-		const io = setup()
-		io.cache.getOrLoad = () => Promise.resolve(value)
-		expect(
-			await resolveRedirectRequest(io.client, request(), {
-				...options,
-				cache: io.cache,
-			}),
-		).toEqual({ kind: 'error', reason: 'invalid-cache' })
-		expect(io.fetch).not.toHaveBeenCalled()
-	})
-
-	it('never offers invalid origin data for storage', async () => {
-		const io = setup()
-		io.fetch.mockResolvedValue([
-			{ ...rule, destination: 'https://evil.example' },
-		])
-		expect(
-			await resolveRedirectRequest(io.client, request(), {
-				...options,
-				cache: io.cache,
-			}),
-		).toMatchObject({
-			kind: 'error',
-			reason: 'invalid-snapshot',
-			snapshotReason: 'invalid-destination',
-		})
-		expect(io.entries.size).toBe(0)
-	})
-
-	it('bypasses optional storage explicitly and does not hide storage failures', async () => {
-		const io = setup()
-		io.cache.key = () => null
-		await resolveRedirectRequest(io.client, request(), {
-			...options,
-			cache: io.cache,
-		})
-		expect(io.cache.getOrLoad).not.toHaveBeenCalled()
-		expect(io.fetch).toHaveBeenCalledTimes(1)
-		delete io.cache.key
-		io.cache.getOrLoad = () => Promise.reject(new Error('Backend unavailable'))
-		expect(
-			await resolveRedirectRequest(io.client, request(), {
-				...options,
-				cache: io.cache,
-			}),
-		).toEqual({ kind: 'error', reason: 'cache-failed' })
-		expect(io.fetch).toHaveBeenCalledTimes(1)
-	})
-
-	it.each(['a'.repeat(257), '\n'])(
-		'rejects invalid custom keys without origin work',
-		async (key) => {
-			const io = setup()
-			io.cache.key = () => key
-			expect(
-				await resolveRedirectRequest(io.client, request(), {
-					...options,
-					cache: io.cache,
-				}),
-			).toEqual({ kind: 'error', reason: 'cache-failed' })
-			expect(io.fetch).not.toHaveBeenCalled()
-		},
-	)
-
-	it('reports failed invalidation explicitly', async () => {
-		const io = setup()
-		io.cache.invalidate = () => Promise.reject(new Error('offline'))
-		expect(await invalidateRedirectCache(io.client, options, io.cache)).toEqual(
-			{ ok: false, reason: 'cache-failed' },
-		)
-	})
-
-	it('pins the read project/dataset even if the app mutates its client while deriving the cache key', async () => {
-		const io = setup()
-		io.cache.key = () => {
-			io.scope.dataset = 'changed'
-			return ''
-		}
-		await resolveRedirectRequest(io.client, request(), {
-			...options,
-			cache: io.cache,
-		})
-		expect(io.client.withConfig).toHaveBeenCalledWith(
-			expect.objectContaining({ projectId: 'project123', dataset: 'test' }),
-		)
-	})
-})
-
-describe('request cancellation', () => {
-	it('does no work for an already aborted request', async () => {
-		const io = setup()
-		const controller = new AbortController()
-		controller.abort()
-		expect(
-			await resolveRedirectRequest(
-				io.client,
-				request('/old', { signal: controller.signal }),
-				{ ...options, cache: io.cache },
-			),
-		).toEqual({ kind: 'error', reason: 'aborted' })
-		expect(io.fetch).not.toHaveBeenCalled()
-		expect(io.cache.getOrLoad).not.toHaveBeenCalled()
-	})
-
-	it('ignores a late uncached response after cancellation', async () => {
-		const io = setup()
-		const pending = Promise.withResolvers<unknown>()
-		io.fetch.mockReturnValue(pending.promise)
-		const controller = new AbortController()
-		const result = resolveRedirectRequest(
-			io.client,
-			request('/old', { signal: controller.signal }),
-			options,
-		)
-		controller.abort()
-		expect(await result).toEqual({ kind: 'error', reason: 'aborted' })
-		pending.resolve([rule])
-	})
-
-	it('lets one cancelled cache waiter leave without poisoning another waiter or their refresh', async () => {
-		const io = setup()
-		const pending = Promise.withResolvers<unknown>()
-		let shared: Promise<unknown> | undefined
-		io.cache.getOrLoad = async (_key, load) => (shared ??= load())
-		io.fetch.mockReturnValue(pending.promise)
-		const controller = new AbortController()
-		const first = resolveRedirectRequest(
-			io.client,
-			request('/old', { signal: controller.signal }),
-			{ ...options, cache: io.cache },
-		)
-		const second = resolveRedirectRequest(io.client, request(), {
-			...options,
-			cache: io.cache,
-		})
-		await vi.waitFor(() => expect(io.fetch).toHaveBeenCalledTimes(1))
-		controller.abort()
-		expect(await first).toEqual({ kind: 'error', reason: 'aborted' })
-		pending.resolve([rule])
-		expect(await second).toMatchObject({ kind: 'redirect', location: '/new' })
 	})
 })

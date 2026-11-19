@@ -12,22 +12,29 @@ the public `/studio` helpers. Their writers and action components remain private
 handler makes visitors follow them. See the [redirect design](redirects-design.md)
 for deferred work.
 
-## What this slice does
+## How website requests work
 
-A redirect says that an old pathname should lead to a different pathname. The
-new private helper checks a complete collection of those rules, then builds an
-exact-path lookup. For example, a rule from `/about/team` to `/company/team`
-produces a redirect decision for `/about/team`, but not for `/about/team/alex`.
+For `/old-about`, the website asks Sanity for matching published redirect rules
+and checks whether their destination is itself a redirect. It fetches at most two
+matches: a second match means the source is ambiguous. An unrelated broken rule
+or a large redirect inventory does not block this request.
 
-The companion loader reads those rules from Sanity and passes them through the
-same checks. A separate request helper now decides when to check those rules,
-optionally obtains them through the app's cache, and can produce a plain HTTP
-redirect response. None of these helpers creates or edits rules or moves pages.
-The separate publication integration owns generated-rule creation and reviewed
-destination updates when a page moves again. The private management integration now reviews manual redirect publishing and retirement. The React Router adapter below connects the same request helper to document loads
-and client-navigation data requests.
+A valid match redirects the visitor. A successful lookup with no match lets the
+application route normally. A failed lookup stays an explicit error, but the
+response adapter also lets normal routing continue by default. The application
+can log the problem through `onDiagnostic`, or choose strict 503 behavior.
 
-## One complete snapshot for the configured dataset
+Optional caching stores these small, pathname-specific results. There is no
+second cache containing the full site's redirect list. Fresh results last 60
+seconds by default. During a failed Sanity read, a previously validated matching
+redirect can be used for up to five minutes **total from its validation time**.
+The [cache contract](#optional-consumer-owned-caching) explains the boundaries.
+
+Studio publishing still uses broad validation before saving routing changes.
+The complete snapshot compiler and loader described next are internal tools for
+that work; website request handling uses the separate bounded lookup.
+
+## Internal complete-snapshot validation
 
 `compileRedirectSnapshot()` accepts an unknown data value and explicit application
 configuration. The input envelope has this shape:
@@ -248,7 +255,10 @@ const result = await resolveRedirectRequest(sanityClient, request, {
 request.signal.throwIfAborted()
 const response = redirectResponse(result)
 if (response) return response
-return handlePageRequest(request)
+const pageResponse = await handlePageRequest(request)
+if (result.kind === 'error')
+	pageResponse.headers.set('Cache-Control', 'no-store')
+return pageResponse
 ```
 
 This entry requires the supported Sanity client and `groq` peers. It loads no
@@ -257,9 +267,22 @@ redirect rules; a successful permission-filtered query does not prove coverage.
 
 The helper skips non-GET/HEAD requests and previews before touching the client or
 cache. It also skips app-reserved paths before loading rules. On other requests,
-it checks the exact pathname against the complete, validated published snapshot.
-A missing rule returns `none`; failed reads return an explicit `error`. Invalid
-paths are reported separately. There is no automatic fallback to an empty list.
+it queries published rules for the exact source pathname, excluding draft,
+release, and explicitly disabled records. It returns at most two matches and
+checks whether a matching destination has an active redirect of its own. Chains,
+cycles, self-redirects, duplicates, malformed matching rules, and supplied
+reserved/occupied/known-destination policy violations are refused. A missing rule
+returns `none`; failed reads return an explicit `error`. Invalid paths are
+reported separately. Errors never become cached misses.
+
+The usual query uses a parameterized `source == $pathname` filter. Sanity
+[documents a 1,024-character equality limit](https://www.sanity.io/docs/specifications/groq-operators).
+For longer source or destination values, the query uses an exact length/split
+comparison instead. That fallback can scan redirect documents on Sanity's server;
+it still returns at most two projected matching rules. There is no claim of
+constant-cost lookup for unusually long paths. The bounded result retains the
+compiler's 1 MiB validation budget, without the whole-inventory 1,000-record
+runtime limit. Studio's broad review limits remain unchanged.
 
 By default the redirect drops the incoming query string. An optional
 `queryParameterAllowlist`, such as `['utm_source', 'lang']`, copies only those
@@ -272,10 +295,14 @@ root-relative paths, without a query, fragment, or external origin.
 
 `redirectResponse(result)` converts a redirect into an empty native `Response`
 with status 301 or 302 and `Cache-Control: no-store`. It returns no response for a
-miss or bypass, so ordinary routing can continue. A data/cache failure becomes a
-non-cacheable 503 with a generic message; an invalid path becomes a 400. The app
-can instead inspect the result and render its own service-error response or log
-its reason without exposing diagnostics to visitors. An aborted request should
+miss, bypass, or lookup error, so ordinary routing can continue. An invalid path
+becomes a 400. To stop routing when redirects cannot be checked, call
+`redirectResponse(result, 'strict')`; unresolved errors then become a generic,
+non-cacheable 503. The result itself remains an `error` under either response
+policy, so applications can distinguish a real miss from a failure. For plain
+HTTP integration, mark an application response reached after `kind: 'error'` as
+`Cache-Control: no-store`, especially a fallback 404. The React Router adapter
+does this automatically. An aborted request should
 normally stop work rather than send a response to a disconnected visitor.
 
 HTTP response caching is separate from rule caching. `no-store` makes these
@@ -317,7 +344,7 @@ export const middleware = createSanityRedirectMiddleware({
 
 `destinations: 'unverified'` explicitly means the request check does not prove that
 each destination currently has a page. The shared compiler still validates paths
-and the redirect graph. Supply a current list of destinations instead if the app
+and the matching rule’s destination dependency. Supply a current list of destinations instead if the app
 needs that additional check. Reserved paths protect app-owned routes from being
 redirect sources. These options should agree with the Studio's routing policy.
 The factory copies its policy lists. If those lists change at runtime, construct
@@ -338,18 +365,39 @@ loads receive an HTTP redirect and data requests receive the router's encoded
 redirect result. It checks before page loaders run, avoiding unnecessary content
 queries when a redirect matches.
 
-A missing redirect continues normal routing. An unreadable or invalid snapshot,
-or a failed or corrupt cache, stops routing with a generic 503 error; an invalid
-request path produces a 400. React Router handles the error through its normal
-error boundary. Private transport details are not shown. Redirects and these
-error responses use `Cache-Control: no-store`. Ordinary app responses keep their
-own caching headers. Aborted requests stop waiting through the existing signal
-handling.
+A missing redirect continues normal routing. Cache failures trigger a Sanity
+read. Invalid matching rules or an unresolved Sanity failure also continue
+normal routing by default. Add `onDiagnostic` to log these failures; its payload
+contains the requested pathname, reason, affected record ID when available, and
+whether fallback used Sanity, an older matching entry, or the application. It
+contains no incoming query string, credentials, or raw transport exception.
+`fallback: 'application'` means the caller decides whether to continue or return
+a strict error; it does not assert that a page response has already been sent.
+Thrown or rejected diagnostic callbacks do not change routing.
+
+Set `failurePolicy: 'strict'` on the middleware factory to return a generic 503
+when no safe result is available. React Router handles that response through its
+normal error boundary. Invalid request paths produce a 400 under either policy.
+Redirects and error responses use `Cache-Control: no-store`. A response reached
+through failure fallback also uses `no-store`, so a transient failure does not
+leave a cached 404. Responses after a successful miss keep the app’s caching
+headers. Cancelled requests stop waiting.
+
+```ts
+export const middleware = createSanityRedirectMiddleware({
+	kit: sanity,
+	destinations: 'unverified',
+	onDiagnostic: (issue) => console.warn('Redirect lookup', issue),
+	// failurePolicy: 'strict', // Optional; default is 'continue'.
+	freshForMs: 60_000,
+	maxAgeMs: 300_000,
+})
+```
 
 **Placement still matters.** Server middleware runs only when a request reaches
 the React Router server. A root installation checks all matching GET/HEAD routes,
-including app-owned routes: a failed redirect read can therefore block those
-routes too. Prefer a shared CMS parent route when redirects should affect only
+including app-owned routes. Strict failure handling can block those routes too.
+Prefer a shared CMS parent route when redirects should affect only
 CMS pages. Put preview enable/disable routes outside that scope where possible,
 or reserve them explicitly when installing at the root. Give the CMS route a
 server loader and a catch-all for
@@ -371,75 +419,165 @@ been connected.
 
 ## Optional consumer-owned caching
 
-Omit `cache` to read Sanity on each eligible request. The exported `RedirectCache`
-type has this contract:
+Omit `cache` to read Sanity on each eligible request. There is no package-owned
+backend or full-list cache. The app supplies storage using this contract:
 
 ```ts
 interface RedirectCache {
 	key?(context: RedirectCacheContext): string | null
-	getOrLoad(key: string, load: () => Promise<unknown>): Promise<unknown>
-	invalidate(key: string): Promise<void>
+	getOrLoad(
+		key: string,
+		load: (previous?: unknown) => Promise<RedirectCacheEntry>,
+		options: RedirectCacheLoadOptions,
+	): Promise<unknown>
+	invalidate(namespace: string): Promise<void>
 }
 ```
 
-The adapter owns storage, serialization, expiry, and refresh coordination.
-`getOrLoad` returns a stored value or calls `load()` and stores its successful
-value. That callback validates the complete raw snapshot **before** permitting
-storage. Failed loads throw to the adapter and must not be stored. The adapter
-returns JSON data, never a compiled map, function, or `Response`. Every returned
-value, including a cache hit, is checked again before matching a request.
+`getOrLoad` receives a pathname key and `{namespace, freshForMs, maxAgeMs}`.
+Return a fresh stored entry, or call `load(previous)` with a retained older entry.
+The callback reads and validates Sanity data. Store only its successful return;
+do not catch a rejected load and substitute an empty result or an older value.
+Deduplicate refreshes for the same key. Storage entries are JSON:
 
-The kit builds a SHA-256 key from the client's project and dataset, pinned API
-version, query/schema versions, and all validation policy lists. Equivalent
-list orderings use the same key. A custom `key` hook may add a partition or return
-`null` to bypass storage; it cannot remove this isolation. Cache envelopes carry
-the same scope identity, so an adapter returning another dataset's entry fails
-validation. Credentials and request queries never enter this context. The
-origin read is explicitly pinned to the captured project and dataset.
+```ts
+interface RedirectCacheEntry {
+	readonly namespace: string
+	readonly pathname: string
+	readonly validatedAt: number // Unix milliseconds of successful validation.
+	readonly data: unknown // Bounded projected lookup rows; revalidated on hits.
+}
+```
 
-Use a finite TTL; **60 seconds, without stale serving, is the recommended initial
-adapter policy**. The kit does not provide a backend, timer, or implicit stale
-fallback. A corrupt hit or unavailable cache returns an error rather than silently
-loading a replacement or reporting no redirects. The adapter should provide its
-own timeout for a shared refresh. A cancelled request stops waiting promptly;
-it does not cancel a refresh shared with other requests. Uncached reads receive
-the request's abort signal and reject late results after cancellation.
+The adapter must calculate freshness from `validatedAt`, **not** from the last
+write or the last time a fallback was returned. The callback preserves that
+timestamp when serving an older rule during an outage. Default `freshForMs` is
+60,000; default `maxAgeMs` is 300,000. Both are configurable nonnegative integer
+milliseconds; `maxAgeMs` must be at least `freshForMs`. Using equal values disables
+outage fallback. A stale **miss** cannot hide a failed read.
 
-The same 1,000-record and 1 MiB snapshot limits apply before storage and on hits.
-The small scope wrapper is additional metadata. These checks happen after the
-SDK/cache has parsed its value; they are not a streaming limit on bytes received
-from either backend. Trusted adapters should bound their own response sizes.
+Only `request-failed` permits fallback, and only to a matching, still-valid entry
+younger than `maxAgeMs`. A successfully observed deletion/retirement replaces the
+match with a fresh miss. An authoritative malformed response rejects the match
+and invalidates the namespace. Such responses cannot use an older rule. If cache
+access fails or returns corrupt data, the kit tries Sanity instead. It never
+caches errors as misses. A successful Sanity result remains usable when only the
+cache write failed; the kit also requests invalidation to clear older entries.
 
-## Refreshing the cache after changes
+Every returned entry is checked for scope, pathname, timestamp, shape, and current
+validation policy. The kit enforces freshness even if an adapter returns an
+expired hit. That defensive refresh cannot repair an adapter's storage behavior;
+the adapter must implement the contract to get reliable cache reuse.
 
-`invalidateRedirectCache(client, policy, cache)` derives the same scoped key and
-calls the adapter's invalidation hook. It reports storage failure explicitly.
-The app connects this helper to an authenticated, idempotent change hook after
-published redirects are created, edited, disabled, unpublished, deleted, or
-updated to point directly to a new destination. Draft-only edits need no refresh.
-If the app uses several policies or custom partitions, its hook must invalidate
-each active one; this helper does not enumerate another service's keys.
+Keys isolate project, dataset, API/schema/query versions, validation policy, and
+the canonical requested pathname. Query parameters never enter the key or cached
+location. Allowlisted parameters are appended separately for each response.
+The optional `key` hook adds a namespace partition, or returns `null` to bypass
+storage. It cannot remove tenant/policy isolation. Origin reads are pinned to
+the captured project and dataset. Equivalent policy-list orderings share keys.
 
-Invalidation must prevent an **older in-flight load** from filling the cache
-again afterward. A simple delete is insufficient. The adapter can use generation
-checks or another backend-specific coordination mechanism; it also owns
-cross-instance refresh deduplication. An already-running request may still finish
-with the old snapshot it loaded; the barrier keeps that older load from replacing
-the new cache value for later requests. The kit does not promise global atomicity.
-The request tests exercise a consumer-style generation barrier and finite TTL
-without introducing a package-owned cache backend.
+### Adapter implementation example
 
-A just-committed Sanity change may not immediately be visible to a new query,
-even with the CDN disabled. When immediate activation matters, the consumer's
-refresh process must verify the expected records before replacing its active
-snapshot, with bounded retries and an explicit pending/failed refresh state.
-Calling this helper alone does not establish that publication and cache
-activation happened together. Existing browser caches are outside this process.
+This small **single-process example** shows the coordination contract; it is not
+a supplied production backend. A deployed app should use its own bounded store,
+timeouts, cross-instance coordination, and change hook.
 
-`tests/redirect/request.test.ts` covers method/preview/reserved bypasses, exact
-paths, query handling, response headers, cache corruption and isolation,
-invalidation errors, shared-refresh cancellation, and a real SDK transport stub.
-No live frontend or cache-backend acceptance is claimed by these offline checks.
+```ts
+import type {
+	RedirectCache,
+	RedirectCacheEntry,
+} from '@standard-design/sanity-kit/redirect'
+
+const entries = new Map<string, RedirectCacheEntry>()
+const pending = new Map<string, Promise<RedirectCacheEntry>>()
+const generations = new Map<string, number>()
+const maximumEntries = 5_000
+
+const cache: RedirectCache = {
+	async getOrLoad(key, load, { namespace, freshForMs, maxAgeMs }) {
+		const generation = generations.get(namespace) ?? 0
+		let previous = entries.get(key)
+		if (previous && Date.now() - previous.validatedAt >= maxAgeMs) {
+			entries.delete(key)
+			previous = undefined
+		}
+		if (previous && Date.now() - previous.validatedAt < freshForMs)
+			return previous
+		const active = pending.get(key)
+		if (active) return active
+		const work = load(previous).then((entry) => {
+			if ((generations.get(namespace) ?? 0) === generation) {
+				if (entries.size >= maximumEntries)
+					entries.delete(entries.keys().next().value!)
+				entries.set(key, entry)
+			}
+			return entry
+		})
+		pending.set(key, work)
+		try {
+			return await work
+		} finally {
+			if (pending.get(key) === work) pending.delete(key)
+		}
+	},
+	async invalidate(namespace) {
+		generations.set(namespace, (generations.get(namespace) ?? 0) + 1)
+		for (const key of entries.keys())
+			if (key.startsWith(`${namespace}.`)) entries.delete(key)
+		for (const key of pending.keys())
+			if (key.startsWith(`${namespace}.`)) pending.delete(key)
+	},
+}
+```
+
+The example bounds stored entries, including successful misses. Production
+backends must also bound concurrent refresh work and parsed payload size. An
+aborted caller stops waiting promptly without cancelling other callers' shared
+refresh; an uncached read receives the caller's abort signal.
+
+### Refreshing the cache after changes
+
+`invalidateRedirectCache(client, policy, cache)` clears the **whole namespace**,
+including cached misses and retained fallback entries. The app connects it to an
+authenticated, idempotent hook after published redirect creation, editing,
+retirement, unpublishing, or deletion. Draft edits need no invalidation. Changing
+`/about` can invalidate a cached `/old-about → /about`, so clearing just `/about`
+is insufficient. Selective dependency invalidation is deferred.
+
+Invalidation must fence older in-flight loads; deleting stored keys alone is not
+enough. The example uses generations. An already-running request may finish with
+its old read, but it must not repopulate storage for future requests. Multiple
+policies or custom partitions each need invalidation. Failed invalidation returns
+`{ok: false, reason: 'cache-failed'}`; the consumer must report and retry it. No
+kit can guarantee immediate retirement while its cache backend rejects the
+invalidation. Disable caching while unresolved activation failures are being
+handled if continuing to serve old rules is unacceptable.
+
+Even without the CDN, Sanity queries can lag a committed change. For immediate
+activation, the consuming hook must verify the expected changed records before
+allowing a replacement cache entry, with bounded retries and an explicit pending
+state. Successful invalidation alone does not prove read-after-write visibility.
+Browser/proxy caches and unrelated application content caches remain separate.
+Studio publication checks always load fresh evidence; they do not use this
+website lookup cache.
+
+### Migration from alpha.8 caching and failure behavior
+
+This is a changed adapter contract. Replace whole-snapshot storage with pathname
+entries, accept the third `getOrLoad` argument, pass retained entries to
+`load(previous)`, and invalidate **all** keys/pending loads in its namespace.
+Use `validatedAt` for age. Query-version-2 keys isolate the new entries from old
+snapshot payloads. Do not reuse alpha.8's single-key delete implementation.
+The default response policy now continues application routing on failure; opt
+into `'strict'` to keep the previous 503 behavior. No package version or npm tag
+changes as part of this implementation slice.
+
+`tests/redirect/request.test.ts` exercises real GROQ semantics against fixture
+documents, request/path/query isolation, corruption and origin failures, expiry,
+stale-match bounds, known retirement, namespace barriers, and cancellation.
+React Router tests cover normal and strict failure handling for document and
+data requests. These are automated checks; a deployed cache backend still needs
+consumer acceptance testing.
 
 ## Preparing redirect drafts in Studio
 
@@ -633,6 +771,8 @@ acceptance log for the observations and checks that were not performed live.
 
 `/redirect` exports `RedirectRequestClient`, `RedirectRequestOptions`,
 `RedirectRequestResult`, `RedirectCache`, `RedirectCacheContext`,
+`RedirectCacheEntry`, `RedirectCacheLoadOptions`, `RedirectDiagnostic`,
+`RedirectFailurePolicy`,
 `RedirectSnapshotOptions`, `RedirectSnapshotReason`, and `RedirectMatch`.
 The result distinguishes a match, miss, bypass, invalid path, and failed check;
 handle those states rather than treating a failed read as no redirect.

@@ -255,6 +255,12 @@ That would introduce a server component and requires a separate design. See
 
 ### The complete redirect inventory has a broad failure effect
 
+**Follow-up, November 19:** the approved request-specific runtime policy addresses
+this alpha.8 finding. Website requests check their own source and destination,
+with pathname caching and default continuation on failure. Studio keeps its broad
+checks. See the [current design](redirects-design.md#approved-request-specific-runtime-policy).
+The observations below describe the published alpha.8 baseline.
+
 Redirects are validated as one inventory. The built-in HTTP response helper and
 React Router middleware produce a 503 when that check fails. When middleware is
 installed on a broad route, an invalid active rule, unavailable origin, failed

@@ -21,10 +21,12 @@ const client = {
 	withConfig: (config) => {
 		assert.equal(config.perspective, 'published')
 		return {
-			fetch: async () => {
+			fetch: async (_query, params) => {
 				calls++
 				if (fails) throw new Error('Test read failure')
-				return [{ ...rule }]
+				return params.pathname === rule.source
+					? [{ ...rule, destinationIsRedirect: false }]
+					: []
 			},
 		}
 	},
@@ -71,9 +73,8 @@ assert.equal(
 )
 fails = true
 assert.equal(
-	redirectResponse(await resolveRedirectRequest(client, request(), options))
-		.status,
-	503,
+	redirectResponse(await resolveRedirectRequest(client, request(), options)),
+	undefined,
 )
 fails = false
 const abort = new globalThis.AbortController()
@@ -96,8 +97,9 @@ const cache = {
 		if (!entries.has(key)) entries.set(key, await load())
 		return entries.get(key)
 	},
-	async invalidate(key) {
-		entries.delete(key)
+	async invalidate(namespace) {
+		for (const key of entries.keys())
+			if (key.startsWith(`${namespace}.`)) entries.delete(key)
 	},
 }
 calls = 0
@@ -125,8 +127,8 @@ assert.equal(
 				},
 			},
 		})
-	).reason,
-	'cache-failed',
+	).kind,
+	'redirect',
 )
 await assert.rejects(
 	import('@standard-design/sanity-kit/redirect/request.js'),
@@ -168,10 +170,12 @@ if (process.argv.includes('--router')) {
 		publishedClient: {
 			config: client.config,
 			withConfig: () => ({
-				fetch: async () => {
+				fetch: async (_query, params) => {
 					reads++
 					if (failing) throw new Error('Test read failure')
-					return [{ ...rule }]
+					return params.pathname === rule.source
+						? [{ ...rule, destinationIsRedirect: false }]
+						: []
 				},
 			}),
 		},
@@ -180,6 +184,7 @@ if (process.argv.includes('--router')) {
 		kit: routerKit,
 		...policy,
 		queryParameterAllowlist: ['lang'],
+		failurePolicy: 'strict',
 	})
 	assert.equal(middleware.length, 2)
 	const handler = createRequestHandler(

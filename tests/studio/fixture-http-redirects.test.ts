@@ -1,3 +1,4 @@
+import { redirectQuery } from '../redirect/query-fixture.js'
 import type { SanityClient } from '@sanity/client'
 import { createServer, type Server } from 'node:http'
 import type { AddressInfo } from 'node:net'
@@ -28,11 +29,25 @@ const rule = {
 	enabled: true,
 }
 async function fixture(mode: FixtureMode, rows: unknown = [rule]) {
-	const fetch = vi.fn(() => Promise.resolve(rows))
+	const fetch = vi.fn((...args: [string, Record<string, unknown>, unknown]) => {
+		void args
+		return Promise.resolve(rows)
+	})
 	const contentFetch = vi.fn(() => Promise.resolve({ page: null, links: [] }))
 	const client = {
 		config: () => ({ projectId: 'proof123', dataset: 'development' }),
-		withConfig: () => ({ fetch }),
+		withConfig: () => ({
+			fetch: async (
+				query: string,
+				params: Record<string, unknown>,
+				options: unknown,
+			) => {
+				const data = await fetch(query, params, options)
+				return query.includes('destinationIsRedirect')
+					? redirectQuery(query, params, data as unknown[])
+					: data
+			},
+		}),
 		fetch: contentFetch,
 	} as unknown as SanityClient
 	const server = createServer()
@@ -104,14 +119,13 @@ describe('proof frontend HTTP redirects', () => {
 		expect(t.fetch).not.toHaveBeenCalled()
 	})
 	it.each(['bad-data', 'network'])(
-		'fails closed when the published redirect inventory has %s',
+		'continues normal routing when the matching redirect has %s',
 		async (failure) => {
 			const t = await fixture('published', [{ ...rule, destination: '/old' }])
 			if (failure === 'network')
 				t.fetch.mockRejectedValue(new Error('private credentials'))
-			const response = await t.request('/unrelated')
-			expect(response.status).toBe(503)
-			expect(response.headers.get('cache-control')).toBe('no-store')
+			const response = await t.request('/old')
+			expect(response.status).toBe(200)
 			expect(await response.text()).not.toContain('private credentials')
 		},
 	)
