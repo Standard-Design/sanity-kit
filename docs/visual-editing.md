@@ -21,6 +21,20 @@ This wrapper does not authenticate, fetch content, encode Stega, clear cookies,
 create a live-query store, or configure Studio. Enabling it without preview data
 and correctly configured Studio does not establish a complete preview workflow.
 
+## Discard changes: native refresh limitation
+
+Sanity 6.17.0 can leave an existing preview stale after **Discard changes** removes
+a draft while the published document's revision stays unchanged. Normal edits
+refresh, but this transition does not send the native mutation refresh message.
+The isolated notifier check also reproduced it in Sanity 6.24.0. Use Studio's
+**Refresh preview** button to load the current published fallback.
+
+This is an upstream Presentation notification gap. The kit's wrapper delegates
+to Sanity's adapter; no automatic workaround or extra content subscription is
+installed. A custom frontend `refresh` callback still needs an incoming message.
+See the [isolated reproduction and scope](../tests/fixtures/pages-studio/NATIVE-DISCARD-REFRESH.md)
+for the regression, version checks, and recommended upstream fix boundaries.
+
 ## Mount it from the application root
 
 This example belongs in a React Router root route. The `sanity` import is

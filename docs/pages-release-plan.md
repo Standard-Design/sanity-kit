@@ -76,6 +76,17 @@ not establish restricted-role live acceptance.
 Release-aware moves and wildcard redirects remain deferred. Other audit ideas
 are optional follow-ups rather than requirements for this slice.
 
+## Native Discard changes refresh follow-up
+
+A November 19 investigation reproduced missing draft-removal refresh messages
+in Sanity's native notifier in both 6.17.0 and 6.24.0, independently of SanityKit.
+Normal edits and publishing a new revision emit notifications. Native Refresh
+preview remains the immediate recovery step; no kit or consumer workaround was
+introduced. The [regression report](../tests/fixtures/pages-studio/NATIVE-DISCARD-REFRESH.md)
+records 8 passing controls, 1 expected failure, and the related removal cases.
+An upstream fix is recommended first. This is a documented follow-up, not a
+claim of a completed fix or a new release gate.
+
 ## Alpha.6 implementation and acceptance record
 
 The approved commit, `ca1c65f`, was tagged `v0.1.0-alpha.6`. Main and release-tag
