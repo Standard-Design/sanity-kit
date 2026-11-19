@@ -43,7 +43,7 @@ those results. Release-aware moves and wildcard rules remain deferred.
 
 ## Approved collection-item preview following
 
-The next slice follows saved collection-item slug and full-path changes in the
+The committed slice follows saved collection-item slug and full-path changes in the
 preview, using the prefix resolved for the active Drafts or Published view.
 It preserves the preview origin, query parameters, and fragment. Initial reads,
 document/perspective changes, and replacement routing settings establish a fresh
@@ -53,15 +53,25 @@ Release, variant, scheduled, historical, and unrelated previews stay in place.
 The implementation, regression tests, and Pages guide were approved on
 November 19, 2026. The browser suite passed 97 tests; the complete suite passed
 2,860 tests. Build,
-TypeScript, lint, formatting, and diff checks passed. Live Studio acceptance has
-not yet been performed. The redirect slice is approved separately.
+TypeScript, lint, formatting, and diff checks passed. The implementation is
+committed and pushed as `037bdd4`; it has not yet been released. The redirect
+slice is approved separately.
+
+Live checks on November 19 in Google Chrome for Testing verified both
+settings-backed slugs and stored full paths. Saved draft edits and restoration
+moved the preview while retaining its origin, query, fragment, and edited
+document. Published previews ignored competing draft URL edits, and an unrelated
+About preview stayed in place. All four temporary document versions were removed;
+the 31 original fixture/settings records and 15 redirects were unchanged. See
+the [live acceptance record](../tests/fixtures/pages-studio/ACCEPTANCE.md#collection-item-preview-following--november-19-2026)
+for the method and limits, including a separate blank-tab recovery issue after
+the checks.
 
 Remaining work:
 
-1. Verify saved collection-item URL following in Studio.
-2. Adopt the updated redirect API/cache adapter in Standard Stack and verify
+1. Adopt the updated redirect API/cache adapter in Standard Stack and verify
    deployed invalidation, lookup-failure behavior, and preview continuity.
-3. Prepare the next release with current docs included before packing, then
+2. Prepare the next release with current docs included before packing, then
    verify CI, package compatibility, and published artifacts. Use consumer
    acceptance to decide when the API is ready for beta.
 

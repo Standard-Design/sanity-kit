@@ -1176,3 +1176,51 @@ Verification for this slice: all 2,765 tests across 98 files passed, including
 10 focused fixture HTTP/client tests. Typecheck and scoped lint passed. A
 separate read-only review found no blocking issues. CI for the preceding approved
 native Publish commit `98d5c08` also passed.
+
+## Collection-item preview following — November 19, 2026
+
+Verified committed implementation `037bdd4` in the source proof Studio with
+Sanity 6.17.0 and Google Chrome for Testing 153.0.8010.12. The Studio ran at
+`http://localhost:3000`, with its preview at `http://localhost:3334`, against the
+authorized `ha9kep4l` / `development` test dataset. Regular Google Chrome was not
+used for these checks.
+
+Two temporary documents exercised the different storage contracts: an Articles
+item storing `slug.current`, resolved using the existing published
+`/stories-tester` collection settings, and a Journal item storing the full path
+in `pathname.current` under `/journal`. Each had a published baseline and a
+separate draft. Existing collection settings were not edited.
+
+| Check                                                                                               | Observed result                                                                                                                                                                                 |
+| --------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Edit the article slug through the native URL field in Drafts, with the navigator hidden             | After the draft saved, the iframe followed the new `/stories-tester/…` URL. Its origin, `?view=full`, and `#intro` remained intact. The same article stayed open in the editor.                 |
+| Restore the article slug through the same field                                                     | The saved draft and iframe returned to the baseline URL, retaining the query, fragment, and article selection.                                                                                  |
+| Edit the Journal item's final segment through the native URL field in Drafts                        | The stored full pathname changed, and the iframe followed the new `/journal/…` URL with `?mode=post#body` intact. The same post stayed open in the editor. Restoring the segment followed back. |
+| Keep Published selected while a competing writer changes the article draft slug                     | The published field value, iframe URL, and edited article remained on the published baseline.                                                                                                   |
+| Repeat the Published check for the full-path Journal item                                           | The iframe stayed on the published `/journal/…` URL and the same post remained open.                                                                                                            |
+| Keep the article editor open while previewing `/about?view=unrelated`, then save a new article slug | The iframe continued showing About at its existing URL; the article remained selected in the editor.                                                                                            |
+
+Drafts checks used real field edits and autosave in Chrome for Testing. Published
+mode makes the native form read-only, so those two isolation checks used a
+revision-guarded API patch to the dedicated test draft while Published stayed
+selected in the browser. Saved API reads confirmed the draft change and unchanged
+published revision before inspecting the resulting iframe and editor state.
+They do not claim that Published mode allows field editing.
+
+No Publish action or redirect creation was part of this run. Guarded cleanup
+removed the two temporary published documents and their two drafts. Complete
+before/after comparisons confirmed all 31 original proof, collection-settings,
+and folder-registry records and all 15 redirects were unchanged. No temporary
+document remained. Local receipts are in
+`/private/tmp/sanitykit-collection-follow-20261119`, including the baseline,
+saved-edit snapshots, and `preservation.json`; these are local test evidence,
+not package files.
+
+After these checks passed, returning to Home left a blank Studio tab. Reloading
+did not recover it, and a fresh-tab recovery attempt subsequently lost access to
+the native browser window (`cgWindowNotFound`). Studio and preview HTTP health
+checks still returned 200. This run does not establish the cause or claim that
+the return-to-Home recovery passed. It does establish the collection-following
+results above, which were observed before that problem. Release/variant/history
+exclusions, disconnect recovery, and restricted-role behavior were not exercised
+live here; their existing automated coverage is separate evidence.
