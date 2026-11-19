@@ -1224,3 +1224,34 @@ the return-to-Home recovery passed. It does establish the collection-following
 results above, which were observed before that problem. Release/variant/history
 exclusions, disconnect recovery, and restricted-role behavior were not exercised
 live here; their existing automated coverage is separate evidence.
+
+### Blank-tab investigation follow-up — November 19, 2026
+
+The previously blank Home tab was rendering both the native editor and website
+preview when the same Chrome for Testing window became accessible again. No
+source change, server restart, browser-profile reset, or content edit was needed.
+
+The retained console showed a native Sanity schema-synchronization warning
+reporting about 23.6 seconds elapsed, with a maximum UI pause of about 135 ms,
+plus a visual-editing connection error and repeated missed Presentation
+heartbeats. The warning is emitted by Sanity's schema synchronization code.
+These messages establish slow initialization and lost preview communication;
+they do not establish what caused the original blank page.
+
+After clearing the console, a fresh Home reload rendered both panes with no
+console messages at the subsequent inspection. Navigating through Choose page
+to the existing Articles item and back to Home also passed. Switching from
+Pages to native Structure and back resolved Home and rendered both panes.
+A final Home reload with DevTools closed passed too. The temporary acceptance
+items were absent from the refreshed fixture navigation.
+
+After the navigation checks, DevTools reported an anonymous-script exception
+reading `entries[0].startTime` in an INP measurement callback. Inspecting its
+source showed the DevTools performance reporting code, including
+`window.devToolsReportSoftNavs`; it was not a SanityKit source stack. Home
+continued rendering. This separate diagnostic exception does not establish the
+cause of the earlier blank tab.
+
+The blank state could not be reproduced in these recovery checks. No runtime
+patch is proposed without a reproducible failure. Leave the original cause
+unresolved, retaining the observations above for comparison if it returns.

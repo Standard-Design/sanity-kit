@@ -554,3 +554,34 @@ Agreed November 19, 2026, following the Pages comparison audit:
 The [consumer guide](redirects.md#handling-a-website-request) records the concrete
 API, adapter example, alpha.8 migration, long-path GROQ fallback, and integration
 responsibilities. Wildcard matching and provider-specific backends remain deferred.
+
+## Approved redirect inventory diagnostics plan
+
+Agreed November 19, 2026. This is planned work, not an implemented dashboard or
+API in alpha.9.
+
+Add a shared, read-only diagnostic helper that measures the redirect inventory
+using the same projected records and limits as Studio's broad publishing checks.
+Expose the measurements in a quiet summary above the native redirect-management
+list: active and retired counts, total records against the supported record
+limit, and projected data size against the supported size limit. Clearly label
+these as SanityKit publishing-check limits, not Sanity storage limits or a cap
+on the number of redirects the website can serve. Draft/version counting must
+match the actual review contract; labels must explain what is included rather
+than suggesting that active-rule count alone measures the limit.
+
+Refresh when redirect management opens and after relevant changes. Avoid loading
+the inventory on website requests or every field keystroke. Consumers can use
+the same helper for their own logging and monitoring without installing the UI.
+
+When usage approaches a limit, explain which measurement is close and why it
+matters to URL publishing. A publication review approaching or exceeding a limit
+should show current and projected usage, including the actual count or size and
+the supported maximum. Keep routine usage quiet and provide contextual options
+when attention is needed. Set warning thresholds and exact helper/UI names
+during implementation review.
+
+Start with the summary and reusable helper. Use measured inventories to decide
+whether larger bounds or archival tools are necessary. Never delete or retire
+redirects automatically to reduce usage. This plan does not change current
+publishing limits, request-specific lookup, or cache behavior.

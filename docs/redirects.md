@@ -569,8 +569,8 @@ entries, accept the third `getOrLoad` argument, pass retained entries to
 Use `validatedAt` for age. Query-version-2 keys isolate the new entries from old
 snapshot payloads. Do not reuse alpha.8's single-key delete implementation.
 The default response policy now continues application routing on failure; opt
-into `'strict'` to keep the previous 503 behavior. No package version or npm tag
-changes as part of this implementation slice.
+into `'strict'` to keep the previous 503 behavior. This contract ships in
+alpha.9; no stored redirect-document migration is needed.
 
 `tests/redirect/request.test.ts` exercises real GROQ semantics against fixture
 documents, request/path/query isolation, corruption and origin failures, expiry,

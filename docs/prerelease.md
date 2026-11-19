@@ -1,14 +1,15 @@
 # Prerelease integration
 
-This guide covers `@standard-design/sanity-kit@0.1.0-alpha.8`. Alpha.8 follows
-saved page URL changes in preview and shows native Studio success toasts for
-folder removal, rename, and manual sync. It includes the updated guides.
+This guide covers `@standard-design/sanity-kit@0.1.0-alpha.9`. Alpha.9 checks
+redirects by requested pathname, supports bounded pathname caching and explicit
+failure handling, and follows saved collection-item URL changes in preview.
+It includes the current setup, migration, and acceptance guides.
 Original code uses the [MIT license](../LICENSE);
 [third-party notices](../THIRD_PARTY_NOTICES.md) describe adapted code and
 Standard Design's MIT interpretation of conflicting Tinloof license declarations.
 Upstream confirmation remains a follow-up, not a release prerequisite.
 
-Follow the [alpha.7 upgrade guide](#upgrading-from-alpha7) to update an existing
+Follow the [alpha.8 upgrade guide](#upgrading-from-alpha8) to update an existing
 installation or the [alpha.5 upgrade guide](#upgrading-from-alpha5) to adopt
 Pages and the routing tools.
 
@@ -18,6 +19,16 @@ Release artifacts, npm tags, and verification results are recorded in the
 [GitHub releases](https://github.com/Standard-Design/sanity-kit/releases) and
 [npm version history](https://www.npmjs.com/package/@standard-design/sanity-kit?activeTab=versions).
 Use an exact version for repeatable installs.
+
+### Alpha.8
+
+Alpha.8 was published on November 18, 2026, to
+[npm](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.8)
+and [GitHub](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.8).
+It added saved ordinary-page URL following and native folder success toasts.
+The release notes record passing main/tag CI, packed-consumer checks, matching
+npm/GitHub tarballs, and a clean registry installation. At its release handoff,
+`alpha` pointed to alpha.8 and `latest` remained at alpha.7.
 
 ### Alpha.7
 
@@ -99,17 +110,59 @@ remain in place. Deployed cache behavior belongs
 to the consuming application and must be verified there. The
 [Pages release plan](pages-release-plan.md) records acceptance and follow-up work.
 
+## Upgrading from alpha.8
+
+Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.9` in each workspace
+that uses the kit, then commit the updated lockfile. Dependency ranges and
+stored document formats are unchanged.
+
+Redirect integration has two behavior changes:
+
+1. Website requests load only matching published rules and their destination
+   dependency. Unresolved failures continue normal app routing by default,
+   while reporting an explicit error result/diagnostic. Use
+   `redirectResponse(result, 'strict')` or middleware `failurePolicy: 'strict'`
+   to retain the earlier non-cacheable 503 policy. Plain HTTP consumers must
+   mark fallback app responses after `kind: 'error'` as `Cache-Control: no-store`;
+   the React Router adapter does this automatically.
+2. Optional caches store pathname entries instead of a complete snapshot.
+   Update adapters to accept `{namespace, freshForMs, maxAgeMs}`, pass retained
+   entries to `load(previous)`, preserve `validatedAt`, and invalidate every
+   stored and pending key in the namespace while fencing older loads. Defaults
+   are 60 seconds fresh and five minutes total for fallback to a valid matching
+   rule during a transient Sanity read failure. Without a cache adapter, no
+   cache migration is needed. See the
+   [adapter migration](redirects.md#migration-from-alpha8-caching-and-failure-behavior).
+
+Pages now follows saved collection-item URLs for both full-path fields and
+slug-only items using their active collection prefix. Query parameters and
+fragments remain intact. Published previews ignore draft URL edits, and
+unrelated previews stay in place. Release, variant, scheduled, and historical
+previews retain their exclusions. No new Pages configuration is required.
+
+Native Discard changes can still fail to refresh the preview in the tested
+Sanity versions; use Refresh preview. The
+[reproduction](../tests/fixtures/pages-studio/NATIVE-DISCARD-REFRESH.md) records
+the upstream behavior independently of the kit. Redirect inventory diagnostics
+are documented as future work, not a new UI shipped in alpha.9. Consumer
+deployment/cache acceptance remains necessary before beta.
+
 ## Upgrading from alpha.7
 
-Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.8` in each workspace
-that uses the kit, then commit the updated lockfile. Public APIs, dependency
-ranges, and stored data formats remain compatible.
+When upgrading directly to alpha.9, also apply the
+[redirect migration above](#upgrading-from-alpha8).
+
+Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.9` in each workspace
+that uses the kit, then commit the updated lockfile. Dependency ranges and
+stored data formats remain compatible; the redirect API/cache behavior changes
+as described in the alpha.8 upgrade section above.
 
 Pages now follows saved URL changes for an ordinary page open in the editor
 when the preview is showing its previous URL. It waits for query-visible saved
 data in the selected Drafts or Published perspective and preserves query
 parameters and fragments. A draft URL edit does not move Published preview.
-Collection, release, scheduled, and historical preview behavior remains as before.
+Alpha.9 additionally follows collection-item URLs as described above. Release,
+scheduled, and historical preview exclusions remain in place.
 
 Consumers with a custom URL-field wrapper that follows ordinary page moves can
 remove that wrapper after adopting this release, while retaining other custom
@@ -122,17 +175,21 @@ a native Studio toast. Errors and unconfirmed results remain in the dialog.
 
 ## Upgrading from alpha.6
 
-Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.8` in each workspace
+Also apply the [alpha.8 redirect migration](#upgrading-from-alpha8).
+
+Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.9` in each workspace
 that uses the kit, then commit the updated lockfile. If you use redirect
 management in Studio, check that Studio and the kit share the same
 [translation libraries](pages.md#dependencies-and-package-isolation).
 
 ## Upgrading from alpha.5
 
+Also apply the [alpha.8 redirect migration](#upgrading-from-alpha8).
+
 You can update the package in your existing Studio and website. To adopt Pages
 and its routing tools, follow the configuration steps below.
 
-1. Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.8` in the frontend
+1. Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.9` in the frontend
    and Studio/codegen workspaces that use the kit.
 2. Keep the existing Node 24+ and client `^7.27.0 || ^8.6.1` requirements. A Studio
    using `/studio` must use the tested Sanity **6.17.0** version and install its
@@ -305,7 +362,7 @@ Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
 
 ```sh
-pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.8.tgz
+pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.9.tgz
 ```
 
 Keep that exact file accessible to CI and other developers and commit the
@@ -349,10 +406,10 @@ For each future publication:
    package in a clean consumer before handing it off. Record the actual
    publication date, tags, and verification results in the GitHub release notes.
 
-To install alpha.8 from npm, pin the version:
+To install alpha.9 from npm, pin the version:
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.8
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.9
 ```
 
 The checked-in CI workflow does not publish, manage npm credentials, or configure

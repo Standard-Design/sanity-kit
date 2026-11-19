@@ -6,8 +6,9 @@ the earlier implementation plan.
 
 ## Remaining release checklist
 
-Alpha.8 adds saved page URL following in preview and success toasts for folder
-actions, with updated guides included in the package. See the
+Alpha.9 includes request-specific redirects, pathname caching/failure policy,
+and saved collection-item URL following, alongside the folder success toasts
+and ordinary-page following shipped in alpha.8. See the
 [release record](prerelease.md#release-status) for the package and verification.
 Before beta:
 
@@ -34,8 +35,8 @@ caching holds only pathname results, with 60-second freshness and a five-minute
 maximum age for outage fallback to a known good matching rule. The
 [approved policy](redirects-design.md#approved-request-specific-runtime-policy)
 and [adapter migration](redirects.md#migration-from-alpha8-caching-and-failure-behavior)
-record the decisions. The slice is committed and pushed as `b6a0b7e`; it has not
-yet been released.
+record the decisions. The slice is committed and pushed as `b6a0b7e` and included
+in alpha.9.
 
 Still remaining before beta: consume the revised API in Standard Stack, test
 its deployed cache refresh/failure behavior, and settle the public API from
@@ -54,7 +55,7 @@ The implementation, regression tests, and Pages guide were approved on
 November 19, 2026. The browser suite passed 97 tests; the complete suite passed
 2,860 tests. Build,
 TypeScript, lint, formatting, and diff checks passed. The implementation is
-committed and pushed as `037bdd4`; it has not yet been released. The redirect
+committed and pushed as `037bdd4` and included in alpha.9. The redirect
 slice is approved separately.
 
 Live checks on November 19 in Google Chrome for Testing verified both
@@ -66,6 +67,13 @@ the 31 original fixture/settings records and 15 redirects were unchanged. See
 the [live acceptance record](../tests/fixtures/pages-studio/ACCEPTANCE.md#collection-item-preview-following--november-19-2026)
 for the method and limits, including a separate blank-tab recovery issue after
 the checks.
+
+The subsequent [blank-tab investigation](../tests/fixtures/pages-studio/ACCEPTANCE.md#blank-tab-investigation-follow-up--november-19-2026)
+found Home recovered without a source change. Fresh reloads, collection-item
+navigation back to Home, and Structure/Pages switching passed. Retained logs
+showed slow native initialization and missed preview heartbeats; the original
+cause remains unresolved because the blank state did not reproduce. No runtime
+fix is claimed.
 
 Remaining work:
 
@@ -85,6 +93,21 @@ not establish restricted-role live acceptance.
 
 Release-aware moves and wildcard redirects remain deferred. Other audit ideas
 are optional follow-ups rather than requirements for this slice.
+
+## Approved next audit work
+
+The redirect inventory diagnostics plan is approved and
+[recorded separately](redirects-design.md#approved-redirect-inventory-diagnostics-plan).
+It proposes a read-only helper and a quiet redirect-management summary showing
+counts and projected size against publishing-check limits. Contextual notices
+and review measurements should explain approaching limits. No automatic cleanup,
+new UI, or diagnostics API is implemented in alpha.9.
+
+Publish the current changes as alpha.9 before beginning navigator data profiling.
+The next audit priorities are query/byte/memory measurements during editing and
+reconnects, a simpler current installation guide with historical-doc cleanup,
+and the approved redirect diagnostics. These are follow-up work, not claims
+about this release or reasons to expand its scope.
 
 ## Native Discard changes refresh follow-up
 

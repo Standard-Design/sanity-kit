@@ -1,5 +1,29 @@
 # Changelog
 
+## 0.1.0-alpha.9
+
+- Look up published redirects for the requested pathname and its destination
+  dependency instead of validating the entire inventory on website requests.
+  Unrelated invalid rules no longer block unrelated requests. Studio retains
+  its broad publishing checks.
+- Continue normal application routing on unresolved redirect failures by
+  default, with explicit diagnostics and a strict 503 option. Prevent caching
+  of fallback responses reached after a failed check.
+- Replace whole-inventory caching with pathname entries: 60 seconds fresh and
+  up to five minutes total for outage fallback to a valid matching rule, both
+  configurable. Consumers must update their cache adapter and whole-namespace
+  invalidation. Errors and stale misses are never cached as successful misses.
+- Follow saved collection-item URL changes in Pages for both stored full paths
+  and settings-backed slugs. Preserve origin, query, fragment, and the selected
+  document; respect Drafts/Published and unrelated-preview boundaries.
+- Include the Pages comparison audit, live collection-following acceptance,
+  native Discard changes refresh reproduction, and the future redirect inventory
+  diagnostics plan. The diagnostics UI and data profiling are not implemented
+  in this release. Native Discard changes refresh remains an upstream follow-up.
+- See the [alpha.8 upgrade guide](docs/prerelease.md#upgrading-from-alpha8) for
+  the changed redirect response policy and cache contract. Dependency ranges
+  and stored document formats are unchanged.
+
 ## 0.1.0-alpha.8
 
 - Follow an ordinary page's saved URL change in Pages when the preview is still

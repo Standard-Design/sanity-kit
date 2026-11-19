@@ -353,6 +353,11 @@ maintenance surface. See [our plugin](../src/studio/pages/plugin.tsx),
 
 ### Some useful workflows and customization remain limited
 
+**Follow-up, November 19:** alpha.9 extends saved URL following to collection
+items. Live Studio checks passed for settings-backed slugs, stored full paths,
+Drafts/Published isolation, preserved query/fragment, and unrelated previews.
+The limitation in the next paragraph describes the reviewed alpha.8 baseline.
+
 Saved URL following currently covers ordinary pages. Editing a collection item's
 slug can therefore leave its preview at the old URL until the editor navigates
 again. Extend that workflow with saved-state and perspective checks before

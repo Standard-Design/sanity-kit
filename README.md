@@ -38,18 +38,19 @@ not a Studio application or hosting service.
 
 ## Installation and release status
 
-Alpha.8 keeps Pages preview in sync with saved page URL changes and uses native
-Studio toasts for successful folder actions. See [Upgrading from alpha.7](docs/prerelease.md#upgrading-from-alpha7)
+Alpha.9 adds request-specific redirect lookup, configurable failure handling and
+pathname caching, and saved collection-item URL following in Pages.
+Redirect cache adapters require an update. See [Upgrading from alpha.8](docs/prerelease.md#upgrading-from-alpha8)
 for an existing installation, or [Upgrading from alpha.5](docs/prerelease.md#upgrading-from-alpha5)
 to adopt the tools.
 
 Pin the exact version when integrating:
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.8
+pnpm add @standard-design/sanity-kit@0.1.0-alpha.9
 ```
 
-See the [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.8)
+See the [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.9)
 for the tarball, npm tag assignments, and verification results. The
 [release guide](docs/prerelease.md#release-status) links to the release records.
 
