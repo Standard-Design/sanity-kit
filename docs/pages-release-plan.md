@@ -20,6 +20,13 @@ Before beta:
 - Use the consumer results to settle the public API and decide whether to
   publish a beta. Release-aware URL moves and wildcard redirects remain deferred.
 
+The [November 18 comparison with Tinloof](pages-comparison.md) records our
+strengths alongside feature gaps and implementation tradeoffs. Its proposed
+follow-ups include redirect failure behavior and scale, restricted-editor
+acceptance, documentation clarity, read performance, richer row previews,
+and an optional collection index association. Those recommendations are available
+for prioritization alongside the existing consumer acceptance work.
+
 ## Alpha.6 implementation and acceptance record
 
 The approved commit, `ca1c65f`, was tagged `v0.1.0-alpha.6`. Main and release-tag

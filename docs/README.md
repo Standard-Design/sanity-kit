@@ -65,6 +65,8 @@ behavior. See the [Pages release plan](pages-release-plan.md) for follow-up work
 
 ## Design decisions and remaining proposals
 
+- [Pages comparison with Tinloof](pages-comparison.md): strengths to preserve,
+  feature differences, implementation tradeoffs, and prioritized future work.
 - [Pages contracts and proposals](pages-design-proposals.md): approved folder,
   bulk-change, and field/helper behavior, alongside the remaining implementation
   proposals. Approval status is explicit; the guides distinguish the initial URL
