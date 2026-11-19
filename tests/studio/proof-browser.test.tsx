@@ -32,6 +32,7 @@ const native = vi.hoisted(() => ({
 	navigate: vi.fn(),
 	creationLoading: false,
 	creationRelease: undefined as string | undefined,
+	variants: [] as string[],
 	creationError: false,
 	deniedTemplates: [] as string[],
 	intent: vi.fn(),
@@ -127,7 +128,7 @@ vi.mock('sanity', () => {
 		usePerspective: () => ({
 			perspectiveStack: [...native.perspective],
 			selectedReleaseId: native.creationRelease,
-			selectedVariantNames: [],
+			selectedVariantNames: native.variants,
 		}),
 		useDocumentVersions: () => ({ versions: [], loading: false }),
 		isDraftVersion: () => false,
@@ -153,6 +154,7 @@ import { PagesBrowser as ProofBrowser } from '../../src/studio/pages/browser.js'
 import { PagesHeader as ProofHeader } from '../../src/studio/pages/header.js'
 import { BrowserStateProvider as ConfiguredProvider } from '../../src/studio/pages/browser-state.js'
 import { createPagesRuntime } from '../../src/studio/pages/runtime.js'
+import { createCollectionRouting } from '../../src/url/settings/resolve.js'
 import { FOLDER_SYNC_DELAY_MS } from '../../src/studio/folders/sync-controller.js'
 
 const theme = buildTheme()
@@ -189,6 +191,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 		native.request.mockReset()
 		native.creationLoading = false
 		native.creationRelease = undefined
+		native.variants = []
 		native.creationError = false
 		native.deniedTemplates = []
 		native.params = { preview: '/about', id: 'shared', type: 'kitProofShared' }
@@ -446,6 +449,130 @@ describe('Pages Presentation adapter lifecycle', () => {
 		})
 		return { draft, published, post }
 	}
+	function collectionMoveFixture(
+		storage: 'pathname' | 'slug' = 'slug',
+		settingsBacked = false,
+	) {
+		const schemaType =
+			storage === 'slug' ? 'kitProofCollectionArticle' : 'kitProofPost'
+		const item =
+			storage === 'slug'
+				? { schemaType, slugField: 'slug.current' }
+				: { schemaType, pathnameField: 'pathname.current' }
+		const publishedPrefix = '/journal'
+		const draftPrefix = settingsBacked ? '/blog' : publishedPrefix
+		const saved = (prefix: string) => ({
+			_id: 'post',
+			_type: schemaType,
+			title: 'Sample post',
+			_rev: prefix,
+			pathname: { current: `${prefix}/sample` },
+			slug: { current: 'sample' },
+		})
+		const published = saved(publishedPrefix)
+		const draft = saved(draftPrefix)
+		const second = {
+			...saved(draftPrefix),
+			_id: 'other-post',
+			title: 'Other post',
+			pathname: { current: `${draftPrefix}/other` },
+			slug: { current: 'other' },
+		}
+		const dataset = (perspective: readonly string[]) => [
+			perspective.includes('drafts') ? draft : published,
+			second,
+		]
+		native.fetch.mockImplementation(async (query, params, options) =>
+			(
+				await evaluate(parse(query), {
+					dataset: dataset(options.perspective as string[]),
+					params,
+				})
+			).get(),
+		)
+		const configuration = {
+			pages: proofRoutes.pages,
+			reservedPathPrefixes: ['/journal/private', '/blog/private'],
+			collections: [
+				{
+					name: 'journal',
+					title: 'Journal',
+					index: { schemaType: 'kitProofPage', pathname: '/journal' },
+					items: [item],
+					...(settingsBacked
+						? { settingsDocumentId: 'journal-settings' }
+						: { routePrefix: '/journal' }),
+				},
+			],
+		}
+		const routing = createCollectionRouting(configuration)
+		function runtime(
+			perspective: 'drafts' | 'published' = 'drafts',
+			prefix?: string,
+		) {
+			const result = routing.resolve(
+				{
+					status: 'available',
+					perspective: 'raw',
+					coverage: 'published-and-drafts',
+					complete: true,
+					documents: settingsBacked
+						? [
+								{
+									_id: 'journal-settings',
+									_type: 'sanityKitCollectionRoute',
+									_rev: 'published-settings',
+									collection: 'journal',
+									prefix: {
+										_type: 'slug',
+										current:
+											perspective === 'published'
+												? (prefix ?? publishedPrefix)
+												: publishedPrefix,
+									},
+								},
+								{
+									_id: 'drafts.journal-settings',
+									_type: 'sanityKitCollectionRoute',
+									_rev: 'draft-settings',
+									collection: 'journal',
+									prefix: {
+										_type: 'slug',
+										current:
+											perspective === 'drafts'
+												? (prefix ?? draftPrefix)
+												: draftPrefix,
+									},
+								},
+							]
+						: [],
+				},
+				perspective,
+			)
+			if (!result.ok) throw new Error(result.reason)
+			return createPagesRuntime({
+				...result.value.routes,
+				previewUrl: 'https://preview.test',
+			})
+		}
+		native.params = {
+			preview: `${draftPrefix}/sample`,
+			id: 'post',
+			type: schemaType,
+		}
+		return {
+			draft,
+			published,
+			second,
+			runtime,
+			draftPrefix,
+			change: (document: typeof draft, value: string | null) => {
+				if (storage === 'slug') document.slug.current = value as string
+				else document.pathname.current = value as string
+			},
+		}
+	}
+
 	async function refreshSavedPages() {
 		await act(async () => {
 			native.observer!.next({ type: 'mutation' })
@@ -1065,8 +1192,8 @@ describe('Pages Presentation adapter lifecycle', () => {
 		expect(native.navigate).not.toHaveBeenCalled()
 	})
 
-	it('establishes a new baseline on perspective changes and leaves collection and release URLs alone', async () => {
-		const { draft, post } = pageMoveFixture()
+	it('establishes a new baseline on perspective changes and leaves release URLs alone', async () => {
+		const { draft } = pageMoveFixture()
 		await render()
 		native.perspective = ['published']
 		await render()
@@ -1080,17 +1207,216 @@ describe('Pages Presentation adapter lifecycle', () => {
 		draft.pathname.current = '/release/sample'
 		await refreshSavedPages()
 		expect(native.navigate).not.toHaveBeenCalled()
+	})
+
+	it.each(['pathname', 'slug'] as const)(
+		'follows a saved collection %s with code-owned prefix and the navigator hidden',
+		async (storage) => {
+			const fixture = collectionMoveFixture(storage)
+			const runtime = fixture.runtime()
+			native.params.preview =
+				'https://preview.test/journal/sample?view=full#intro'
+			await render(runtime)
+			await click('Toggle navigator')
+			expect(button('Choose page: Sample post')).toBeTruthy()
+			fixture.change(
+				fixture.draft,
+				storage === 'slug' ? 'renamed' : '/journal/renamed',
+			)
+			await render(runtime) // The form proposal alone is not a saved-query notification.
+			expect(native.navigate).not.toHaveBeenCalled()
+			await refreshSavedPages()
+			expect(native.navigate).toHaveBeenCalledExactlyOnceWith(
+				'https://preview.test/journal/renamed?view=full#intro',
+			)
+			expect(native.params.id).toBe('post')
+			expect(native.params.type).toBe(fixture.draft._type)
+			expect(native.listen).toHaveBeenCalledTimes(1)
+			native.params.preview = '/journal/renamed?view=full#intro'
+			await render(runtime)
+			fixture.change(
+				fixture.draft,
+				storage === 'slug' ? 'sample' : '/journal/sample',
+			)
+			await refreshSavedPages()
+			expect(native.navigate).toHaveBeenLastCalledWith(
+				'/journal/sample?view=full#intro',
+			)
+		},
+	)
+
+	it.each(['drafts', 'published'] as const)(
+		'follows a saved slug against the settings-derived %s prefix',
+		async (perspective) => {
+			const fixture = collectionMoveFixture('slug', true)
+			const prefix = perspective === 'drafts' ? '/blog' : '/journal'
+			native.perspective = [perspective]
+			native.params.preview = `${prefix}/sample?lang=en#heading`
+			await render(fixture.runtime(perspective))
+			fixture.change(
+				perspective === 'drafts' ? fixture.published : fixture.draft,
+				'not-this-perspective',
+			)
+			await refreshSavedPages()
+			expect(native.navigate).not.toHaveBeenCalled()
+			fixture.change(
+				perspective === 'drafts' ? fixture.draft : fixture.published,
+				'renamed',
+			)
+			await refreshSavedPages()
+			expect(native.navigate).toHaveBeenCalledExactlyOnceWith(
+				`${prefix}/renamed?lang=en#heading`,
+			)
+		},
+	)
+
+	it('resets the collection-item baseline when perspective or resolved routing changes', async () => {
+		const fixture = collectionMoveFixture('slug', true)
+		const draftsRuntime = fixture.runtime('drafts')
+		await render(draftsRuntime)
+		fixture.change(fixture.draft, 'draft-saved-elsewhere')
+		native.perspective = ['published']
+		await render(fixture.runtime('published'))
 		native.perspective = ['drafts']
-		native.params = {
-			preview: '/journal/sample',
-			id: 'post',
-			type: 'kitProofPost',
-		}
-		await render()
-		post.pathname.current = '/journal/renamed'
+		await render(draftsRuntime)
+		expect(native.navigate).not.toHaveBeenCalled()
+		const changed = fixture.runtime('drafts', '/updated-blog')
+		fixture.change(fixture.draft, 'another-saved-value')
+		await render(changed)
+		expect(native.navigate).not.toHaveBeenCalled()
+	})
+
+	it.each([
+		['an unrelated preview', { preview: '/another-page' }],
+		['a historical revision', { rev: 'old-revision' }],
+		['a scheduled draft', { scheduledDraft: 'scheduled' }],
+		['a release document', { id: 'versions.release.post' }],
+		[
+			'a settings document',
+			{ id: 'journal-settings', type: 'sanityKitCollectionRoute' },
+		],
+	])('does not follow a collection slug from %s', async (_label, params) => {
+		const fixture = collectionMoveFixture()
+		native.params = { ...native.params, ...params }
+		await render(fixture.runtime())
+		fixture.change(fixture.draft, 'renamed')
 		await refreshSavedPages()
 		expect(native.navigate).not.toHaveBeenCalled()
 	})
+
+	it.each(['release-stack', 'selected-release', 'variant'])(
+		'does not follow collection changes in %s',
+		async (scenario) => {
+			const fixture = collectionMoveFixture()
+			if (scenario === 'release-stack')
+				native.perspective = ['release', 'drafts']
+			if (scenario === 'selected-release') native.creationRelease = 'release'
+			if (scenario === 'variant') native.variants = ['variant']
+			await render(fixture.runtime())
+			fixture.change(fixture.draft, 'renamed')
+			await refreshSavedPages()
+			expect(native.navigate).not.toHaveBeenCalled()
+		},
+	)
+
+	it('establishes a collection baseline after switching the edited document', async () => {
+		const fixture = collectionMoveFixture()
+		const runtime = fixture.runtime()
+		await render(runtime)
+		native.params = {
+			...native.params,
+			id: 'other-post',
+			preview: '/journal/other',
+		}
+		await render(runtime)
+		expect(native.navigate).not.toHaveBeenCalled()
+		fixture.change(fixture.draft, 'not-edited')
+		await refreshSavedPages()
+		expect(native.navigate).not.toHaveBeenCalled()
+		fixture.change(fixture.second, 'other-renamed')
+		await refreshSavedPages()
+		expect(native.navigate).toHaveBeenCalledExactlyOnceWith(
+			'/journal/other-renamed',
+		)
+	})
+
+	it.each(['pathname', 'slug'] as const)(
+		'ignores invalid, reserved and missing collection %s values',
+		async (storage) => {
+			const fixture = collectionMoveFixture(storage)
+			await render(fixture.runtime())
+			const values =
+				storage === 'slug'
+					? ['nested/value', '', null, 'private']
+					: [
+							'/journal//sample',
+							'/journal/sample/',
+							'/unregistered/sample',
+							'/journal/private/sample',
+							null,
+						]
+			for (const value of values) {
+				fixture.change(fixture.draft, value)
+				await refreshSavedPages()
+				expect(native.navigate).not.toHaveBeenCalled()
+			}
+			fixture.change(
+				fixture.draft,
+				storage === 'slug' ? 'renamed' : '/journal/renamed',
+			)
+			await refreshSavedPages()
+			expect(native.navigate).toHaveBeenCalledExactlyOnceWith(
+				'/journal/renamed',
+			)
+		},
+	)
+
+	it('reestablishes its collection baseline after a read failure without navigating from stale data', async () => {
+		const fixture = collectionMoveFixture()
+		const runtime = fixture.runtime()
+		await render(runtime)
+		const fetch = native.fetch.getMockImplementation()!
+		native.fetch.mockRejectedValue(new Error('offline'))
+		await refreshSavedPages()
+		fixture.change(fixture.draft, 'saved-offline')
+		native.fetch.mockImplementation(fetch)
+		await refreshSavedPages()
+		expect(native.navigate).not.toHaveBeenCalled()
+		native.params.preview = '/journal/saved-offline'
+		await render(runtime)
+		fixture.change(fixture.draft, 'saved-after-recovery')
+		await refreshSavedPages()
+		expect(native.navigate).toHaveBeenCalledExactlyOnceWith(
+			'/journal/saved-after-recovery',
+		)
+	})
+
+	it.each(['error', 'reconnect'] as const)(
+		'resets the collection baseline after listener %s and welcome',
+		async (event) => {
+			const fixture = collectionMoveFixture()
+			const runtime = fixture.runtime()
+			await render(runtime)
+			await act(async () => {
+				if (event === 'error') native.observer!.error()
+				else native.observer!.next({ type: 'reconnect' })
+				await Promise.resolve()
+			})
+			fixture.change(fixture.draft, 'saved-while-disconnected')
+			await act(async () => {
+				native.observer!.next({ type: 'welcome' })
+				await new Promise((resolve) => setTimeout(resolve, 0))
+			})
+			expect(native.navigate).not.toHaveBeenCalled()
+			native.params.preview = '/journal/saved-while-disconnected'
+			await render(runtime)
+			fixture.change(fixture.draft, 'saved-after-welcome')
+			await refreshSavedPages()
+			expect(native.navigate).toHaveBeenCalledExactlyOnceWith(
+				'/journal/saved-after-welcome',
+			)
+		},
+	)
 
 	it('keeps the preview in place for invalid and reserved destinations', async () => {
 		const { draft } = pageMoveFixture()

@@ -32,12 +32,17 @@ For checks still outstanding, use dedicated test documents and capture their ful
 revision IDs, and related redirects before starting. Keep source edits paused
 while exercising Studio so hot reload does not interrupt the test.
 
-### 1. Verify a restricted account
+### 1. Restricted-account checks: deferred until needed
 
 **Current status:** the user confirmed on November 11, 2026 that no separate
 restricted test account is available. This live check is unverified. Automated
 grant tests remain useful evidence, but do not replace it. Carry this limitation
 into the release review rather than claiming a successful administrator run proves it.
+
+**November 19 decision:** current projects use administrator roles. Run this
+live check when an actual consumer needs restricted/custom roles; it is not a
+release or beta gate. Existing permission enforcement and automated coverage
+remain in place. The procedure below is retained for that future need.
 
 Use a separate signed-in browser profile for an account whose effective grants
 can be changed without affecting the developer's working account. The project

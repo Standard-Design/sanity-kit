@@ -92,7 +92,10 @@ publishing and browser redirect delivery. Navigator performance and interaction
 checks passed with the measured list renderer.
 
 No separate restricted account was available, so its live permission behavior
-remains unverified despite automated coverage. Deployed cache behavior belongs
+remains unverified despite automated coverage. On November 19, live acceptance
+with restricted/custom roles was deferred until an actual consumer needs it;
+it is not a release or beta gate. Existing permission checks and automated tests
+remain in place. Deployed cache behavior belongs
 to the consuming application and must be verified there. The
 [Pages release plan](pages-release-plan.md) records acceptance and follow-up work.
 

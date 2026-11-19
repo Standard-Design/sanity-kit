@@ -246,8 +246,10 @@ recovery-record visibility. The grant interpreter understands a bounded subset
 of GROQ, so a legitimate custom role can remain unverified. A visible-page filter
 alone cannot make a partial dataset sufficient for a global conflict check.
 
-Validate a real restricted-editor installation and document the minimum useful
-role. Broaden supported grant expressions only with evidence and focused tests.
+When an actual project needs restricted editors, validate that installation and
+document its minimum useful role. This live acceptance was deferred on November
+19 because current projects use administrator roles; it is not a release gate.
+Broaden supported grant expressions only with evidence and focused tests.
 For more complex deployments, consider a trusted checking service that can
 answer conflict questions while keeping document mutation permissions native.
 That would introduce a server component and requires a separate design. See
@@ -391,7 +393,7 @@ approved implementation scope.
 | Priority            | Candidate                                                                                         | Why consider it                                                                                                         | Evidence needed before implementation                                                                            |
 | ------------------- | ------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
 | Near term           | Redirect inventory counts, diagnostics, and failure-policy design                                 | An unrelated bad rule or growth limit can affect publishing and broad request handling.                                 | Model failure behavior and acceptable snapshot age with the consuming application.                               |
-| Near term           | Restricted-editor acceptance and concise role guidance                                            | Broad visibility and unrecognized grant expressions can block otherwise useful editing workflows.                       | A real restricted account and representative role filters.                                                       |
+| When required       | Restricted-editor acceptance and concise role guidance                                            | Broad visibility and unrecognized grant expressions can block otherwise useful editing workflows.                       | A real restricted account and representative role filters.                                                       |
 | Near term           | Current quick start and historical-doc cleanup                                                    | The feature set is already substantial; adoption should require less interpretation.                                    | A consumer follows the guide without relying on the development conversation.                                    |
 | Near term           | Resource/invalidation profiling                                                                   | Rendering performance is only one part of scalability.                                                                  | Query/byte counts and retained memory during large collections, typing, reconnection, and long sessions.         |
 | Near term           | Saved URL following for collection items                                                          | Collection editors should get the same continuity when a saved slug changes.                                            | Draft/Published separation, settings-backed prefixes, query/fragment preservation, and unrelated-preview checks. |

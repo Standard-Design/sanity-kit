@@ -54,7 +54,7 @@ export function usePageIdentity(params: PresentationParams) {
 		!selectedVariantNames.length &&
 		perspectiveStack.length === 1 &&
 		(perspectiveStack[0] === 'drafts' || perspectiveStack[0] === 'published') &&
-		runtime.routes.pages.some((page) => page.schemaType === type)
+		runtime.registry.types.some((page) => page.schemaType === type)
 	const movePreview = useEffectEvent((from: string, to: string) => {
 		if (!preview) return
 		const url = URL.parse(preview, 'https://pages.invalid')
@@ -72,7 +72,11 @@ export function usePageIdentity(params: PresentationParams) {
 		)
 	})
 	useEffect(() => {
-		if (!followSavedUrl) {
+		if (
+			!followSavedUrl ||
+			documentResult.error ||
+			documentResult.disconnected
+		) {
 			previous.current = undefined
 			return
 		}
@@ -80,6 +84,9 @@ export function usePageIdentity(params: PresentationParams) {
 		// in the shared query results can move the iframe, never form proposals.
 		if (previous.current?.resource !== documentResource)
 			previous.current = { resource: documentResource }
+		// A refresh still exposes its previous data. Wait for a successful saved
+		// result; a failed/disconnected read above discards the old baseline.
+		if (documentResult.loading || documentResult.refreshing) return
 		if (
 			!pathname ||
 			pathname.includes('//') ||
@@ -89,7 +96,15 @@ export function usePageIdentity(params: PresentationParams) {
 		const from = previous.current.pathname
 		previous.current.pathname = pathname
 		if (from && from !== pathname) movePreview(from, pathname)
-	}, [documentResource, followSavedUrl, pathname])
+	}, [
+		documentResource,
+		followSavedUrl,
+		pathname,
+		documentResult.error,
+		documentResult.disconnected,
+		documentResult.loading,
+		documentResult.refreshing,
+	])
 	return {
 		current: runtime.model.previewedDocument(previewResult.data, preview),
 		edited,

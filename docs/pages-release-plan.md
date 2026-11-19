@@ -14,9 +14,7 @@ Before beta:
 - Integrate the published package into Standard Stack. Check the Studio and
   website together, including page creation, URL changes, collection settings,
   preview and published routing, and redirects.
-- Verify any cache refresh behavior in the consuming deployment. Live testing
-  with a restricted Studio account remains open; those permission cases have
-  automated coverage.
+- Verify any cache refresh behavior in the consuming deployment.
 - Use the consumer results to settle the public API and decide whether to
   publish a beta. Release-aware URL moves and wildcard redirects remain deferred.
 
@@ -36,12 +34,47 @@ caching holds only pathname results, with 60-second freshness and a five-minute
 maximum age for outage fallback to a known good matching rule. The
 [approved policy](redirects-design.md#approved-request-specific-runtime-policy)
 and [adapter migration](redirects.md#migration-from-alpha8-caching-and-failure-behavior)
-record the decisions. This work has not yet been released.
+record the decisions. The slice is committed and pushed as `b6a0b7e`; it has not
+yet been released.
 
 Still remaining before beta: consume the revised API in Standard Stack, test
-its deployed cache refresh/failure behavior, run restricted-editor live
-acceptance when an account becomes available, and settle the public API from
+its deployed cache refresh/failure behavior, and settle the public API from
 those results. Release-aware moves and wildcard rules remain deferred.
+
+## Approved collection-item preview following
+
+The next slice follows saved collection-item slug and full-path changes in the
+preview, using the prefix resolved for the active Drafts or Published view.
+It preserves the preview origin, query parameters, and fragment. Initial reads,
+document/perspective changes, and replacement routing settings establish a fresh
+baseline. Read failures and disconnects also clear the previous baseline.
+Release, variant, scheduled, historical, and unrelated previews stay in place.
+
+The implementation, regression tests, and Pages guide were approved on
+November 19, 2026. The browser suite passed 97 tests; the complete suite passed
+2,860 tests. Build,
+TypeScript, lint, formatting, and diff checks passed. Live Studio acceptance has
+not yet been performed. The redirect slice is approved separately.
+
+Remaining work:
+
+1. Verify saved collection-item URL following in Studio.
+2. Adopt the updated redirect API/cache adapter in Standard Stack and verify
+   deployed invalidation, lookup-failure behavior, and preview continuity.
+3. Prepare the next release with current docs included before packing, then
+   verify CI, package compatibility, and published artifacts. Use consumer
+   acceptance to decide when the API is ready for beta.
+
+### Restricted-role acceptance: deferred until needed
+
+Decision approved November 19, 2026: current projects use administrator roles.
+Defer live acceptance with restricted/custom roles until an actual consuming
+project needs them. It does not block the next release or beta. Keep existing
+permission enforcement and automated tests; successful administrator checks do
+not establish restricted-role live acceptance.
+
+Release-aware moves and wildcard redirects remain deferred. Other audit ideas
+are optional follow-ups rather than requirements for this slice.
 
 ## Alpha.6 implementation and acceptance record
 

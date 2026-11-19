@@ -368,14 +368,24 @@ perspective determines which version is returned. Shared content types that are
 not registered as pages are not queried and do not show a missing-preview notice.
 Editing a shared footer therefore does not change the previewed page's title.
 
-When an ordinary page's saved URL changes, Pages follows it if the editor is
-open on that page and the iframe is at its previous URL. The preview keeps its
-query parameters and fragment. Pages waits for the new URL to appear in a query
-in the current perspective, so a draft move leaves the Published preview where
-it is. Collection items, release and scheduled versions, and historical
-revisions keep their current preview URL. If an old URL briefly renders a 404,
-the website must keep its Visual Editing connection alive so Studio can move
-the iframe. See [React Router preview error handling](react-router.md#keep-preview-connected-on-a-cms-404).
+When a registered page or collection item's saved URL changes, Pages follows it
+if that document is open in the editor and the iframe is at its previous URL.
+This includes collection items storing a complete pathname or only a slug. A
+slug resolves against the collection prefix for the active perspective, whether
+the prefix comes from configuration or a settings document. There is no extra
+option to enable following.
+
+Pages waits for saved query results in the current perspective, so a draft slug
+change leaves the Published preview where it is. The preview keeps its origin,
+query parameters, and fragment. An unrelated preview stays in place. Initial
+reads, document switches, perspective switches, and replacement routing settings
+establish a new baseline. This behavior follows item edits; it does not infer a
+bulk move across changing or unavailable collection prefixes.
+
+Release and scheduled versions, variants, and historical revisions keep their
+current preview URL. If an old URL briefly renders a 404, the website must keep
+its Visual Editing connection alive so Studio can move the iframe. See
+[React Router preview error handling](react-router.md#keep-preview-connected-on-a-cms-404).
 
 Both reads use the existing session's listener, cancellation, refresh, and
 perspective isolation. A new URL or edited ID selects a separate resource
