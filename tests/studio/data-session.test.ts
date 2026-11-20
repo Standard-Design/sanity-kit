@@ -22,6 +22,13 @@ const runtime = createPagesRuntime({
 			routePrefix: '/journal',
 			items: [{ schemaType: 'post', pathnameField: 'path' }],
 		},
+		{
+			name: 'articles',
+			title: 'Articles',
+			index: { schemaType: 'page', pathname: '/articles' },
+			routePrefix: '/articles',
+			items: [{ schemaType: 'article', pathnameField: 'path' }],
+		},
 	],
 })
 const doc = (id: number, type = 'page') => ({
@@ -274,6 +281,142 @@ describe('Shared Pages data sessions', () => {
 			data: [{ _id: 'id-0001' }],
 		})
 	})
+	it('refreshes the changed collection and header without interrupting ordinary pages', async () => {
+		const draft = { ...doc(1, 'post'), _originalId: 'drafts.id-0001' }
+		const h = setup([doc(0), draft, doc(2, 'post')])
+		const recent = h.session.recent('journal')
+		const journal = h.session.collection('journal', 'renamed')
+		const articles = h.session.recent('articles')
+		const edited = h.session.identity(
+			runtime.model.documentQuery(draft._id, 'post'),
+		)
+		for (const resource of [
+			h.session.pages,
+			h.session.folders,
+			recent,
+			journal,
+			articles,
+			edited,
+		]) {
+			h.subscribe(resource)
+		}
+		await settle()
+
+		const pageRequest = Promise.withResolvers<unknown>()
+		h.fetch.mockReturnValueOnce(pageRequest.promise)
+		await vi.advanceTimersByTimeAsync(RECONCILE_MS)
+		const pageSignal = h.fetch.mock.calls.findLast(
+			([plan]) => plan.params.after === '',
+		)![1]
+		h.fetch.mockClear()
+		h.fetchFolderRegistry.mockClear()
+
+		h.setData([
+			doc(0),
+			{
+				...draft,
+				path: '/journal/renamed',
+				_updatedAt: '2026-11-19T00:00:00Z',
+			},
+			doc(2, 'post'),
+		])
+		h.observers[0]!.next({
+			type: 'mutation',
+			documentId: draft._originalId,
+			transition: 'update',
+		})
+		await changed()
+		expect(pageSignal.aborted).toBe(false)
+		expect(
+			h.fetch.mock.calls.map(([plan]) => plan.params.type ?? plan.params.types),
+		).toEqual([['post'], ['post'], 'post'])
+		expect(h.fetchFolderRegistry).not.toHaveBeenCalled()
+		expect(recent.getSnapshot().data.documents[0]?.pathname).toBe(
+			'/journal/renamed',
+		)
+		expect(journal.getSnapshot().data.documents[0]?.pathname).toBe(
+			'/journal/renamed',
+		)
+		expect(edited.getSnapshot().data[0]?.pathname).toBe('/journal/renamed')
+		pageRequest.resolve([{ ...doc(0), pathname: '/page-0' }])
+		await settle()
+	})
+
+	it('unions the affected reads in a burst and only rereads folders for a registry event', async () => {
+		const post = doc(1, 'post')
+		const h = setup([doc(0), post])
+		for (const resource of [
+			h.session.pages,
+			h.session.folders,
+			h.session.recent('journal'),
+			h.identity,
+		]) {
+			h.subscribe(resource)
+		}
+		await settle()
+		h.fetch.mockClear()
+		h.fetchFolderRegistry.mockClear()
+		h.observers[0]!.next({
+			type: 'mutation',
+			documentId: doc(0)._id,
+			transition: 'update',
+		})
+		await changed()
+		expect(h.fetch).toHaveBeenCalledTimes(2)
+		expect(h.fetch.mock.calls.map(([plan]) => plan.params.types)).toEqual([
+			['page'],
+			undefined,
+		])
+		expect(h.fetchFolderRegistry).not.toHaveBeenCalled()
+
+		h.fetch.mockClear()
+		h.observers[0]!.next({
+			type: 'mutation',
+			documentId: 'sanityKit.folders',
+			transition: 'update',
+		})
+		await changed()
+		expect(h.fetch).not.toHaveBeenCalled()
+		expect(h.fetchFolderRegistry).toHaveBeenCalledOnce()
+
+		h.fetchFolderRegistry.mockClear()
+		for (const documentId of [
+			post._id,
+			doc(0)._id,
+			post._id,
+			'sanityKit.folders',
+		]) {
+			h.observers[0]!.next({
+				type: 'mutation',
+				documentId,
+				transition: 'update',
+			})
+		}
+		await changed()
+		expect(h.fetch).toHaveBeenCalledTimes(3)
+		expect(h.fetchFolderRegistry).toHaveBeenCalledOnce()
+	})
+
+	it.each([
+		{ documentId: 'id-0001', transition: 'appear' },
+		{ documentId: 'id-0001', transition: 'disappear' },
+		{ documentId: 'versions.release.id-0001', transition: 'update' },
+	] as const)(
+		'refreshes broadly when membership may have changed: %j',
+		async (event) => {
+			const h = setup([doc(0), doc(1, 'post')])
+			h.subscribe(h.session.pages)
+			h.subscribe(h.session.recent('journal'))
+			h.subscribe(h.session.folders)
+			await settle()
+			h.fetch.mockClear()
+			h.fetchFolderRegistry.mockClear()
+			h.observers[0]!.next({ type: 'mutation', ...event })
+			await changed()
+			expect(h.fetch).toHaveBeenCalledTimes(2)
+			expect(h.fetchFolderRegistry).toHaveBeenCalledOnce()
+		},
+	)
 	it('aborts obsolete requests and ignores late responses even if the transport does not', async () => {
 		const h = setup()
 		const old = Promise.withResolvers<unknown>()
@@ -400,7 +543,7 @@ describe('Shared Pages data sessions', () => {
 		h.subscribe(recent)
 		await settle()
 		expect(h.session.pages.getSnapshot().data.documents).toHaveLength(205)
-		expect(h.session.pages.getSnapshot().data.tree.roots).toHaveLength(206)
+		expect(h.session.pages.getSnapshot().data.tree.roots).toHaveLength(207)
 		expect(recent.getSnapshot().data).toMatchObject({ total: 70 })
 		expect(recent.getSnapshot().data.documents).toHaveLength(5)
 		expect(h.listen).toHaveBeenCalledTimes(1)

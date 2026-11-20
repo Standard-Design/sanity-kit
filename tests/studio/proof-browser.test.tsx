@@ -11,6 +11,7 @@ import type {
 	PreviewHeaderProps,
 } from 'sanity/presentation'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import type { PagesDataEvent } from '../../src/studio/pages/data-source.js'
 
 interface TestRequest {
 	url: string
@@ -50,7 +51,7 @@ const native = vi.hoisted(() => ({
 	unsubscribe: vi.fn(),
 	perspective: ['drafts'],
 	observer: undefined as
-		{ next(event: { type: string }): void; error(): void } | undefined,
+		{ next(event: PagesDataEvent): void; error(): void } | undefined,
 	params: initialPresentationParams,
 }))
 
@@ -470,7 +471,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 			slug: { current: 'sample' },
 		})
 		const published = saved(publishedPrefix)
-		const draft = saved(draftPrefix)
+		const draft = { ...saved(draftPrefix), _originalId: 'drafts.post' }
 		const second = {
 			...saved(draftPrefix),
 			_id: 'other-post',
@@ -566,16 +567,18 @@ describe('Pages Presentation adapter lifecycle', () => {
 			second,
 			runtime,
 			draftPrefix,
-			change: (document: typeof draft, value: string | null) => {
+			change: (document: typeof published, value: string | null) => {
 				if (storage === 'slug') document.slug.current = value as string
 				else document.pathname.current = value as string
 			},
 		}
 	}
 
-	async function refreshSavedPages() {
+	async function refreshSavedPages(
+		event: PagesDataEvent = { type: 'mutation' },
+	) {
 		await act(async () => {
-			native.observer!.next({ type: 'mutation' })
+			native.observer!.next(event)
 			await new Promise((resolve) => setTimeout(resolve, 180))
 		})
 	}
@@ -1225,7 +1228,12 @@ describe('Pages Presentation adapter lifecycle', () => {
 			)
 			await render(runtime) // The form proposal alone is not a saved-query notification.
 			expect(native.navigate).not.toHaveBeenCalled()
-			await refreshSavedPages()
+			const savedDraft: PagesDataEvent = {
+				type: 'mutation',
+				documentId: fixture.draft._originalId,
+				transition: 'update',
+			}
+			await refreshSavedPages(savedDraft)
 			expect(native.navigate).toHaveBeenCalledExactlyOnceWith(
 				'https://preview.test/journal/renamed?view=full#intro',
 			)
@@ -1238,7 +1246,7 @@ describe('Pages Presentation adapter lifecycle', () => {
 				fixture.draft,
 				storage === 'slug' ? 'sample' : '/journal/sample',
 			)
-			await refreshSavedPages()
+			await refreshSavedPages(savedDraft)
 			expect(native.navigate).toHaveBeenLastCalledWith(
 				'/journal/sample?view=full#intro',
 			)

@@ -12,6 +12,7 @@ import {
 } from '../../../src/studio/pages/data-session.js'
 import type {
 	PageQueryPlan,
+	PagesDataEvent,
 	PagesDataSource,
 } from '../../../src/studio/pages/data-source.js'
 import {
@@ -120,9 +121,9 @@ function createProfile() {
 	}
 	const session = createPagesDataSession(runtime, source)
 	const active = new Set<PagesDataResource<unknown>>()
-	const emit = (type: 'mutation' | 'welcome' | 'reconnect') => {
+	const emit = (event: PagesDataEvent) => {
 		assert.ok(observer)
-		observer.next({ type })
+		observer.next(event)
 	}
 	const settle = async () => {
 		await drain()
@@ -196,7 +197,7 @@ async function measureReads() {
 		}),
 		// Sample a delayed welcome independently of the initial read.
 		await step('Listener becomes ready after the first reads', () =>
-			p.emit('welcome'),
+			p.emit({ type: 'welcome' }),
 		),
 		await step('Three post body saves in one change window', () => {
 			for (let i = 0; i < 3; i++) {
@@ -205,7 +206,11 @@ async function measureReads() {
 					body: `Updated body ${i}`,
 					_updatedAt: '2026-11-19T13:00:00Z',
 				}
-				p.emit('mutation')
+				p.emit({
+					type: 'mutation',
+					documentId: posts[0]!._id,
+					transition: 'update',
+				})
 			}
 			mock.timers.tick(CHANGE_DELAY_MS)
 		}),
@@ -216,7 +221,11 @@ async function measureReads() {
 					body: `Another edit ${i}`,
 					_updatedAt: `2026-11-19T13:00:0${i + 1}Z`,
 				}
-				p.emit('mutation')
+				p.emit({
+					type: 'mutation',
+					documentId: posts[0]!._id,
+					transition: 'update',
+				})
 				mock.timers.tick(CHANGE_DELAY_MS)
 				await p.settle()
 			}
@@ -240,15 +249,19 @@ async function measureReads() {
 				body: 'New page body',
 				_updatedAt: '2026-11-19T13:00:00Z',
 			}
-			p.emit('mutation')
+			p.emit({
+				type: 'mutation',
+				documentId: ordinary[1]!._id,
+				transition: 'update',
+			})
 			mock.timers.tick(CHANGE_DELAY_MS)
 		}),
 		await step('Disconnect while browsing posts', () => {
-			p.emit('reconnect')
+			p.emit({ type: 'reconnect' })
 			assert.ok(collection.getSnapshot().disconnected)
 		}),
 		await step('Reconnect after loading six batches', () => {
-			p.emit('welcome')
+			p.emit({ type: 'welcome' })
 			assert.ok(!collection.getSnapshot().disconnected)
 		}),
 		await step('Search posts for post-04', async () => {
@@ -261,7 +274,11 @@ async function measureReads() {
 		}),
 		await step('Post notification with only the header mounted', () => {
 			closeCollection()
-			p.emit('mutation')
+			p.emit({
+				type: 'mutation',
+				documentId: posts[0]!._id,
+				transition: 'update',
+			})
 			mock.timers.tick(CHANGE_DELAY_MS)
 		}),
 	]

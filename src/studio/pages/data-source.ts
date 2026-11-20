@@ -15,12 +15,18 @@ export interface PageQueryPlan {
 	params: Record<string, unknown>
 }
 
+export interface PagesDataEvent {
+	type: string
+	documentId?: string
+	transition?: 'update' | 'appear' | 'disappear'
+}
+
 export interface PagesDataSource {
 	fetch<T>(plan: PageQueryPlan, signal: AbortSignal): Promise<T>
 	/** Read-only display metadata, never completeness/permission evidence for writes. */
 	fetchFolderRegistry(signal: AbortSignal): Promise<unknown>
 	listen(observer: {
-		next: (event: { type: string }) => void
+		next: (event: PagesDataEvent) => void
 		error: () => void
 	}): {
 		unsubscribe(): void

@@ -529,12 +529,19 @@ validates the complete registry before displaying any saved records. A missing
 or invisible registry adds no saved folders; it does not establish absence for
 writing. See [Folders](folders.md#displaying-saved-folders-in-pages).
 
-The listener requests all document versions, including drafts and releases, so
-their changes can invalidate an effective-perspective result. Notifications are
-not patched into the list: the session asks Content Lake for a fresh result.
-Mutation bursts are grouped into a 150 ms refresh window. Obsolete requests are
-aborted immediately, and their responses are ignored even if a transport does not
-honor cancellation.
+The listener requests all document versions, including drafts and releases.
+Pages uses the document ID and event type to decide what to read again. An
+update to a known ordinary page refreshes the page tree. An update to a known
+collection item refreshes that collection's recent items and any open list or
+search for that collection. Even a body edit can change the order of recent
+items. Both kinds of update refresh the header lookups so the preview can
+follow a saved URL change. A folder registry update refreshes the saved folders.
+
+Pages matches an event to the exact draft, published document, or release
+version it has already read. Creates, deletes, and changes it cannot identify
+refresh all active results because they can change which version is visible.
+Changes within 150 ms share a refresh. When a change makes a request obsolete,
+Pages aborts it immediately and ignores any late response.
 
 A `welcome` event triggers a fresh read after the listener connects or reconnects.
 This closes the gap between an initial query and the listener becoming ready. A
@@ -547,9 +554,8 @@ Query visibility is best-effort, not a guarantee that every notified change is
 already queryable. While connected and in use, each session therefore rechecks
 active resources once per minute. It does not interrupt a slow request for that
 periodic check. See Sanity's [listener reference](https://www.sanity.io/docs/http-reference/listen)
-for event and visibility semantics. This extra read has a cost: for a loaded tree
-it rereads all ordinary pages, and for a collection it rereads the loaded depth.
-Later optimization can narrow invalidation without changing the UI contract.
+for event and visibility semantics. A periodic check rereads the ordinary pages
+when the tree is open, or the loaded batches when a collection is open.
 
 ### Keep useful data without mixing views
 

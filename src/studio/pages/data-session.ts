@@ -4,7 +4,11 @@
  * keeps the session alive. See docs/pages.md: “Shared live-data loading”.
  */
 import type { PagesRuntime } from './runtime.js'
-import type { PagesDataSource, PageQueryPlan } from './data-source.js'
+import type {
+	PagesDataEvent,
+	PagesDataSource,
+	PageQueryPlan,
+} from './data-source.js'
 import type { PageDocument } from './model.js'
 import { buildNavigationTree } from './navigation.js'
 import {
@@ -15,7 +19,7 @@ import {
 } from './queries.js'
 import { readPageSnapshot } from './snapshot.js'
 import type { FolderRecord } from '../folders/planner.js'
-import { readNavigationFolders } from './folder-registry.js'
+import { FOLDER_REGISTRY_ID, readNavigationFolders } from './folder-registry.js'
 
 export const CHANGE_DELAY_MS = 150
 export const RECONCILE_MS = 60_000
@@ -30,12 +34,15 @@ export interface DataSnapshot<T> {
 
 interface ResourceControl {
 	active(): boolean
-	invalidate(): void
+	invalidate(forgetMembership?: boolean): void
 	refresh(): void
+	refreshIfDirty(): void
 	reconcile(): void
 	connection(disconnected: boolean): void
 	reset(): void
 }
+
+type ReadScope = 'identity' | 'folders' | 'pages' | `collection:${string}`
 
 /** Small external store: getSnapshot is stable until something actually changes. */
 class DataResource<T> implements ResourceControl {
@@ -43,6 +50,7 @@ class DataResource<T> implements ResourceControl {
 	private controller: AbortController | undefined
 	private dirty = true
 	private loaded = false
+	private membershipKnown = false
 	private snapshot: DataSnapshot<T>
 	constructor(
 		private initial: T,
@@ -71,6 +79,7 @@ class DataResource<T> implements ResourceControl {
 		for (const listener of this.listeners) listener()
 	}
 	getSnapshot = () => this.snapshot
+	knownData = () => (this.membershipKnown ? this.snapshot.data : undefined)
 	subscribe = (listener: () => void) => {
 		// Separate subscriptions can legitimately use the same callback.
 		const notify = () => listener()
@@ -87,7 +96,8 @@ class DataResource<T> implements ResourceControl {
 		}
 	}
 	active = () => this.listeners.size > 0
-	invalidate = () => {
+	invalidate = (forgetMembership = false) => {
+		if (forgetMembership) this.membershipKnown = false
 		this.dirty = true
 		this.controller?.abort()
 		this.controller = undefined
@@ -101,7 +111,7 @@ class DataResource<T> implements ResourceControl {
 			)
 	}
 	reset = () => {
-		this.invalidate()
+		this.invalidate(true)
 		this.loaded = false
 		this.snapshot = {
 			...this.empty(),
@@ -110,6 +120,9 @@ class DataResource<T> implements ResourceControl {
 	}
 	refresh = () => {
 		if (this.active()) this.start(false)
+	}
+	refreshIfDirty = () => {
+		if (this.dirty) this.refresh()
 	}
 	reconcile = () => {
 		// A periodic check must not continually abort a slow multi-batch read.
@@ -152,6 +165,7 @@ class DataResource<T> implements ResourceControl {
 						return
 					this.controller = undefined
 					this.loaded = true
+					this.membershipKnown = true
 					this.publish({
 						data,
 						loading: false,
@@ -213,7 +227,17 @@ export function createPagesDataSession(
 	onPathsChanged?: () => void,
 ): PagesDataSession {
 	const queries = createNavigationQueries(runtime.registry)
-	const resources = new Set<ResourceControl>()
+	const resources = new Map<
+		ResourceControl,
+		{
+			scope: ReadScope
+			documents: (() => readonly PageDocument[] | undefined) | undefined
+		}
+	>()
+	const pending = new Set<ResourceControl>()
+	const types = new Map(
+		runtime.registry.types.map((type) => [type.schemaType, type]),
+	)
 	let references = 0
 	let generation = 0
 	let subscription: { unsubscribe(): void } | undefined
@@ -223,15 +247,64 @@ export function createPagesDataSession(
 
 	function connection(value: boolean) {
 		disconnected = value
-		for (const resource of resources) resource.connection(value)
+		for (const resource of resources.keys()) resource.connection(value)
 	}
-	function refresh() {
+	function clearPending() {
 		clearTimeout(changeTimer)
 		changeTimer = undefined
-		for (const resource of resources) resource.refresh()
+		pending.clear()
 	}
-	function invalidate() {
-		for (const resource of resources) resource.invalidate()
+	function refreshAll() {
+		clearPending()
+		for (const resource of resources.keys()) {
+			resource.invalidate(true)
+			resource.refresh()
+		}
+	}
+	function loseConnection() {
+		connection(true)
+		clearPending()
+		for (const resource of resources.keys()) resource.invalidate(true)
+	}
+	function mutationScope(event: PagesDataEvent): ReadScope | undefined {
+		if (event.documentId === FOLDER_REGISTRY_ID) return 'folders'
+		if (disconnected || event.transition !== 'update' || !event.documentId)
+			return
+
+		// A same-document update cannot change its type. A create or delete can
+		// change which version is visible, so those events refresh all resources.
+		// Use the physical ID, since another version of the same canonical ID
+		// isn't evidence about the document that generated the event.
+		let schemaType: string | undefined
+		for (const { documents } of resources.values()) {
+			for (const document of documents?.() ?? []) {
+				if ((document._originalId ?? document._id) !== event.documentId)
+					continue
+				if (schemaType && schemaType !== document._type) return
+				schemaType = document._type
+			}
+		}
+		const type = schemaType && types.get(schemaType)
+		if (type) return type.collection ? `collection:${type.collection}` : 'pages'
+	}
+	function queueMutation(event: PagesDataEvent) {
+		const scope = mutationScope(event)
+		for (const [resource, entry] of resources) {
+			if (
+				!scope ||
+				entry.scope === scope ||
+				(scope !== 'folders' && entry.scope === 'identity')
+			) {
+				resource.invalidate(!scope)
+				if (resource.active()) pending.add(resource)
+			}
+		}
+		// Coalesce a burst without postponing forever during typing.
+		changeTimer ??= setTimeout(() => {
+			changeTimer = undefined
+			for (const resource of pending) resource.refreshIfDirty()
+			pending.clear()
+		}, CHANGE_DELAY_MS)
 	}
 	function listen() {
 		const token = ++generation
@@ -241,32 +314,23 @@ export function createPagesDataSession(
 				next: (event) => {
 					if (token !== generation || references === 0) return
 					if (event.type === 'reconnect') {
-						connection(true)
-						invalidate()
-						clearTimeout(changeTimer)
-						changeTimer = undefined
+						loseConnection()
 					} else if (event.type === 'welcome') {
 						connection(false)
 						// Refetch after establishment/reconnection to close the gap
 						// between an initial query and the listener becoming ready.
-						invalidate()
-						refresh()
+						refreshAll()
 					} else if (event.type === 'mutation') {
-						invalidate()
-						// Coalesce a burst without postponing forever during typing.
-						changeTimer ??= setTimeout(refresh, CHANGE_DELAY_MS)
+						queueMutation(event)
 					}
 				},
 				error: () => {
 					if (token !== generation || references === 0) return
-					connection(true)
-					invalidate()
-					clearTimeout(changeTimer)
-					changeTimer = undefined
+					loseConnection()
 				},
 			})
 		} catch {
-			connection(true)
+			loseConnection()
 		}
 	}
 	const owner = {
@@ -277,7 +341,7 @@ export function createPagesDataSession(
 			// periodic read repairs missed/early notifications while the tool is open.
 			reconcileTimer = setInterval(() => {
 				if (!disconnected) {
-					for (const resource of resources) resource.reconcile()
+					for (const resource of resources.keys()) resource.reconcile()
 				}
 			}, RECONCILE_MS)
 		},
@@ -286,55 +350,79 @@ export function createPagesDataSession(
 			generation++
 			subscription?.unsubscribe()
 			subscription = undefined
-			clearTimeout(changeTimer)
-			changeTimer = undefined
+			clearPending()
 			clearInterval(reconcileTimer)
 			connection(false)
-			for (const resource of resources) resource.reset()
+			for (const resource of resources.keys()) resource.reset()
 		},
 	}
 	function resource<T>(
+		scope: ReadScope,
 		initial: T,
 		load: (signal: AbortSignal, previous: T, append: boolean) => Promise<T>,
-		canAppend?: (data: T) => boolean,
-		clearWhenUnused = false,
+		options: {
+			documents?: (data: T) => readonly PageDocument[]
+			canAppend?: (data: T) => boolean
+			clearWhenUnused?: boolean
+		} = {},
 	) {
 		const result = new DataResource(
 			initial,
 			load,
 			owner,
-			canAppend,
-			clearWhenUnused,
+			options.canAppend,
+			options.clearWhenUnused,
 		)
 		result.connection(disconnected)
-		resources.add(result)
+		const documents = options.documents
+		resources.set(result, {
+			scope,
+			documents:
+				documents &&
+				(() => {
+					const data = result.knownData()
+					return data === undefined ? undefined : documents(data)
+				}),
+		})
 		return result
 	}
 	const identities = new Map<string, DataResource<PageDocument[]>>()
-	const folders = resource<readonly FolderRecord[]>([], async (signal) => {
-		const input = await source.fetchFolderRegistry(signal)
-		signal.throwIfAborted()
-		return readNavigationFolders(runtime.registry, input)
-	})
+	const folders = resource<readonly FolderRecord[]>(
+		'folders',
+		[],
+		async (signal) => {
+			const input = await source.fetchFolderRegistry(signal)
+			signal.throwIfAborted()
+			return readNavigationFolders(runtime.registry, input)
+		},
+	)
 	let pathSignature: string | undefined
 	const pages = resource<{
 		documents: NavigationDocument[]
 		tree: ReturnType<typeof buildNavigationTree>
-	}>({ documents: [], tree: { roots: [], unfiled: [] } }, async (signal) => {
-		const documents = await readPageSnapshot(
-			queries,
-			(plan, abort) => source.fetch(plan, abort),
-			signal,
-		)
-		const signature = JSON.stringify(
-			documents.map((document) => [document._id, document.pathname]),
-		)
-		if (pathSignature !== signature) {
-			pathSignature = signature
-			onPathsChanged?.()
-		}
-		return { documents, tree: buildNavigationTree(runtime.registry, documents) }
-	})
+	}>(
+		'pages',
+		{ documents: [], tree: { roots: [], unfiled: [] } },
+		async (signal) => {
+			const documents = await readPageSnapshot(
+				queries,
+				(plan, abort) => source.fetch(plan, abort),
+				signal,
+			)
+			const signature = JSON.stringify(
+				documents.map((document) => [document._id, document.pathname]),
+			)
+			if (pathSignature !== signature) {
+				pathSignature = signature
+				onPathsChanged?.()
+			}
+			return {
+				documents,
+				tree: buildNavigationTree(runtime.registry, documents),
+			}
+		},
+		{ documents: (data) => data.documents },
+	)
 	const recent = new Map<
 		string,
 		DataResource<{ total: number; documents: NavigationDocument[] }>
@@ -349,11 +437,11 @@ export function createPagesDataSession(
 				identities.set(
 					key,
 					resource<PageDocument[]>(
+						'identity',
 						[],
 						(signal) =>
 							plan ? source.fetch(plan, signal) : Promise.resolve([]),
-						undefined,
-						true,
+						{ documents: (data) => data, clearWhenUnused: true },
 					),
 				)
 			// Keep resource identity stable across renders. Disused results are cleared
@@ -367,8 +455,10 @@ export function createPagesDataSession(
 				recent.set(
 					name,
 					resource(
+						`collection:${name}`,
 						{ total: 0, documents: [] as NavigationDocument[] },
 						(signal) => source.fetch(plan, signal),
+						{ documents: (data) => data.documents },
 					),
 				)
 			return recent.get(name)!
@@ -386,6 +476,7 @@ export function createPagesDataSession(
 				collections.set(
 					key,
 					resource<CollectionData>(
+						`collection:${name}`,
 						{ documents: [], next: undefined, batches: 0 },
 						async (signal, previous, append) => {
 							let next = append ? previous.next : undefined
@@ -413,7 +504,10 @@ export function createPagesDataSession(
 							}
 							return { documents: [...documents.values()], next, batches }
 						},
-						(data) => data.next !== undefined,
+						{
+							documents: (data) => data.documents,
+							canAppend: (data) => data.next !== undefined,
+						},
 					),
 				)
 			return collections.get(key)!
@@ -421,8 +515,7 @@ export function createPagesDataSession(
 		retry: () => {
 			if (!references) return
 			if (disconnected) listen()
-			invalidate()
-			refresh()
+			refreshAll()
 		},
 	}
 }

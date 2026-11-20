@@ -611,15 +611,29 @@ associated lookup keys and closures. The count does not estimate their size in
 bytes. It distinguishes growing session bookkeeping from retaining the
 results of every historical search.
 
+### Narrower refreshes for known edits
+
+Measured November 20, 2026 with the same fixture. The runner now supplies the
+document ID and update transition that a routine save sends. Pages can use this
+information when it has already seen that exact version of the document.
+
+| Action                                                         | Queries before → after | JSON result bytes before → after |
+| -------------------------------------------------------------- | ---------------------: | -------------------------------: |
+| Three post body saves within one window, tree open             |                 15 → 3 |                  148,969 → 1,001 |
+| Three post body saves across separate windows, tree open       |                 45 → 9 |                  446,907 → 3,003 |
+| Known ordinary page body save with six collection batches open |                  8 → 2 |                     45,776 → 228 |
+| Reconnect with six collection batches open                     |                  8 → 8 |                  45,776 → 45,828 |
+
+In the tree sample, the three reads cover recent posts and the two header
+lookups. In the collection sample, Pages recognizes the ordinary page from its
+earlier tree read. It updates the header and leaves the six batches alone.
+An unseen document version still triggers a broad refresh. The header results
+now include the source ID used to match events, adding 52 JSON bytes across the
+two lookups in this fixture. The once-a-minute check still runs the full set of
+active reads. These counts come from local evaluation of synthetic data.
+
 ### Follow-up priorities
 
-1. Narrow refreshes for ordinary mutations. Target only reads that could have
-   changed when the event and known document membership establish that safely.
-   The first target is avoiding an ordinary-page snapshot after a known
-   collection-only edit. Preserve broad refreshes on reconnect and periodic
-   reconciliation unless an alternative closes the same missed-event gap.
-   Keep broad refreshes for ambiguous mutations and cover creates, deletes,
-   version changes, ordering, and preview following before changing the policy.
-2. Bound inactive search and identity resources. Preserve stable identities
+1. Bound inactive search and identity resources. Preserve stable identities
    for active subscriptions and the current browser view. Measure again after
    eviction to confirm that a long session stops growing.

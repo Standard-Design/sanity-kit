@@ -15,8 +15,6 @@ import type { PagesRegistry } from './registry.js'
 
 export interface NavigationDocument extends PageDocument {
 	_updatedAt: string
-	/** Content Lake's source identity; not enough to determine publication status. */
-	_originalId?: string | null
 }
 
 export interface CollectionCursor {

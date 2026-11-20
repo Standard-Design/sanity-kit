@@ -47,7 +47,13 @@ describe('Targeted Pages header identity', () => {
 			page('old', '/old'),
 		]
 		expect(await read(plan, dataset)).toEqual([
-			{ _id: 'old', _type: 'page', title: 'Page old', pathname: '/old' },
+			{
+				_id: 'old',
+				_originalId: null,
+				_type: 'page',
+				title: 'Page old',
+				pathname: '/old',
+			},
 		])
 		expect(plan?.query).not.toContain('order(')
 		expect(plan).toEqual(model.previewQuery('/old'))
@@ -89,10 +95,16 @@ describe('Targeted Pages header identity', () => {
 		async (id) => {
 			expect(
 				await read(model.documentQuery(id, 'page'), [
-					{ _id: 'old', _type: 'page', heading: 'Unfinished' },
+					{ _id: 'old', _originalId: id, _type: 'page', heading: 'Unfinished' },
 				]),
 			).toEqual([
-				{ _id: 'old', _type: 'page', title: 'Unfinished', pathname: null },
+				{
+					_id: 'old',
+					_originalId: id,
+					_type: 'page',
+					title: 'Unfinished',
+					pathname: null,
+				},
 			])
 		},
 	)

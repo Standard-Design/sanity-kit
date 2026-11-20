@@ -10,6 +10,8 @@ import { pagePathFilter, pageProjection } from './resolvers.js'
 
 export interface PageDocument {
 	_id: string
+	/** The source ID of an effective-perspective result. */
+	_originalId?: string | null
 	_type: string
 	title: string | null
 	pathname: string | null
@@ -17,6 +19,7 @@ export interface PageDocument {
 
 export function createBrowserModel(registry: PagesRegistry) {
 	const types = Object.freeze(registry.types.map((type) => type.schemaType))
+	const projection = `${pageProjection(registry)}, _originalId`
 	function previewQuery(preview?: string): PageQueryPlan | undefined {
 		if (!preview) return undefined
 		try {
@@ -25,9 +28,7 @@ export function createBrowserModel(registry: PagesRegistry) {
 			if (!plan) return undefined
 			// Two matches are enough to detect ambiguity; never pick the newest one.
 			return {
-				query: defineQuery(
-					`*[${plan.filter}][0...2] { ${pageProjection(registry)} }`,
-				),
+				query: defineQuery(`*[${plan.filter}][0...2] { ${projection} }`),
 				params: plan.params,
 			}
 		} catch {
@@ -46,7 +47,7 @@ export function createBrowserModel(registry: PagesRegistry) {
 			.replace(/^versions\.[^.]+\./, '')
 		return {
 			query: defineQuery(
-				`*[_id == $id && _type == $type][0...1] { ${pageProjection(registry)} }`,
+				`*[_id == $id && _type == $type][0...1] { ${projection} }`,
 			),
 			params: { id: canonicalId, type },
 		}
