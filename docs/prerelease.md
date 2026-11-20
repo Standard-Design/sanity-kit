@@ -490,9 +490,12 @@ Pages and routing entries require the following peers:
 | `/url/settings`, `/redirect`, `/folders/server` | `groq`                                                                                                                                                     |
 | `/studio`                                       | Sanity, Sanity UI, Sanity icons, React/React DOM, `groq`, styled-components, react-focus-lock, `@tanstack/react-virtual`, i18next, react-i18next, and RxJS |
 
-The Studio baseline is Sanity `6.17.0` exactly. See the
-[Studio dependency details](pages.md#dependencies-and-package-isolation) and
-package manifest for all optional peer ranges. These are required only in the
+The released alpha.9 Studio baseline is Sanity `6.17.0` exactly. Builds from
+current source use Sanity `6.24.0` and the matching UI, icons, and translation
+versions. Check the manifest of the artifact you install and update any Studio
+translation overrides alongside it. See the
+[Studio dependency details](pages.md#dependencies-and-package-isolation) for
+the source setup. Studio peers are required only in the
 consumer package that imports `/studio`; the kit does not supply a Studio app.
 The new redirect middleware uses the existing `/react-router/server` peers.
 

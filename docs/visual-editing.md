@@ -23,10 +23,10 @@ and correctly configured Studio does not establish a complete preview workflow.
 
 ## Discard changes: native refresh limitation
 
-Sanity 6.17.0 can leave an existing preview stale after **Discard changes** removes
-a draft while the published document's revision stays unchanged. Normal edits
-refresh, but this transition does not send the native mutation refresh message.
-The isolated notifier check also reproduced it in Sanity 6.24.0. Use Studio's
+Sanity 6.17.0 and 6.24.0 can leave an existing preview stale after
+**Discard changes** removes a draft while the published document's revision
+stays unchanged. Normal edits refresh, but this transition does not send the
+native mutation refresh message. Use Studio's
 **Refresh preview** button to load the current published fallback.
 
 This is an upstream Presentation notification gap. The kit's wrapper delegates

@@ -262,13 +262,13 @@ own picker for the input to focus on that initial Tab.
 
 ## Compatibility and checks
 
-The reusable plugin candidate pins Sanity **6.17.0** as an optional peer and uses
-caret ranges from Sanity UI **4.4.10**, styled-components **6.5.3**, and
-react-focus-lock **2.13.7**. The development installation pins those baselines.
-The fixture uses React/React DOM **19.3.1**. These versions address the earlier
-CLI and Portable Text peer mismatches. They define one tested baseline, not
-support for every Sanity version. The existing released package has no Studio
-plugin; no release is implied by this fixture.
+The development fixture pins Sanity **6.24.0** and Sanity UI **4.4.12**.
+The Studio setup also uses Sanity icons **5.4.0**, i18next **26.7.2**,
+react-i18next **17.1.13**, styled-components **6.5.3**,
+react-focus-lock **2.13.7**, and React/React DOM **19.3.1**. The kit's Studio
+peer pins the exact Sanity version, while other peers use compatible ranges.
+See the [Studio dependency guide](../../../docs/pages.md#dependencies-and-package-isolation)
+for consumer setup and translation overrides.
 
 One development peer warning remains: `@sanity/workflow-blueprint@0.36.0`
 requests TypeScript 6 or 7, while this repository uses 5.9.3. Do not describe the

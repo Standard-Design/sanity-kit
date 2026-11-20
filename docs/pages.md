@@ -169,14 +169,13 @@ safeguards continue to apply.
 
 ## Dependencies and package isolation
 
-The initial candidate is deliberately restricted to one Studio baseline:
-Sanity **6.17.0**, Sanity UI **4.4.10**, styled-components **6.5.3**, and
+The Studio integration uses one tested baseline:
+Sanity **6.24.0**, Sanity UI **4.4.12**, styled-components **6.5.3**, and
 react-focus-lock **2.13.7**, TanStack React Virtual **3.14.22**, and Sanity icons
-**5.2.2**, with React/React DOM
+**5.4.0**, with React/React DOM
 **19.3.1** in the Studio tests.
-Sanity itself is an exact peer version. The other Studio peers use caret
-ranges from those baselines, so the plugin does not unnecessarily pin shared
-Visual Editing UI dependencies to one patch/minor version.
+Sanity itself is an exact peer version. The other Studio peers use compatible
+ranges so the plugin can share UI dependencies with Studio and Visual Editing.
 Sanity's header/navigator extension slots are unstable; a broad version range
 would promise compatibility we have not checked. This baseline may need widening
 before adoption by an existing Studio.
@@ -192,14 +191,15 @@ The translation libraries scope active-redirect deletion wording to its native
 confirmation dialog. Studio already depends on both libraries. The kit and Studio
 must resolve the same copies so the native dialog receives the scoped warning.
 With pnpm, if your lockfile resolves two copies, align them with workspace
-overrides. For example, this matches the Studio 6.17.0 versions verified in
-Standard Stack. Add the entries to your existing `overrides` in
+overrides. For example, these versions match the Studio 6.24.0 test setup.
+Update older translation overrides when moving to this Studio version. Add the
+entries to your existing `overrides` in
 `pnpm-workspace.yaml`.
 
 ```yaml
 overrides:
-  i18next: 26.4.2
-  react-i18next: 17.0.15
+  i18next: 26.7.2
+  react-i18next: 17.1.13
 ```
 
 With these overrides, the Studio package can omit both direct dependencies.

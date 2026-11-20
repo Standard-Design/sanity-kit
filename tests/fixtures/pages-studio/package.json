@@ -3,10 +3,10 @@
 	"private": true,
 	"type": "module",
 	"dependencies": {
-		"@sanity/ui": "4.4.10",
+		"@sanity/ui": "4.4.12",
 		"react": "19.3.1",
 		"react-dom": "19.3.1",
-		"sanity": "6.17.0",
+		"sanity": "6.24.0",
 		"styled-components": "6.5.3"
 	}
 }

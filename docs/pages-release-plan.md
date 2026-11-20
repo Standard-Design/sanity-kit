@@ -121,6 +121,23 @@ records 8 passing controls, 1 expected failure, and the related removal cases.
 An upstream fix is recommended first. This is a documented follow-up, not a
 claim of a completed fix or a new release gate.
 
+## Studio 6.24.0 compatibility
+
+The next release moves the exact Studio peer from 6.17.0 to 6.24.0. The
+tested setup uses Sanity UI 4.4.12, Sanity icons 5.4.0, i18next 26.7.2,
+and react-i18next 17.1.13. Update consumer Studio and translation overrides
+together. The installed-package checks cover Pages and standalone Structure,
+plus the existing client 7 and 8 application profiles.
+
+The native CLI built a separate Studio from the packed kit's public exports.
+In Chrome for Testing 153, Pages rendered the tree, editor, and website preview.
+Journal search opened the matching item in both panes. A disposable page's
+draft URL autosaved and moved the preview while keeping its query and fragment.
+The checked Publish review showed both paths and its redirect option. The
+native Delete dialog displayed the kit's warning for an active redirect. Both
+dialogs were canceled, and the temporary page and draft were removed after
+checking their revisions. The discard-preview limitation above still applies.
+
 ## Alpha.6 implementation and acceptance record
 
 The approved commit, `ca1c65f`, was tagged `v0.1.0-alpha.6`. Main and release-tag
