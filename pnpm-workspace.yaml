@@ -1,5 +1,2 @@
 allowBuilds:
   esbuild@0.28.2: true
-minimumReleaseAgeExclude:
-  # Remove after 8.17.0 passes the default release-age check.
-  - '@sanity/client@8.17.0'
