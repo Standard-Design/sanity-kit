@@ -299,7 +299,9 @@ contents, runtime imports, TypeScript declarations, hidden deep
 imports, ordinary browser bundles, and a separate lazy Visual Editing chunk.
 It exercises minimal core peers, current development peers, and declared minimum
 peer versions, the client 8 minimum (`8.6.1`), and Standard Stack's client 7/React
-19.3 combination. A separate negative install check ensures that a strict
+19.3 combination. The client 7.27.0 and 8.6.1 profiles use Visual Editing 6.1.2.
+The current Visual Editing 6.2.1 is checked with clients 7.28.0 and 8.17.0.
+A separate negative install check ensures that a strict
 consumer rejects deprecated client `8.6.0`. Ordinary
 fixtures use npm; the Standard Stack fixture uses pnpm to test the intended
 consumer installation route. All install scripts are disabled. Ordinary

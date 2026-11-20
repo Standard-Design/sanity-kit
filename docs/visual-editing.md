@@ -9,6 +9,10 @@ Install `@sanity/visual-editing ^6.1.2` and its peers, including
 4.x is not supported by this adapter. See the
 [peer requirements and declaration-check caveat](prerelease.md#verification-and-handoff).
 
+Visual Editing 6.2.1 requires client `^7.28.0 || ^8.11.0`. When using client
+7.27.0 or 8.6.1, use Visual Editing 6.1.2. SanityKit's supported client ranges
+apply independently of Visual Editing's requirements.
+
 ## How it connects to the rest of the kit
 
 The [server session](server.md) decides whether a request is in preview and which

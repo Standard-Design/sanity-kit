@@ -171,7 +171,7 @@ safeguards continue to apply.
 
 The Studio integration uses one tested baseline:
 Sanity **6.24.0**, Sanity UI **4.4.12**, styled-components **6.5.3**, and
-react-focus-lock **2.13.7**, TanStack React Virtual **3.14.22**, and Sanity icons
+react-focus-lock **2.13.7**, TanStack React Virtual **3.14.26**, and Sanity icons
 **5.4.0**, with React/React DOM
 **19.3.1** in the Studio tests.
 Sanity itself is an exact peer version. The other Studio peers use compatible

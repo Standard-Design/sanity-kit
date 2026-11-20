@@ -138,6 +138,19 @@ native Delete dialog displayed the kit's warning for an active redirect. Both
 dialogs were canceled, and the temporary page and draft were removed after
 checking their revisions. The discard-preview limitation above still applies.
 
+The separate dependency update tests client 8.17.0, Visual Editing 6.2.1,
+and TanStack React Virtual 3.14.26. Packed consumers pair Visual Editing 6.2.1
+with clients 7.28.0 and 8.17.0. The older client profiles run with Visual
+Editing 6.1.2, preserving the kit's existing peer ranges.
+
+In Chrome for Testing, the proof website using the updated client and Visual
+Editing opened the matching Studio document on preview navigation. Its shared
+footer overlay opened the shared document while About stayed in preview. An
+existing published redirect also returned 301 through the updated client. The
+isolated virtual navigator loaded all 1,002 fixture pages with 12 of 1,005 rows
+mounted initially. Keyboard focus reached Page 125, the picker restored that
+position, and collapsing and re-expanding the tree returned it to the top.
+
 ## Alpha.6 implementation and acceptance record
 
 The approved commit, `ca1c65f`, was tagged `v0.1.0-alpha.6`. Main and release-tag

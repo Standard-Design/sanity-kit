@@ -347,12 +347,28 @@ const matrices = [
 	{ name: 'minimum', peers: { ...minimum, ...types }, full: true },
 	{
 		name: 'minimum-client-8',
-		peers: { ...current, ...types, '@sanity/client': '8.6.1' },
+		peers: {
+			...current,
+			...types,
+			'@sanity/client': '8.6.1',
+			'@sanity/visual-editing': minimum['@sanity/visual-editing'],
+		},
 		full: true,
 	},
 	{
 		name: 'standard-stack',
-		peers: { ...current, ...types, '@sanity/client': '7.27.0' },
+		peers: {
+			...current,
+			...types,
+			'@sanity/client': '7.27.0',
+			'@sanity/visual-editing': minimum['@sanity/visual-editing'],
+		},
+		full: true,
+	},
+	{
+		// Visual Editing 6.2.1 raises its client floor independently of the kit.
+		name: 'current-visual-editing-client-7',
+		peers: { ...current, ...types, '@sanity/client': '7.28.0' },
 		full: true,
 	},
 ]

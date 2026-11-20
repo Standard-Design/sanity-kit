@@ -174,15 +174,15 @@
 		}
 	},
 	"devDependencies": {
-		"@tanstack/react-virtual": "3.14.22",
+		"@tanstack/react-virtual": "3.14.26",
 		"@arethetypeswrong/cli": "^0.18.5",
 		"@eslint/js": "^10.0.1",
-		"@sanity/client": "^8.6.1",
+		"@sanity/client": "^8.17.0",
 		"@sanity/icons": "5.4.0",
 		"@sanity/image-url": "^2.1.1",
 		"@sanity/preview-url-secret": "^4.1.0",
 		"@sanity/ui": "4.4.12",
-		"@sanity/visual-editing": "^6.1.2",
+		"@sanity/visual-editing": "^6.2.1",
 		"@types/node": "^24.0.0",
 		"@types/react": "^19.3.0",
 		"@types/react-dom": "^19.3.0",
