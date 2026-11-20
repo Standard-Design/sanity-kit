@@ -103,11 +103,12 @@ counts and projected size against publishing-check limits. Contextual notices
 and review measurements should explain approaching limits. No automatic cleanup,
 new UI, or diagnostics API is implemented in alpha.9.
 
-Publish the current changes as alpha.9 before beginning navigator data profiling.
-The next audit priorities are query/byte/memory measurements during editing and
-reconnects, a simpler current installation guide with historical-doc cleanup,
-and the approved redirect diagnostics. These are follow-up work, not claims
-about this release or reasons to expand its scope.
+The [navigator data baseline](navigator-acceptance.md#navigator-data-baseline)
+measured query counts, result sizes, and resource retention after alpha.9.
+Start the performance follow-up by narrowing routine refreshes where the
+changed document is known, then bound inactive search and document lookups.
+A shorter installation guide and the approved redirect diagnostics remain
+separate audit priorities.
 
 ## Native Discard changes refresh follow-up
 

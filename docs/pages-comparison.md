@@ -313,11 +313,13 @@ can therefore cause repeated queries unrelated to the changed document's URL.
 Identity and search descriptors are retained for the tool session even after
 their result bodies are cleared.
 
-Profile query counts, response bytes, long sessions, reconnects, and concurrent
-editors. Consider narrowing invalidation using mutation identity/type, separating
-URL-relevant changes from other changes where reliable, and bounding descriptor
-caches. On-demand folder reads are a larger architectural option if realistic
-sites outgrow the complete snapshot. See [data sessions](../src/studio/pages/data-session.ts),
+The [navigator data baseline](navigator-acceptance.md#navigator-data-baseline)
+confirmed that a post body save can reload the ordinary-page tree and that an
+ordinary page save can reload every open collection batch. It also measured
+growth in retained lookup objects as searches and edited documents change.
+Prioritize narrowing routine refreshes where mutation identity permits, then
+bound inactive lookups. On-demand folder reads are a larger architectural
+option if realistic sites outgrow the complete snapshot. See [data sessions](../src/studio/pages/data-session.ts),
 [data stores](../src/studio/pages/data-store.ts), and [snapshot reads](../src/studio/pages/snapshot.ts).
 
 ### Revision checks do not establish global URL uniqueness

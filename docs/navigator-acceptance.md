@@ -546,3 +546,80 @@ type checking, and formatting. The final installed-package check also passed:
 TypeGen. It used an isolated snapshot of the final working source. The tarball
 integrity was
 `sha512-rv1Wv4M3vPxvywSlH+wTKo0yjgph2Iq+ihD1V2SkuIyd4Im3UaE3ZY0Yo6mPWG1NcJnyoj2/2cTjJJMxthKo0Q==`.
+
+## Navigator data baseline
+
+Measured November 19, 2026, against the alpha.9 data session at `b6b2636`.
+Virtualization limits how many rows React mounts. In this sample, the data
+session still read the full ordinary-page inventory whenever a registered post
+save triggered a refresh with the tree open.
+
+Run the profile from the repo root with Node 24 and the installed development
+dependencies:
+
+```sh
+node tests/fixtures/navigator-acceptance/profile-data.mjs
+```
+
+The runner exercises the actual Pages data session and GROQ plans against
+1,000 ordinary pages (including the Journal index), 5,000 posts, and 20 saved
+folders. It uses local GROQ evaluation and advances the session clock to
+reproduce notification and reconciliation windows. The tree sample has the
+folder registry, one recent-post section, and two header identity reads active.
+Browse All replaces the tree subscriptions with the collection list and keeps
+the header active. The runner makes no Content Lake requests or writes.
+
+| Action                                                      | Queries | JSON result bytes | Reads by purpose                                 |
+| ----------------------------------------------------------- | ------: | ----------------: | ------------------------------------------------ |
+| Open tree and header                                        |      15 |           148,969 | 11 ordinary page, 1 folder, 1 recent, 2 identity |
+| Listener becomes ready after those reads finish             |      15 |           148,969 | Same tree and header reads                       |
+| Three post body saves within one 150 ms window              |      15 |           148,969 | Same tree and header reads                       |
+| Three post body saves across separate windows               |      45 |           446,907 | Three complete refreshes                         |
+| One 60-second idle check with the tree open                 |      15 |           148,969 | Same tree and header reads                       |
+| Open Browse All                                             |       1 |             7,600 | 1 collection batch                               |
+| Load five more batches                                      |       5 |            38,000 | 5 collection batches                             |
+| Edit an ordinary page body with six collection batches open |       8 |            45,776 | 6 collection batches, 2 identity                 |
+| Disconnect / reconnect with six batches open                |   0 / 8 |        0 / 45,776 | Reads resume on welcome                          |
+| Search for `post-04`                                        |       1 |             7,600 | 1 collection batch                               |
+| Post notification with only the header mounted              |       2 |               176 | 2 identity                                       |
+
+The 1,000 ordinary pages fill ten 100-row batches. An eleventh, empty query
+detects the end. Ordinary-page results account for about 99% of the JSON bytes
+in each tree refresh. A collection query returns up to 51 rows, with one
+look-ahead row for pagination. The mutation sample changes post body text and
+`_updatedAt`. Refreshing recent posts can therefore be necessary even when the
+URL and title are unchanged.
+
+The byte counts measure the UTF-8 JSON results before compression. They
+exclude headers, query parameters, and the outer response wrapper. They do not
+measure transfer size, browser memory, network latency, query cost on Sanity's
+servers, or reads made by native Studio and Visual Editing.
+
+### Long-session retention
+
+With the header held open, the runner loaded 200 distinct collection searches
+and 200 distinct edited-document identities, one pair at a time. V8 counted 3
+resource objects before the loop and 403 after it. The previously loaded
+search's rows cleared when the next search started. Edited-document rows
+cleared on unsubscribe. The latest search retained one row until the header's
+last subscription closed, after which its rows also cleared.
+
+The 403 resource objects remained reachable while the session was still held,
+even after the last unsubscribe. The count returned to zero after the runner
+dropped the session itself. These are bookkeeping objects and their
+associated lookup keys and closures. The count does not estimate their size in
+bytes. It distinguishes growing session bookkeeping from retaining the
+results of every historical search.
+
+### Follow-up priorities
+
+1. Narrow refreshes for ordinary mutations. Target only reads that could have
+   changed when the event and known document membership establish that safely.
+   The first target is avoiding an ordinary-page snapshot after a known
+   collection-only edit. Preserve broad refreshes on reconnect and periodic
+   reconciliation unless an alternative closes the same missed-event gap.
+   Keep broad refreshes for ambiguous mutations and cover creates, deletes,
+   version changes, ordering, and preview following before changing the policy.
+2. Bound inactive search and identity resources. Preserve stable identities
+   for active subscriptions and the current browser view. Measure again after
+   eviction to confirm that a long session stops growing.
