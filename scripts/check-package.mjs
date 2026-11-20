@@ -173,7 +173,7 @@ for (const path of contents) {
 	assert.ok(
 		path.endsWith('.js') ||
 			path.endsWith('.d.ts') ||
-			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|url-field|pages|pages-comparison|pages-release-plan|pages-release-acceptance|collection-prefix-publication|collection-prefix-access|collection-prefix-write-access|collection-prefix-dialog|collection-settings-publication|navigator-acceptance|folders|folder-import|collection-routing|collection-routing-api|redirects|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
+			/^(package\.json|README\.md|LICENSE|THIRD_PARTY_NOTICES\.md|CHANGELOG\.md|docs\/(README|core|image|image-react|link|url|url-field|studio-installation|pages|pages-comparison|pages-release-plan|pages-release-acceptance|collection-prefix-publication|collection-prefix-access|collection-prefix-write-access|collection-prefix-dialog|collection-settings-publication|navigator-acceptance|folders|folder-import|collection-routing|collection-routing-api|redirects|pages-design-proposals|redirects-design|react-router|server|visual-editing|validation-zod|extraction-provenance|sitemaps|prerelease|loaders)\.md)$/u.test(
 				path,
 			),
 		`Unexpected packed file: ${path}`,
@@ -205,6 +205,7 @@ for (const required of [
 	'docs/link.md',
 	'docs/url.md',
 	'docs/url-field.md',
+	'docs/studio-installation.md',
 	'docs/pages.md',
 	'docs/pages-release-plan.md',
 	'docs/pages-release-acceptance.md',

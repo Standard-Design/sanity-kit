@@ -4,6 +4,9 @@ Pages is a page-browser plugin for an application's existing Sanity Studio. It h
 page, preview it, and open its document without leaving Sanity's native
 Presentation tool.
 
+For dependencies and a complete starter configuration, begin with the
+[Studio installation guide](studio-installation.md).
+
 Import `pagesTool()` and the companion Studio installers from
 `@standard-design/sanity-kit/studio`. Editors can browse pages and collections,
 create pages from registered templates, manage saved folders, and review folder
@@ -206,13 +209,14 @@ With these overrides, the Studio package can omit both direct dependencies.
 After updating the lockfile, open Delete on a published, enabled redirect and
 check that the live redirect warning appears.
 
-The consuming Studio supplies them; the kit does not bundle another Sanity
-runtime. They are optional for the package as a whole, but required when using
-`/studio`. Frontend consumers do not need them. React remains a shared peer,
-with existing frontend compatibility unchanged.
-Studio consumers also need the existing `groq` peer (`^5.1.0`) for the navigator
-query builders. The packed Studio test installs it explicitly rather than relying
-on a hoisted copy from another dependency.
+These peers must resolve when using `/studio`. Studio 6.24.0 already installs
+Sanity UI, Sanity icons, the virtualizer, focus lock, RxJS, and the translation
+libraries. SanityKit can use those compatible copies. Whether a peer needs its
+own entry in your Studio's `package.json` depends on your package manager's
+resolution and what your code imports directly.
+Declare a supported `groq` 5 version (`^5.1.0`) for the navigator queries.
+Some install layouts expose a transitive GROQ 6 copy, which is outside that
+range. See the [Studio install command](studio-installation.md#1-add-sanitykit-to-your-studio).
 
 Packed-consumer checks install Studio separately from the frontend profiles.
 Minimal-consumer checks reject all Studio peer installation. Full frontend

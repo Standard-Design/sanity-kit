@@ -13,11 +13,8 @@ Start with the [quick start](#quick-start) for the setup sequence. Use the
 and detailed subsystem guides. The [extraction record](docs/extraction-provenance.md)
 explains where the package came from and what changed during extraction.
 
-For the Studio and routing APIs, see [Pages](docs/pages.md), the
-[URL field](docs/url-field.md), [collection routing](docs/collection-routing-api.md),
-and [redirect handling](docs/redirects.md). Consumers own their Studio and
-application routes. The kit supplies installers and helpers,
-not a Studio application or hosting service.
+To add Pages, the URL field, collection settings, or redirects to your own
+Studio, start with the [Studio installation guide](docs/studio-installation.md).
 
 ## Table of contents
 
@@ -53,6 +50,8 @@ pnpm add @standard-design/sanity-kit@0.1.0-alpha.9
 See the [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.9)
 for the tarball, npm tag assignments, and verification results. The
 [release guide](docs/prerelease.md#release-status) links to the release records.
+For Studio setup and matching peer versions, use the
+[Studio installation guide](docs/studio-installation.md).
 
 You can also install the reviewed compiled tarball from the release assets;
 see [artifact verification and handoff](docs/prerelease.md#verification-and-handoff).

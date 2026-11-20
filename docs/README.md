@@ -1,10 +1,9 @@
 # Documentation
 
-These guides cover `@standard-design/sanity-kit@0.1.0-alpha.8`, including the
-Pages, URL field, collection routing, and redirect APIs introduced in alpha.6.
-
 Start with the [README quick start](../README.md#quick-start) and
 [entry-point map](../README.md#package-entry-points-and-subsystem-guides).
+For Pages, the URL field, collection settings, and redirects, start with the
+[Studio installation guide](studio-installation.md).
 For published releases, read the [release status](prerelease.md#release-status),
 [scope migration](prerelease.md#upgrading-from-alpha3), and
 [changelog](../CHANGELOG.md). See [upgrading from alpha.5](prerelease.md#upgrading-from-alpha5)

@@ -75,6 +75,7 @@ for (const file of [
 	'docs/link.md',
 	'docs/url.md',
 	'docs/url-field.md',
+	'docs/studio-installation.md',
 	'docs/pages.md',
 	'docs/pages-comparison.md',
 	'docs/pages-release-plan.md',
