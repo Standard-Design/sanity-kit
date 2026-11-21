@@ -1,17 +1,16 @@
 # Prerelease integration
 
-This guide covers `@standard-design/sanity-kit@0.1.0-alpha.9`. Alpha.9 checks
-redirects by requested pathname, supports bounded pathname caching and explicit
-failure handling, and follows saved collection-item URL changes in preview.
-It includes the current setup, migration, and acceptance guides.
+This guide covers `@standard-design/sanity-kit@0.1.0-alpha.10`. Alpha.10 reduces
+navigator refreshes for known edits, updates the Studio peer to 6.24.0, and
+supports GROQ 5 and 6.
 Original code uses the [MIT license](../LICENSE);
 [third-party notices](../THIRD_PARTY_NOTICES.md) describe adapted code and
 Standard Design's MIT interpretation of conflicting Tinloof license declarations.
 Upstream confirmation remains a follow-up, not a release prerequisite.
 
-Follow the [alpha.8 upgrade guide](#upgrading-from-alpha8) to update an existing
-installation or the [alpha.5 upgrade guide](#upgrading-from-alpha5) to adopt
-Pages and the routing tools.
+Follow [Upgrading from alpha.9](#upgrading-from-alpha9) for an existing
+installation or the [Studio installation guide](studio-installation.md) to
+adopt Pages and the routing tools.
 
 ## Release status
 
@@ -19,6 +18,13 @@ Release artifacts, npm tags, and verification results are recorded in the
 [GitHub releases](https://github.com/Standard-Design/sanity-kit/releases) and
 [npm version history](https://www.npmjs.com/package/@standard-design/sanity-kit?activeTab=versions).
 Use an exact version for repeatable installs.
+
+### Alpha.9
+
+Alpha.9 shipped request-specific redirect lookup, pathname caching, and saved
+collection-item URL following. See the [npm version](https://www.npmjs.com/package/@standard-design/sanity-kit/v/0.1.0-alpha.9)
+and [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.9)
+for the published package and its release records.
 
 ### Alpha.8
 
@@ -87,11 +93,11 @@ HTTP redirects through `/redirect`, and additive import synchronization through
 exports redirect middleware.
 
 Consumers own the Studio configuration, schemas, application routes, credentials,
-and cache backend. Start with [Pages](pages.md), [standalone URL fields](url-field.md),
-[collection settings installation](collection-settings-publication.md), and
-[HTTP redirect integration](redirects.md). Internal compiled paths are not public
-imports. Installing collection settings also installs checked publishing; native
-permissions, validation, and action availability still apply.
+and cache backend. Start with the [Studio installation guide](studio-installation.md)
+for Pages, the URL field, collection settings, and redirects. Use the public
+entry points above in application code. Installing collection settings also
+installs checked publishing, subject to native permissions, validation, and
+available actions.
 
 Native first-settings publication, unchanged-prefix saves, repeated prefix moves,
 redirect opt-out/retargeting, and the proof website's published HTTP redirects
@@ -110,11 +116,34 @@ remain in place. Deployed cache behavior belongs
 to the consuming application and must be verified there. The
 [Pages release plan](pages-release-plan.md) records acceptance and follow-up work.
 
+## Upgrading from alpha.9
+
+Update the kit in each workspace that uses it, including any separate TypeGen
+workspace.
+
+```sh
+pnpm add -E @standard-design/sanity-kit@0.1.0-alpha.10
+```
+
+1. If you use `/studio`, update your Studio to Sanity 6.24.0. Check any direct
+   Sanity UI and Sanity Icons dependencies against the tested versions in the
+   [Studio installation guide](studio-installation.md). If you use pnpm
+   translation overrides, update them to i18next 26.7.2 and react-i18next
+   17.1.13 so the redirect delete warning shares Studio's translation context.
+2. Keep a compatible `groq` 5 dependency or use `groq` 6.24.0 or a later
+   compatible 6.x version. The Studio can also reuse its GROQ 6 copy when
+   your package manager exposes it. For Visual Editing 6.2.1, use
+   `@sanity/client ^7.28.0 || ^8.11.0`. The
+   [Visual Editing guide](visual-editing.md) covers the older client profiles.
+3. Regenerate and commit the consumer lockfile. Run your typecheck, TypeGen, and
+   builds. In the Studio, open a page or collection item and save a test draft URL
+   change. Confirm the navigator and preview follow it. If you manage redirects,
+   check that deleting an active redirect shows the warning in Studio.
+
 ## Upgrading from alpha.8
 
-Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.9` in each workspace
-that uses the kit, then commit the updated lockfile. Dependency ranges and
-stored document formats are unchanged.
+Follow [Upgrading from alpha.9](#upgrading-from-alpha9) for the package update.
+Also apply the redirect changes introduced in alpha.9.
 
 Redirect integration has two behavior changes:
 
@@ -149,13 +178,8 @@ deployment/cache acceptance remains necessary before beta.
 
 ## Upgrading from alpha.7
 
-When upgrading directly to alpha.9, also apply the
-[redirect migration above](#upgrading-from-alpha8).
-
-Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.9` in each workspace
-that uses the kit, then commit the updated lockfile. Dependency ranges and
-stored data formats remain compatible; the redirect API/cache behavior changes
-as described in the alpha.8 upgrade section above.
+Follow [Upgrading from alpha.8](#upgrading-from-alpha8) for the package update
+and redirect migration.
 
 Pages now follows saved URL changes for an ordinary page open in the editor
 when the preview is showing its previous URL. It waits for query-visible saved
@@ -175,43 +199,18 @@ a native Studio toast. Errors and unconfirmed results remain in the dialog.
 
 ## Upgrading from alpha.6
 
-Also apply the [alpha.8 redirect migration](#upgrading-from-alpha8).
-
-Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.9` in each workspace
-that uses the kit, then commit the updated lockfile. If you use redirect
-management in Studio, check that Studio and the kit share the same
-[translation libraries](pages.md#dependencies-and-package-isolation).
+Follow [Upgrading from alpha.8](#upgrading-from-alpha8) for the package update
+and redirect migration. If you use redirect management in Studio, check that
+Studio and the kit share the same translation libraries. See the
+[Studio dependency setup](studio-installation.md#1-add-sanitykit-to-your-studio).
 
 ## Upgrading from alpha.5
 
-Also apply the [alpha.8 redirect migration](#upgrading-from-alpha8).
-
-You can update the package in your existing Studio and website. To adopt Pages
-and its routing tools, follow the configuration steps below.
-
-1. Run `pnpm add @standard-design/sanity-kit@0.1.0-alpha.9` in the frontend
-   and Studio/codegen workspaces that use the kit.
-2. Keep the existing Node 24+ and client `^7.27.0 || ^8.6.1` requirements. A Studio
-   using `/studio` must use the tested Sanity **6.17.0** version and install its
-   optional peers, including `@tanstack/react-virtual` (`^3.14.22`). See the
-   [Studio compatibility and installation guide](pages.md#dependencies-and-package-isolation)
-   and the [peer table](#peer-dependencies). Application-only consumers do not need
-   Studio peers.
-3. Follow the [Pages guide](pages.md) to register page types and collections, or
-   install the [URL field](url-field.md) in Structure without Pages. Keep your
-   application's schemas and routes; the kit supplies collection-settings and
-   redirect schemas and manages private folder metadata through its installers.
-4. If adopting editable collection prefixes, connect the
-   [settings loader](collection-routing-api.md) to the matching published or
-   preview perspective in the website. Saving a prefix in Studio alone does not
-   reconfigure application routes.
-5. If adopting redirects, wire [redirect handling](redirects.md) into the
-   request path. Saving redirect documents does not by itself make the website
-   follow them. Connect cache refresh only if the application uses a cache.
-6. Run application typechecks, TypeGen, and builds. Test draft preview separately
-   from published routing and verify an old URL reaches its new destination.
-   Existing alpha.5 consumers do not need a stored-data migration merely to
-   update the package. Adopting the new tools requires explicit configuration.
+Follow [Upgrading from alpha.9](#upgrading-from-alpha9) for the package and
+dependency update. To adopt Pages, the URL field, collection settings, or
+redirects in an existing application, follow the
+[Studio installation guide](studio-installation.md). Its optional steps show
+how to connect settings and redirects to the website.
 
 ## Upgrading from alpha.4
 
@@ -364,7 +363,7 @@ Transfer the reviewed tarball through an authenticated channel, verify its
 SHA-256 against the handoff manifest, and install the local file:
 
 ```sh
-pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.9.tgz
+pnpm add ./vendor/standard-design-sanity-kit-0.1.0-alpha.10.tgz
 ```
 
 Keep that exact file accessible to CI and other developers and commit the
@@ -408,10 +407,10 @@ For each future publication:
    package in a clean consumer before handing it off. Record the actual
    publication date, tags, and verification results in the GitHub release notes.
 
-To install alpha.9 from npm, pin the version:
+To install alpha.10 from npm, pin the version.
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.9
+pnpm add -E @standard-design/sanity-kit@0.1.0-alpha.10
 ```
 
 The checked-in CI workflow does not publish, manage npm credentials, or configure
@@ -492,16 +491,12 @@ Pages and routing entries require the following peers:
 | `/url/settings`, `/redirect`, `/folders/server` | `groq`                                                                                                                                                     |
 | `/studio`                                       | Sanity, Sanity UI, Sanity icons, React/React DOM, `groq`, styled-components, react-focus-lock, `@tanstack/react-virtual`, i18next, react-i18next, and RxJS |
 
-The released alpha.9 Studio baseline is Sanity `6.17.0` exactly. Builds from
-current source use Sanity `6.24.0` and the matching UI, icons, and translation
-versions. Check the manifest of the artifact you install and update any Studio
-translation overrides alongside it. See the
-[Studio dependency details](pages.md#dependencies-and-package-isolation) for
-the source setup. Studio peers are required only in the
-consumer package that imports `/studio`; the kit does not supply a Studio app.
-The new redirect middleware uses the existing `/react-router/server` peers.
+Alpha.10 uses Sanity `6.24.0` for `/studio`. Check the artifact's exact Studio
+peer and align any Studio translation overrides when upgrading. The
+[Studio installation guide](studio-installation.md) lists the tested versions
+and explains how to share Studio's peers.
 
-Builds from current source accept `groq` versions `^5.1.0` and `^6.24.0`.
+Alpha.10 accepts `groq` versions `^5.1.0` and `^6.24.0`.
 Packed Studio and TypeGen checks use 6.24.0. The frontend consumer matrix
 continues to check GROQ 5.1.0 and 5.31.2.
 

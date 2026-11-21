@@ -11,11 +11,10 @@ Use Node.js 24 or newer. Check the exact `sanity` peer of the SanityKit version
 you plan to install. The example below uses the tested **Sanity 6.24.0** setup.
 For published alpha.9, use its [Sanity 6.17.0 setup](https://github.com/Standard-Design/sanity-kit/blob/v0.1.0-alpha.9/docs/pages.md#dependencies-and-package-isolation).
 
-Add SanityKit in your Studio package. Replace `<version>` with the exact
-release you want to install.
+Add SanityKit in your Studio package.
 
 ```sh
-pnpm add -E '@standard-design/sanity-kit@<version>'
+pnpm add -E @standard-design/sanity-kit@0.1.0-alpha.10
 ```
 
 With npm, replace `pnpm add -E` with `npm install --save-exact`. For a reviewed

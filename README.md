@@ -35,23 +35,20 @@ Studio, start with the [Studio installation guide](docs/studio-installation.md).
 
 ## Installation and release status
 
-Alpha.9 adds request-specific redirect lookup, configurable failure handling and
-pathname caching, and saved collection-item URL following in Pages.
-Redirect cache adapters require an update. See [Upgrading from alpha.8](docs/prerelease.md#upgrading-from-alpha8)
-for an existing installation, or [Upgrading from alpha.5](docs/prerelease.md#upgrading-from-alpha5)
-to adopt the tools.
+Alpha.10 reduces navigator refreshes during editing, updates the Studio baseline
+to Sanity 6.24.0, and supports GROQ 5 and 6. Use the
+[Studio installation guide](docs/studio-installation.md) for a new setup or
+[upgrade from alpha.9](docs/prerelease.md#upgrading-from-alpha9).
 
-Pin the exact version when integrating:
+Pin the exact version when integrating.
 
 ```sh
-pnpm add @standard-design/sanity-kit@0.1.0-alpha.9
+pnpm add -E @standard-design/sanity-kit@0.1.0-alpha.10
 ```
 
-See the [GitHub prerelease](https://github.com/Standard-Design/sanity-kit/releases/tag/v0.1.0-alpha.9)
-for the tarball, npm tag assignments, and verification results. The
-[release guide](docs/prerelease.md#release-status) links to the release records.
-For Studio setup and matching peer versions, use the
-[Studio installation guide](docs/studio-installation.md).
+Find published tarballs, npm tag assignments, and verification results in
+[GitHub Releases](https://github.com/Standard-Design/sanity-kit/releases).
+The [release guide](docs/prerelease.md#release-status) links to the release records.
 
 You can also install the reviewed compiled tarball from the release assets;
 see [artifact verification and handoff](docs/prerelease.md#verification-and-handoff).

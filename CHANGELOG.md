@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.1.0-alpha.10
+
+- Refresh the affected page tree or collection after a known edit and keep
+  preview URL following current. Creates, deletes, unknown changes, reconnects,
+  and periodic checks still refresh the open views. In a 1,000-page fixture,
+  a burst of post saves dropped from 15 queries to 3.
+- Update the exact Studio peer to Sanity 6.24.0. Verify it with Sanity UI 4.4.12,
+  Sanity Icons 5.4.0, i18next 26.7.2, and react-i18next 17.1.13.
+- Accept `groq ^5.1.0 || ^6.24.0`, so a Studio can use the GROQ 6 copy it
+  already installs and existing GROQ 5 consumers can keep their version.
+- Test with Sanity client 8.17.0, Visual Editing 6.2.1, and TanStack React
+  Virtual 3.14.26. The packed checks also cover the supported older client
+  and Visual Editing combinations.
+- Bundle a [single Studio installation guide](docs/studio-installation.md)
+  for Pages, the URL field, and optional collection settings and redirects.
+  Use the [alpha.9 upgrade guide](docs/prerelease.md#upgrading-from-alpha9)
+  for an existing installation.
+
 ## 0.1.0-alpha.9
 
 - Look up published redirects for the requested pathname and its destination

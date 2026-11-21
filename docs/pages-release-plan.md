@@ -6,10 +6,11 @@ the earlier implementation plan.
 
 ## Remaining release checklist
 
-Alpha.9 includes request-specific redirects, pathname caching/failure policy,
-and saved collection-item URL following, alongside the folder success toasts
-and ordinary-page following shipped in alpha.8. See the
-[release record](prerelease.md#release-status) for the package and verification.
+Alpha.10 narrows navigator refreshes for known edits, moves the Studio baseline
+to Sanity 6.24.0, and supports GROQ 5 and 6. A new
+[Studio installation guide](studio-installation.md) bundles the setup for Pages,
+the URL field, and optional collection settings and redirects. See the
+[upgrade guide](prerelease.md#upgrading-from-alpha9) for existing installations.
 Before beta:
 
 - Integrate the published package into Standard Stack. Check the Studio and
@@ -105,10 +106,15 @@ new UI, or diagnostics API is implemented in alpha.9.
 
 The [navigator data baseline](navigator-acceptance.md#navigator-data-baseline)
 measured query counts, result sizes, and resource retention after alpha.9.
-Start the performance follow-up by narrowing routine refreshes where the
-changed document is known, then bound inactive search and document lookups.
-A shorter installation guide and the approved redirect diagnostics remain
-separate audit priorities.
+Alpha.10 narrows refreshes for known edits. In the same fixture, a burst of
+post saves dropped from 15 queries to 3, and a known page edit while browsing
+posts dropped from 8 to 2. In an installed Studio on Chrome for Testing,
+saving a test post's draft URL updated its Journal row and moved the preview.
+Clicking Open preview loaded the new draft URL. The disposable draft was
+removed after the check.
+
+Bounding inactive search and document lookups remains a performance follow-up.
+Redirect inventory diagnostics remain a separate audit priority.
 
 ## Native Discard changes refresh follow-up
 
@@ -123,7 +129,7 @@ claim of a completed fix or a new release gate.
 
 ## Studio 6.24.0 compatibility
 
-The next release moves the exact Studio peer from 6.17.0 to 6.24.0. The
+Alpha.10 moves the exact Studio peer from 6.17.0 to 6.24.0. The
 tested setup uses Sanity UI 4.4.12, Sanity icons 5.4.0, i18next 26.7.2,
 and react-i18next 17.1.13. Update consumer Studio and translation overrides
 together. The installed-package checks cover Pages and standalone Structure,
@@ -142,6 +148,10 @@ The separate dependency update tests client 8.17.0, Visual Editing 6.2.1,
 and TanStack React Virtual 3.14.26. Packed consumers pair Visual Editing 6.2.1
 with clients 7.28.0 and 8.17.0. The older client profiles run with Visual
 Editing 6.1.2, preserving the kit's existing peer ranges.
+
+Fresh Studios built from the packed kit with GROQ 5.31.2 and 6.24.0. In the
+GROQ 6 check, adding SanityKit to an existing Studio let it resolve Studio's
+GROQ copy. The packed TypeGen check also passed with GROQ 6.24.0.
 
 In Chrome for Testing, the proof website using the updated client and Visual
 Editing opened the matching Studio document on preview navigation. Its shared
