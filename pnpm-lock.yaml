@@ -70,8 +70,8 @@ importers:
         specifier: ^10.1.8
         version: 10.1.8(eslint@10.10.0(jiti@2.7.0)(supports-color@7.2.0))
       groq:
-        specifier: ^5.1.0
-        version: 5.31.2
+        specifier: ^6.24.0
+        version: 6.24.0
       i18next:
         specifier: 26.7.2
         version: 26.7.2(typescript@5.9.3)
@@ -3384,14 +3384,6 @@ packages:
 
   groq-js@2.0.1:
     resolution: {integrity: sha512-v4GZDlS8T2hNQqnBRisdpMI8GnN7HMQ6bxfpEdz11rNbBUzyhM3aT8fwKbvl1gYVm+Lb1RN0phYdHh1liUzdGA==}
-    engines: {node: '>=22.12'}
-
-  groq@5.31.2:
-    resolution: {integrity: sha512-ba+oj1pfh2DbOEhHA6HcGaZbJzI2dyHzaynKhuRfWgF2piDPR6ItTuT6eO4fui2tMU2GsGnw3WlsRaTKaU9b0w==}
-    engines: {node: '>=20.19 <22 || >=22.12'}
-
-  groq@6.20.0:
-    resolution: {integrity: sha512-9ZuwUpovJ5qWBpW7y5ynK6zpyeeB+qhC5AgTrgoibZO1Fl6k39tB/b4nmIVG3qgOIzHapkj5ihO5DYEIXWairQ==}
     engines: {node: '>=22.12'}
 
   groq@6.24.0:
@@ -7401,7 +7393,7 @@ snapshots:
       '@sanity/worker-channels': 2.0.0
       chokidar: 3.6.0
       globby: 11.1.0
-      groq: 6.20.0
+      groq: 6.24.0
       groq-js: 2.0.1
       json5: 2.2.3
       lodash-es: 4.18.1
@@ -9157,10 +9149,6 @@ snapshots:
   groq-js@2.0.1:
     dependencies:
       obug: 2.2.1
-
-  groq@5.31.2: {}
-
-  groq@6.20.0: {}
 
   groq@6.24.0: {}
 

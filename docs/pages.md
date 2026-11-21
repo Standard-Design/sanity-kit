@@ -214,9 +214,9 @@ Sanity UI, Sanity icons, the virtualizer, focus lock, RxJS, and the translation
 libraries. SanityKit can use those compatible copies. Whether a peer needs its
 own entry in your Studio's `package.json` depends on your package manager's
 resolution and what your code imports directly.
-Declare a supported `groq` 5 version (`^5.1.0`) for the navigator queries.
-Some install layouts expose a transitive GROQ 6 copy, which is outside that
-range. See the [Studio install command](studio-installation.md#1-add-sanitykit-to-your-studio).
+The navigator queries support `groq` versions `^5.1.0` and `^6.24.0`, including
+Studio's GROQ 6.24.0 copy when your package manager exposes it. See the
+[Studio install command](studio-installation.md#1-add-sanitykit-to-your-studio).
 
 Packed-consumer checks install Studio separately from the frontend profiles.
 Minimal-consumer checks reject all Studio peer installation. Full frontend

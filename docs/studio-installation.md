@@ -11,12 +11,11 @@ Use Node.js 24 or newer. Check the exact `sanity` peer of the SanityKit version
 you plan to install. The example below uses the tested **Sanity 6.24.0** setup.
 For published alpha.9, use its [Sanity 6.17.0 setup](https://github.com/Standard-Design/sanity-kit/blob/v0.1.0-alpha.9/docs/pages.md#dependencies-and-package-isolation).
 
-Add SanityKit and GROQ 5 in your Studio package. Replace `<version>` with the
-exact release you want to install. If the Studio already declares a compatible
-GROQ 5 version, omit `groq@5.31.2`.
+Add SanityKit in your Studio package. Replace `<version>` with the exact
+release you want to install.
 
 ```sh
-pnpm add -E '@standard-design/sanity-kit@<version>' groq@5.31.2
+pnpm add -E '@standard-design/sanity-kit@<version>'
 ```
 
 With npm, replace `pnpm add -E` with `npm install --save-exact`. For a reviewed
@@ -24,9 +23,14 @@ tarball, use its path in place of the package name and version.
 
 Studio already depends on Sanity UI, Sanity Icons, and the other shared Studio
 libraries. Keep the dependencies your Studio imports directly. SanityKit can
-use the compatible copies Studio already installs. It also declares
-`@sanity/client` as a regular peer. A direct declaration is useful if your
-application imports it or needs to pin a specific version.
+use the compatible copies Studio already installs, including GROQ 6.24.0.
+SanityKit supports `groq` versions `^5.1.0` and `^6.24.0`. If your Studio code
+imports `groq` directly or your package manager cannot resolve a supported
+copy, add `groq@6.24.0` to the install command. A compatible GROQ 5 dependency
+works too.
+
+SanityKit declares `@sanity/client` as a regular peer. Declare it directly if
+your application imports it or you need to pin a specific version.
 
 SanityKit and Studio need to resolve the same copies of the translation
 libraries for the native redirect delete warning. If your pnpm lockfile

@@ -501,6 +501,10 @@ the source setup. Studio peers are required only in the
 consumer package that imports `/studio`; the kit does not supply a Studio app.
 The new redirect middleware uses the existing `/react-router/server` peers.
 
+Builds from current source accept `groq` versions `^5.1.0` and `^6.24.0`.
+Packed Studio and TypeGen checks use 6.24.0. The frontend consumer matrix
+continues to check GROQ 5.1.0 and 5.31.2.
+
 The manifest is the authority for supported ranges. Alpha.5
 requires `@sanity/client ^7.27.0 || ^8.6.1`, excluding `8.6.0`, which upstream
 deprecated for an abort-listener memory leak. Published alpha.4 still declares

@@ -87,9 +87,10 @@ assert.equal(distManifest.license, 'MIT')
 assert.equal(packedManifest.license, 'MIT')
 assert.equal(sourceManifest.name, '@standard-design/sanity-kit')
 assert.equal(packedManifest.name, sourceManifest.name)
-// Exclude deprecated client 8.6.0 in the actual consumer-facing manifest too.
+// Check the client and GROQ ranges in the consumer-facing manifest too.
 for (const manifest of [sourceManifest, distManifest, packedManifest]) {
 	assert.equal(manifest.peerDependencies['@sanity/client'], '^7.27.0 || ^8.6.1')
+	assert.equal(manifest.peerDependencies.groq, '^5.1.0 || ^6.24.0')
 }
 assert.equal(
 	packed.filename,
@@ -363,6 +364,7 @@ const matrices = [
 			...types,
 			'@sanity/client': '7.27.0',
 			'@sanity/visual-editing': minimum['@sanity/visual-editing'],
+			groq: '5.31.2',
 		},
 		full: true,
 	},
